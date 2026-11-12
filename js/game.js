@@ -80,7 +80,9 @@ const OFF=[
  {n:'Smash',cat:'deep',f:'gun',r:{X:'hitch',S:'corner',Z:'hitch',S2:'corner'}},
  {n:'Dagger',cat:'deep',f:'gun',r:{S:'go',X:'in',Z:'post',S2:'drag',RB:'flatR'}},
  {n:'Field Goal',cat:'special',f:'iform',d:'3 points'},
- {n:'Punt',cat:'special',f:'iform',d:'Flip the field'}];
+ {n:'Punt',cat:'special',f:'iform',d:'Flip the field'},
+ {n:'QB Kneel',cat:'special',f:'iform',d:'Burn 40 seconds',quick:'kneel'},
+ {n:'Spike',cat:'special',f:'gun',d:'Stop the clock',quick:'spike'}];
 const DPOS={DE1:[-4.6,1],DT1:[-1.5,1],DT2:[1.5,1],DE2:[4.6,1],OLB1:[-5.5,4.5],MLB:[0,4.5],OLB2:[5.5,4.5],CB1:[-14,6.5],CB2:[14,6.5],FS:[-6,13],SS:[6,12]};
 const Z=(x,y,deep)=>({z:[x,y],deep});
 const DEF=[
@@ -235,13 +237,14 @@ function lead(r,T){let x=r.x,y=r.y,rem=r.spd*T*0.93;const rt=r.route;
  return[clamp(x,1.5,FW-1.5),clamp(y,-8.5,108.5)]}
 function pressure(q){for(const o of P)if(o.team!==q.team&&!o.down&&!o.eng&&o.stun<=0&&dist(o,q)<3.2)return true;return false}
 const armRange=q=>32+((q.pow??q.rt)-60)*0.55;
-function throwTo(r,pt){const q=ps.carrier;if(!q||ps.thrown)return;let tx,ty,T=0.6,d;
+/* type: 'bullet' (flat and fast), 'lob' (high and slow), or undefined for the default arc */
+function throwTo(r,pt,type){const q=ps.carrier;if(!q||ps.thrown)return;let tx,ty,T=0.6,d;const sf=type==='bullet'?1.22:type==='lob'?0.84:1,hf=type==='bullet'?0.55:type==='lob'?1.45:1;
  if(r){const pf=1+((q.pow??q.rt)-80)*0.006,range=armRange(q);tx=r.x;ty=r.y;
-  for(let i=0;i<3;i++){d=hyp(tx-q.x,ty-q.y);T=Math.max(0.35,d/((d>25?19:22)*pf));[tx,ty]=lead(r,T)}
+  for(let i=0;i<3;i++){d=hyp(tx-q.x,ty-q.y);T=Math.max(0.3,d/((d>25?19:22)*pf*sf));[tx,ty]=lead(r,T)}
   d=hyp(tx-q.x,ty-q.y);if(d>range){const k=range/d;tx=q.x+(tx-q.x)*k;ty=q.y+(ty-q.y)*k;d=range}
   const pr=pressure(q),err=d*0.03*(1+(85-(q.thr??q.rt))*0.03)*(pr?1.9:1);tx=clamp(tx+(rnd()-rnd())*err,1,FW-1);ty=clamp(ty+(rnd()-rnd())*err,-9,109)}
  else{tx=pt.x;ty=pt.y;d=hyp(tx-q.x,ty-q.y);T=d/20}
- ps.air={x0:q.x,y0:q.y,x1:tx,y1:ty,t:0,T,h:1.2+d*0.11,target:r,x:q.x,y:q.y,z:1.8,dist:d};
+ ps.air={x0:q.x,y0:q.y,x1:tx,y1:ty,t:0,T,h:(1.2+d*0.11)*hf,target:r,x:q.x,y:q.y,z:1.8,dist:d};
  ps.thrown=true;ps.carrier=null;ps.passer=q;ps.tgt=r;q.thrT=0.32;snd('throw');
  if(r&&r===G.me&&!QUIET){G.my.tgt++;toast('Ball is yours!')}
  if(ps.offTeam===1&&!G.lock){let b=null,bd=1e9;for(const o of P)if(o.team===0&&!o.down){const s=hyp(o.x-tx,o.y-ty);if(s<bd){bd=s;b=o}}if(b)G.sel=b}}
@@ -417,6 +420,7 @@ function endGame(){G.state='over';P=[];ps=null;G.me=null;setBrief('');setPad('no
 
 /* ---------- play calling ---------- */
 function cpuOff(t){const toGoal=t===0?100-G.los:G.los,ld=G.score[t]-G.score[1-t];
+ if(G.q===4&&ld>0&&G.down<=3&&G.clock<=(4-G.down)*40)return OFF.find(p=>p.quick==='kneel');   // ahead late: run it out
  if(G.down===4){const desp=G.q>=4&&ld<0&&G.clock<100;
   if(toGoal+17<=52&&!(desp&&ld<-3))return OFF.find(p=>p.n==='Field Goal');
   if(!(desp||(G.togo<=1.5&&toGoal<60)))return OFF.find(p=>p.n==='Punt')}
@@ -441,7 +445,12 @@ function startCall(){P=[];ps=null;G.me=null;G.celeb=null;G.state='call';updHud()
   return begin()}
  if(G.poss===0)showCall('off');
  else{G.op=cpuOff(1);if(G.op.cat==='special'){G.dp=DEF[0];return begin()}showCall('def')}}
-function begin(){scr.innerHTML='';setupPlay();G.preT=0;
+/* kneel and spike resolve on the spot: no players, just the down and the clock */
+function quickPlay(){const off=G.poss,dir=off===0?1:-1,kneel=G.op.quick==='kneel';P=[];ps=null;scr.innerHTML='';
+ G.down++;if(kneel){G.los=clamp(G.los-dir,1,99);G.togo+=1;G.clock=Math.max(0,G.clock-40)}
+ let sub2=kneel?'40 seconds run off':'Clock stopped';if(G.down>4){setBall(1-off,G.los,G.bx);sub2='Turnover on downs'}
+ G.last=kneel?'Kneel':'Spike';G.rp=false;G.state='dead';G.deadT=1.3;banner(G.last,sub2,1100);snd('whistle');updHud()}
+function begin(){if(G.op.quick)return quickPlay();scr.innerHTML='';setupPlay();G.preT=0;
  if(G.op.cat==='special'){const fg=G.op.n==='Field Goal',d=Math.round(((G.poss===0?100:0)-G.los)*G.dir+17);
   if(G.poss===0&&!AUTO&&!G.lock){G.state='kickm';G.meter=rnd(3);$('#mtxt').textContent=fg?`${d}-yard field goal · stop in the green`:'Punt · stop in the green';return}
   toast(fg?`${d}-yard field goal attempt`:tname(G.poss)+' punt')}
@@ -483,9 +492,9 @@ function simDrives(){
  const was=AUTO,t=G.poss,s0=G.score.slice();let plays=0,over=false,guard=0;AUTO=true;QUIET=true;
  while(!over&&guard++<300&&(G.lockSide==='off')!==(G.poss===0)){
   if(G.poss===t)plays++;
-  G.op=cpuOff(G.poss);G.dp=cpuDef();setupPlay();G.state='pre';snap();
+  G.op=cpuOff(G.poss);G.dp=cpuDef();if(G.op.quick)quickPlay();else{setupPlay();G.state='pre';snap()}
   let n=0;while(G.state!=='dead'&&n++<4000){if(G.state==='live')tick(0.02);else if(G.state==='kicka')kickTick(0.02);else break}
-  if(G.state!=='dead'){G.state='live';ps.carrier=null;ps.air=null;finish('inc')}
+  if(G.state!=='dead'&&ps){G.state='live';ps.carrier=null;ps.air=null;finish('inc')}
   over=advance()}
  AUTO=was;QUIET=false;P=[];ps=null;G.me=null;
  const mine=t===0,pts=G.score[t]-s0[t],other=G.score[1-t]-s0[1-t];let big,sub;
@@ -504,6 +513,9 @@ function briefTxt(){const me=G.me;if(!G.lock||!me)return '';let t;
 function setBrief(h){const b=$('#brief');b.hidden=!h;b.innerHTML=h||''}
 
 /* ---------- user actions ---------- */
+/* hot route: tapping a receiver before the snap steps him through the basic routes */
+const HOT=['go','slant','out','in','curl','post'];
+function hotRoute(r){const i=HOT.indexOf(r.rn);r.rn=HOT[(i+1)%HOT.length];r.route=mkRoute(r,r.rn,G.dir);r.wp=0;toast(r.let+': '+RNAME[r.rn]);snd('tick')}
 function switchDef(){if(G.lock){G.sel=G.me;return}
  const mine=P.filter(p=>p.team===0&&!p.down);if(!mine.length)return;
  if(G.state==='pre'){G.sel=mine[(mine.indexOf(G.sel)+1)%mine.length];return}
@@ -531,7 +543,7 @@ function padKind(){if(AUTO||G.paused||!ps)return 'none';const lk=G.lock,me=G.me;
  if(G.state==='live'){const c=ps.carrier;if(c&&userP(c))return canPass()?'pass':'carry';if(userOnD())return lk?'deflock':'def';
   if(lk&&me&&ps.offTeam===0&&!ps.turnover&&!me.down&&me!==ps.qb)return me.route&&ps.mode==='pass'&&!ps.thrown?'route':'offball'}
  return 'none'}
-const TIPS={snap:'Tap Snap to start the play.',pass:'Tap a letter to throw to that receiver.',carry:'Drag to run. Juke or Spin slips a tackle.',
+const TIPS={snap:'Tap Snap to start. Tap a receiver\u2019s letter first to change his route.',pass:'Tap a letter for a bullet pass. Hold it for a lob.',carry:'Drag to run. Juke or Spin slips a tackle.',
  def:'Drag to chase the ball. Dive tackles, Switch changes player.',deflock:'Drag to chase the ball. Dive makes the tackle.',route:'Follow your route. Tap Call when you are open.',
  offball:'Drag to block for the ball carrier.',ready:'Tap Ready, or wait for the snap.',kick:'Tap Kick when the marker is in the green.',defpre:'Switch picks the defender you control.'};
 let tipT;
@@ -547,7 +559,9 @@ function setPad(kind){if(G.pad===kind)return;G.pad=kind;pad.innerHTML='';G.sprin
  if(kind==='snap')B('SNAP','big',()=>act('main'));
  else if(kind==='ready')B('READY','big',()=>act('main'));
  else if(kind==='kick')B('KICK','big',()=>act('main'));
- else if(kind==='pass')ps.recs.forEach((r,i)=>{B(r.let,'rc',()=>act('num',i)).style.background=r.col});
+ else if(kind==='pass')ps.recs.forEach((r,i)=>{let tm=null;   // a quick tap is a bullet, holding the button floats a lob
+  const go=type=>{if(canPass()&&ps.recs[i])throwTo(ps.recs[i],null,type)};
+  B(r.let,'rc',()=>{tm=setTimeout(()=>{tm=null;go('lob')},210)},()=>{if(tm){clearTimeout(tm);tm=null;go('bullet')}}).style.background=r.col});
  else if(kind==='carry'){spr();B('Juke','',()=>act('juke'));B('Spin','',()=>act('spin'))}
  else if(kind==='def'){spr();B('Dive','',()=>act('dive'));B('Switch','',()=>act('switch'))}
  else if(kind==='deflock'){spr();B('Dive','',()=>act('dive'))}
@@ -565,6 +579,7 @@ const xy=e=>{const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.client
 cv.addEventListener('pointerdown',e=>{const [x,y]=xy(e);
  if(G.state==='replay'){endReplay();return}
  if(canPass())for(const r of ps.recs)if(r.hx!==undefined&&hyp(x-r.hx,y-r.hy)<30){throwTo(r);return}
+ if(G.state==='pre'&&ps.mode==='pass'&&userP(ps.qb)&&!P.some(p=>p.jog))for(const r of ps.recs)if(r.hx!==undefined&&hyp(x-r.hx,y-r.hy)<26){hotRoute(r);return}
  if(stick.id===null&&(G.state==='live'||G.state==='pre')){stick.id=e.pointerId;stick.ox=x;stick.oy=y;stick.x=stick.y=0;try{cv.setPointerCapture(e.pointerId)}catch(_){}}});
 cv.addEventListener('pointermove',e=>{if(e.pointerId!==stick.id)return;const [x,y]=xy(e),R=36;let dx=x-stick.ox,dy=y-stick.oy;const m=hyp(dx,dy);
  if(m>R){stick.ox+=dx*(m-R)/m;stick.oy+=dy*(m-R)/m;dx=x-stick.ox;dy=y-stick.oy}
@@ -626,7 +641,7 @@ function drawArt(c,pl,def){const x=c.getContext('2d'),w=c.width=280,h=c.height=2
    else if(a==='man'){x.setLineDash([6,6]);arrow([[X(dx),Y(dy)],[X(dx),Y(dy>5?4:0.5)]],'#d59bff',3);x.setLineDash([])}
    else{x.fillStyle=a.deep?'rgba(77,171,247,.5)':'rgba(255,255,255,.32)';x.beginPath();x.ellipse(X(clamp(a.z[0],-17,17)),Y(Math.min(a.z[1],22)),a.deep?38:30,a.deep?20:16,0,0,7);x.fill()}
    x.fillStyle='#fff';x.font='bold 17px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('×',X(dx),Y(dy))}return}
- if(pl.cat==='special'){x.fillStyle='#fff';x.font='800 36px Archivo,Arial,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(pl.n==='Punt'?'PUNT':'FG',ox,h/2);return}
+ if(pl.cat==='special'){x.fillStyle='#fff';x.font='800 36px Archivo,Arial,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(pl.quick?pl.quick.toUpperCase():pl.n==='Punt'?'PUNT':'FG',ox,h/2);return}
  const f=FORM[pl.f];
  for(const r in f){const [dx,dy]=f[r],nm=(pl.r||{})[r];
   if(pl.run&&pl.run.who===r)arrow([[X(dx),Y(dy)],...pl.run.path.map(([a,b])=>[X(a),Y(b)])],'#ff9f43',5);
@@ -635,7 +650,7 @@ function drawArt(c,pl,def){const x=c.getContext('2d'),w=c.width=280,h=c.height=2
  for(const r in f){x.beginPath();x.arc(X(f[r][0]),Y(f[r][1]),6,0,7);x.fill()}}
 /* side: 'off' (exhibition offense), 'def' (exhibition defense), 'qb' (career quarterback: coach sends three plays) */
 function showCall(side){let cat=G.down===4?'special':'run';
- const cats=[['run','Run'],['short','Short'],['deep','Deep'],['special','Kicks']];
+ const cats=[['run','Run'],['short','Short'],['deep','Deep'],['special','Special']];
  let qb=null;if(side==='qb'){const rest=OFF.filter(p=>p.cat!=='special'&&p!==G.op);qb=[G.op,pick(rest.filter(p=>p.cat==='run')),pick(rest.filter(p=>p.cat!=='run'))]}
  const draw=()=>{const list=side==='off'?OFF.filter(p=>p.cat===cat):side==='qb'?qb:DEF;
   scr.innerHTML=`<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${downTxt()}</span></div>${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card">${side==='qb'&&i===0?'<em>Coach’s pick</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
@@ -676,7 +691,7 @@ function showSettings(){
  draw()}
 function showHow(){scr.innerHTML=`<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>On fourth down the Kicks tab has punts and field goals: stop the marker in the green.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, Q switch, E dive, C call for the ball, P pause.</li></ul></div>`;

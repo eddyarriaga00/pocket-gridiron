@@ -12,7 +12,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   you. Starters play every drive of their unit, the rotation and backups share them, and good games and practice earn
   the job. You play only your own snaps: the coach calls the plays and other drives are simulated. Stats and per-game
   goals earn XP for ratings and abilities. Each week has practice, a game grade and a headline; a season has league
-  leaders, honors and playoffs; you can ask for a trade or change teams between seasons. The coach has a word for you
+  leaders, honors and playoffs with a bracket. You sign a contract at the draft, can ask for a trade while it runs,
+  and choose among every team's offer when it ends. The coach has a word for you
   after every game, and a rival at your position on the best other team is the man to beat. There are 14 trophies.
 - **Season.** Take one team through seven weeks and a four-team playoff, calling and playing every snap. Your roster
   keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.

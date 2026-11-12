@@ -376,10 +376,16 @@ what is next. Update it after every item.
   at 12:12); work after that was at the owner's request.
 
 - 12:18 Bracket and awards. `league.js` records `po.games` ({s1, s2, f} as [team, team, winner]) with the same simulated
-  games in the same order as before, so seeded results did not move (`H.fingerprint()` unchanged, and the scripted
-  quarterback career repeats its 2-5 season). Checked two scripted seasons: one with the score rigged to win it all (the
+  games in the same order as before, so seeded results should not move (`H.fingerprint()` unchanged; scripted careers are
+  not a check of this, because the test player's throw timing is not seeded). Checked two scripted seasons: one with the score rigged to win it all (the
   bracket filled in after each round, the title milestone fired) and one played straight that missed the playoffs (the
   whole bracket appears at once). A season saved before today has no bracket until its next playoffs.
+
+- 12:21 Contracts. `C.deal = { years, left, pay }`, `C.cash` for the total. Offers are a pure function of your overall, last
+  season's average grade and each team's rating (no dice, so `H.fingerprint()` is unchanged). Scripted: a drafted receiver
+  (pick 3: two seasons at $4.2M), a walk-on quarterback through three seasons (re-signed after the first, total $5.8M, then
+  signed with another team from the offers screen), and a save with the contract fields deleted (treated as one year left).
+  Free agency used to be open every offseason; now it opens only when the deal is up. Round 7 is complete.
 
 ## Morning hand-off
 
@@ -449,7 +455,15 @@ what is next. Update it after every item.
 - [x] A playoff bracket on the Standings tab of Season and Career (semifinals, final, champion; it fills in as the games
       are played), and Season awards on the season-complete card: your most valuable player, the league's best offense and
       best defense. The other teams are simulated, so only your roster has players to honor
-- [ ] Career: a contract (years and salary) from the draft and in free agency, shown on the hub
+- [x] Career contracts: a rookie deal from the draft slot (one to three seasons, $1.2M to $6.5M a season; a walk-on gets one
+      year at the minimum), shown on the hub. While it runs you stay put (a trade request still works). When it ends every
+      team makes an offer of years, salary, a signing bonus in XP and a role, and you choose. Salary is a scoreboard, not a
+      currency: it totals up on the retirement screen
+
+### Round 8 (not started; suggestions for whoever picks this up)
+- [ ] A person plays it on a phone: touch feel, frame rate with the near models, the sound mix, the star marks in camp
+- [ ] Career: contract years could matter more (a holdout, a franchise tag, a no-trade clause), and money could buy something
+- [ ] Animation in motion: everything since Round 3 was checked in stills only
 
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.

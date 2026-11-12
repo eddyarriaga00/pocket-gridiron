@@ -125,6 +125,28 @@
 
   const recTxt = i => LG.recTxt(C, i), nextOpp = () => LG.nextOpp(C);
 
+  /* ---------- contracts ----------
+     Money is the scoreboard here, not a currency: a deal says how long you are tied to a team and what a season pays,
+     and signing one pays a bonus in XP. A rookie deal comes from the draft slot. When a deal runs out every team makes
+     an offer: weak teams pay more and play you more, strong teams pay less and may sit you. Nothing here rolls dice,
+     so seeded test careers are unaffected. */
+  const PICK_PAY = [6.5, 5.2, 4.2, 3.4, 2.7, 2.1, 1.6, 1.2], PICK_YEARS = [3, 3, 2, 2, 2, 1, 1, 1];
+  const money = v => '$' + v.toFixed(1) + 'M', worth = () => clamp((ovr() - 62) * 0.32, 0.8, 12);
+
+  /* a career saved before contracts existed is treated as being in the last year of a deal */
+  function deal() {
+    if (!C.deal) C.deal = { years: 1, left: 1, pay: Math.round(worth() * 10) / 10 };
+    return C.deal;
+  }
+
+  function offerFrom(i) {
+    const h = C.hist && C.hist[C.hist.length - 1], g = h ? h.grade : '', form = /^A/.test(g) ? 1.15 : /^B/.test(g) ? 1 : g ? 0.88 : 1;
+    const pay = Math.max(0.8, Math.round(worth() * form * (1 + (85 - C.ovrs[i]) * 0.012) * (i === C.team ? 1.08 : 1) * 10) / 10);  // last season's form, how badly they need you, and a little loyalty
+    const years = clamp((ovr() >= 85 ? 3 : ovr() >= 75 ? 2 : 1) + ((i + C.season) % 3 === 0 ? 1 : 0), 1, 3);
+    const trust = i === C.team ? C.trust : clamp(Math.round(58 + (ovr() - C.ovrs[i]) * 1.5), 30, 85);  // a new coach: how you rate against his team decides where you start
+    return { years, pay, xp: Math.round(pay * years * 6) * 10, trust, role: ROLES.find(r => trust >= r[0])[1] };
+  }
+
   /* postseason bonus and honors, once the league says the season is over */
   function closeSeason(finish) {
     let bonus = { Champion: 1500, 'Runner-up': 800, Semifinalist: 400 }[finish] || 0;
@@ -151,6 +173,9 @@
     C.po.bonus = bonus;
     C.xp += bonus;
     C.xpTotal += bonus;
+    const d = deal();  // the season is paid, and the contract is a year shorter
+    C.cash = Math.round(((C.cash || 0) + d.pay) * 10) / 10;
+    d.left = Math.max(0, d.left - 1);
   }
 
   /* ---------- goals, XP, stat lines ---------- */
@@ -357,6 +382,7 @@
           C.pre = {};  // at the combine: nothing is saved until the draft
           return showCombine();
         }
+        C.deal = { years: 1, left: 1, pay: 0.8 };  // a walk-on plays for the minimum, one year at a time
         initSeason();
         C.coach = 'Nobody drafted you, so nobody owes you anything. Show me something in practice.';
         persist();
@@ -454,7 +480,7 @@
     const order = TEAMS.map((_, i) => i).sort((a, b) => TEAMS[a].ovr - TEAMS[b].ovr);  // the weakest team picks first
     const pick = clamp(1 + Math.floor((100 - grade) / 9), 1, 8), tm = order[pick - 1], bonus = PICK_XP[pick - 1], pre = C.pre || {};
     delete C.pre;
-    Object.assign(C, { team: tm, trust: PICK_TRUST[pick - 1], pick, xp: C.xp + bonus, xpTotal: C.xpTotal + bonus });
+    Object.assign(C, { team: tm, trust: PICK_TRUST[pick - 1], pick, xp: C.xp + bonus, xpTotal: C.xpTotal + bonus, deal: { years: PICK_YEARS[pick - 1], left: PICK_YEARS[pick - 1], pay: PICK_PAY[pick - 1] } });
     initSeason();
     C.coach = { Starter: 'Welcome. You start from day one, so do not make me regret the pick.', Rotation: 'Welcome. You will play, but the starting job is not yours yet. Earn it.', Backup: 'Welcome. You are behind some good players here. Practice hard and take your chances.' }[roleOf()[1]];
     checkTrophies();
@@ -464,7 +490,7 @@
     scr.innerHTML = `<div class="menu solid"><h1 class="sm">The <em>draft</em></h1>
   <p class="tag">${pre.dash?`Dash ${pre.dash.time.toFixed(2)} s, grade ${pre.dash.grade}${pre.work?` · drills grade ${pre.work.grade}`:''} · `:''}Draft grade ${grade}</p>
   <table class="lg">${order.map((ti,n)=>n===pick-1?`<tr class="me"><td>${n+1}. ${full(ti)}</td><td>${esc(C.name)}, ${C.pos}</td></tr>`:`<tr><td>${n+1}. ${full(ti)}</td><td>${any(PG.NAMES)}, ${any(others)}</td></tr>`).join('')}</table>
-  <div class="nx"><small>Pick ${pick} of 8</small><h4>${full(tm)}</h4><p>Signing bonus +${fmt(bonus)} XP · Coach trust ${C.trust}: ${opens}.</p></div>
+  <div class="nx"><small>Pick ${pick} of 8</small><h4>${full(tm)}</h4><p>${C.deal.years}-year contract at ${money(C.deal.pay)} a season · Signing bonus +${fmt(bonus)} XP · Coach trust ${C.trust}: ${opens}.</p></div>
   <button class="go" id="camp">Report to camp</button></div>`;
     $('#camp').onclick = () => showHub('up');
     PG.snd('fanfare');
@@ -478,7 +504,8 @@
       const po = C.po;
       return `<div class="nx"><small>Season ${C.season} complete</small><h4>${po.finish}</h4>
   <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.rival?` ${esc(po.rival)}`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
-  <button class="go sm" id="nxs">Start season ${C.season+1}</button><button class="btn2" id="fa" style="margin-top:8px">Free agency · change teams</button></div>`;
+  ${deal().left>0?`<button class="go sm" id="nxs">Start season ${C.season+1}</button><p class="note" style="margin:8px 0 0">Under contract for ${deal().left} more season${deal().left>1?'s':''} at ${money(deal().pay)}.</p>`
+    :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
     const o = nextOpp(), lab = LG.label(C);
     return `<div class="nx"><small>${lab}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.`:''}</p>
@@ -586,7 +613,7 @@
     const m = C.career, fame = fameCase();
     scr.innerHTML = `<div class="menu solid"><h1 class="sm">Career <em>so far</em></h1>
   <div class="pc" style="--c:${team(C.team).c1};margin-top:14px"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label}<br>${C.season} season${C.season>1?'s':''} · ${m.g} games · ${rank()}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
-  <div class="nx"><small>Career totals</small><h4>${line(m)}</h4><p>${C.rings} title${C.rings===1?'':'s'} · ${(C.awards||[]).length} honor${(C.awards||[]).length===1?'':'s'} · ${fmt(C.xpTotal)} XP earned</p></div>
+  <div class="nx"><small>Career totals</small><h4>${line(m)}</h4><p>${C.rings} title${C.rings===1?'':'s'} · ${(C.awards||[]).length} honor${(C.awards||[]).length===1?'':'s'} · ${fmt(C.xpTotal)} XP earned · ${money(C.cash || 0)} in salary</p></div>
   <div class="nx"><small>Hall of fame case</small><h4>${fame.verdict}</h4>
   <div class="trust" style="margin:8px 0 6px"><span>Score · 100 is a first-ballot career</span><b>${fame.score}</b><div class="bar"><i style="width:${Math.min(100,fame.score)}%"></i></div></div>
   <p>${fame.parts.map(([l,v])=>`${l} ${v}`).join(' · ')}</p></div>
@@ -603,20 +630,28 @@
     $('#keep').onclick = () => showHub('up');
   }
 
-  /* free agency: between seasons you can sign anywhere */
+  /* free agency: when your contract has run out, every team makes an offer and you choose one */
   function showFreeAgency() {
-    scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Back</button><h1 class="sm">Free <em>agency</em></h1><p class="tag">Pick where you play next season. Ratings are from the season that just ended.</p>
-  <h2>Teams</h2><div class="teams">${TEAMS.map((t,i)=>`<button class="tm ${i===C.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}${i===C.team?' · current':''}</b><span>${t.name}</span><u>${C.ovrs[i]}</u></button>`).join('')}</div></div>`;
+    const offers = TEAMS.map((_, i) => offerFrom(i));
+    scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Back</button><h1 class="sm">Contract <em>offers</em></h1>
+  <p class="tag">Your contract is up and every team has made an offer. Weak teams pay more and will play you; strong teams pay less. Signing pays its bonus in XP at once.</p>
+  <h2>Offers</h2><div class="offers">${TEAMS.map((t,i)=>{const o=offers[i];return`<button class="tm of ${i===C.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city} ${t.name}${i===C.team?' · re-sign':''}</b><span>${o.years} season${o.years>1?'s':''} at ${money(o.pay)} · +${fmt(o.xp)} XP · ${o.role}</span><u>${C.ovrs[i]}</u></button>`}).join('')}</div>
+  <p class="note">The number on the right is the team's rating. Starter, Rotation or Backup is where their coach would put you on day one.</p></div>`;
     $('#bk').onclick = () => showHub('season');
     scr.querySelectorAll('.tm').forEach(b => b.onclick = () => {
-      const i = +b.dataset.i, moved = i !== C.team;
-      if (moved) C.trust = clamp(Math.round(58 + (ovr() - C.ovrs[i]) * 1.5), 30, 85);  // a new coach: how you rate against his team decides where you start
+      const i = +b.dataset.i, o = offers[i], moved = i !== C.team;
+      if (moved) C.trust = o.trust;
       C.team = i;
+      C.deal = { years: o.years, left: o.years, pay: o.pay };
+      C.xp += o.xp;
+      C.xpTotal += o.xp;
       C.season++;
       initSeason();
+      C.coach = moved ? `Welcome to ${TEAMS[i].city}. ${{ Starter: 'You are my starter. Play like it.', Rotation: 'You will play, and the starting job is there to be won.', Backup: 'You are behind good players here. Practice hard and take your chances.' }[o.role]}`
+        : 'Glad you are staying. Same deal as ever: the job is earned every week.';
       persist();
       showHub('up');
-      if (moved) PG.banner('Signed', `${esc(C.name)} joins the ${full(i)}`, 2600);
+      PG.banner(moved ? 'Signed' : 'Re-signed', `${esc(C.name)}, ${o.years} season${o.years>1?'s':''} with the ${full(i)}`, 2600);
     });
   }
 
@@ -633,6 +668,7 @@
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="xp"><span>To spend</span><b>${fmt(C.xp)} XP</b></div>
+  <div class="xp deal"><span>Contract</span><b>${deal().left>0?`${money(deal().pay)} a season · ${deal().left} of ${deal().years} left`:'Up for renewal'}</b></div>
   ${trustHtml()}
   ${nextCard()}
   <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>

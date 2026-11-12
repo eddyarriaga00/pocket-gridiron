@@ -227,7 +227,14 @@ window.H = (() => {
         while (out.length < seasons && guard++ < 60) {
           if (C().phase === 'done') {
             out.push(C().po.finish + ' ' + C().tab[C().team].w + '-' + C().tab[C().team].l);
-            if (out.length < seasons) q('#nxs').click();
+            if (out.length < seasons) {
+              if (q('#nxs')) q('#nxs').click();
+              else {
+                // the contract is up: take the current team's offer
+                q('#fa').click();
+                q('.tm.on').click();
+              }
+            }
           } else this.playCareerGame();
         }
       } catch (e) {

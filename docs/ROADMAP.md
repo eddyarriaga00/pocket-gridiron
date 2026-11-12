@@ -126,7 +126,7 @@ what is next. Update it after every item.
 ### 10. Code quality
 - [x] `game.js`, `career.js` and the harness reformatted with `tools/fmt.js` (one statement per line); data tables moved to `js/data.js`.
       The engine itself is still one file with section headers: its parts share too much state to split cheaply.
-- [ ] README update (controls, modes, layout, libraries)
+- [x] README update (controls, modes, layout, libraries)
 
 ### Round 2 (added during the night)
 - [x] Model detail: tapered chest and limbs, short sleeves, joints, helmet decal; fill light
@@ -136,7 +136,7 @@ what is next. Update it after every item.
 - [x] `js/league.js`: schedule, standings, simulated scores and playoffs shared by Career and Season
 - [x] Career extras: league leaders at your position, 12 trophies, free agency between seasons, a retirement screen
 - [x] Seedable RNG (`PG.dbg.seed(n)`), reformat with a syntax-tree check (`tools/astcheck.js`) and a same-seed check (`H.fingerprint()`)
-- [ ] README refresh
+- [x] README refresh
 
 ### Stretch
 - [ ] Weather and time of day, announcer voice, achievements, offline install
@@ -176,7 +176,8 @@ what is next. Update it after every item.
 ### Round 3 (planned at 03:49; the owner's top request is better models and animation, so that goes first)
 - [x] Models: body types by position, pant stripes, wristbands, glossy helmets; real body-shaped shadows on the turf
 - [x] Reviewed by eye: day, dusk, rain and snow all look right
-- [ ] Still to look at up close: celebrations, the handoff pose, officials' signals
+- [ ] Still to look at up close: the handoff pose, officials' signals, truck, stiff arm, hit stick and strip (one celebration and
+      the hurdle were checked by screenshot)
 - [x] Shader pass (GLSL, `js/shaders.js`): turf with blade detail, view-dependent mowing stripes and wet reflections; sky dome with
       sun, stars and clouds; a crowd drawn seat by seat that hops when it cheers; rim light on players; a finishing pass with glow,
       vignette and color (Settings can turn it off)
@@ -189,7 +190,7 @@ what is next. Update it after every item.
       a stomp-stomp-clap chant, an organ riff the crowd answers, rain and wind beds, a muffled mix while paused
 - [x] Presentation: a flyover with a matchup card before kickoff (tap to skip), a drive summary after touchdowns, a box score
       that names a player of the game on every final screen (worth 300 XP when it is your career player)
-- [ ] README refresh, final regression, morning summary
+- [x] README refresh, final regression, morning summary
 
 - 04:01 Round 3, first part, committed in a working but only partly checked state (the usage limit arrived here).
   In: body types by position, pant stripes, wristbands, glossy helmets, body-shaped shadows (four from the light towers at
@@ -228,3 +229,11 @@ what is next. Update it after every item.
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
 - List what changed, what was verified and how, and what is still rough.
+
+### Next ideas (nothing here is started)
+- Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.
+- Play on a real phone: touch feel, frame rate with shadows and the glow pass on, button reach with five buttons on the pad.
+- Penalties and timeouts; a real loose-ball scramble instead of an instant recovery.
+- Career: combine and draft opening, earning the starting job, coach trust, contracts.
+- Run cycle with foot planting; tackle animations that involve both players.
+- Offline install (service worker); achievements outside Career.

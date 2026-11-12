@@ -2157,7 +2157,7 @@
   <h2>Look</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
   ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
-  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off'):''}
+  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off'):''}
   ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
   <h2>Sound</h2>
   ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
@@ -2192,6 +2192,9 @@
       });
       on('ssh', () => {
         SET.shad = SET.shad === false;
+      });
+      on('sfx', () => {
+        SET.fx = SET.fx === false;
       });
       on('srp', () => {
         SET.replay = SET.replay === false;
@@ -2665,7 +2668,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (R3) {
       ctx.clearRect(0, 0, W, H);
-      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false }, FDT);
+      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false }, FDT);
       if (shake > 0) shake -= FDT;
     } else {
       if (shake > 0) {

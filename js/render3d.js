@@ -8,17 +8,18 @@
 (() => {
   'use strict';
   const T = window.THREE;
-  if (!T) return;
+  if (!T || !PG.shaders) return;
+  const SH = PG.shaders;       // GLSL for the turf, sky, crowd and the players' rim light (shaders.js)
 
   const FW = 53.33, HIP = 1.0, PSCALE = 1.6;
   const SIDELINE = 20, MAXP = 22, REFS = 3, CAP = SIDELINE + MAXP + REFS;   // sideline figures first, then the players, then the officials
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const v3 = new T.Vector3(), v3b = new T.Vector3(), col = new T.Color(), col2 = new T.Color(), zAxis = new T.Vector3(0, 0, 1);
 
-  let renderer, scene, camera, W = 1, H = 1;
-  let fieldTex, fieldCanvas, crowdTex, crowdCanvas, crowdMat, ribbonTex, ribbonCanvas, boardTex, boardCanvas, boardKey = '';
+  let renderer, scene, camera, post = null, glowAmount = 0.8, W = 1, H = 1;
+  let fieldTex, fieldCanvas, crowdMat, skyMat, skyDome, ribbonTex, ribbonCanvas, boardTex, boardCanvas, boardKey = '';
   let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
-  let hemiLight, sunLight, fillLight, skyCanvas, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
+  let hemiLight, sunLight, fillLight, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
   const shadowSets = [], towerGlow = [], towerPanels = [], refs = [];
   let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null;
   const FLASHES = 48, flashLife = new Float32Array(FLASHES);
@@ -415,21 +416,8 @@
     fieldTex.needsUpdate = true;
   }
   function paintCrowd(t0, t1) {
-    const c = crowdCanvas.getContext('2d'), w = crowdCanvas.width, h = crowdCanvas.height;
-    const pal = [t0.c1, t0.c1, t0.c2, t1.c1, '#d8dde8', '#8892a6', '#39476b', '#b7455a', '#5f86c9', '#2b3550'];
-    c.fillStyle = '#0a101d'; c.fillRect(0, 0, w, h);
-    for (let y = 2; y < h - 6; y += 10) {
-      c.fillStyle = '#121a2c'; c.fillRect(0, y + 8, w, 2);                                         // the step behind each row
-      for (let x = 2; x < w - 6; x += 8) {
-        if (x % 64 < 6) continue;                                                                  // aisles
-        if (Math.random() < 0.86) {
-          c.fillStyle = pal[Math.floor(Math.random() * pal.length)]; c.fillRect(x, y + 3, 6, 5);
-          c.fillStyle = Math.random() < 0.5 ? '#b99880' : '#7d6050'; c.fillRect(x + 1.5, y, 3, 3);
-        } else { c.fillStyle = '#18213a'; c.fillRect(x, y + 3, 6, 5); }
-      }
-    }
-    c.fillStyle = 'rgba(8,12,24,0.42)'; c.fillRect(0, 0, w, h);                                    // night: pull everything down
-    crowdTex.needsUpdate = true;
+    const u = crowdMat.uniforms;                               // the seats are drawn by the crowd shader; it only needs the colors
+    u.uA1.value.set(t0.c1); u.uA2.value.set(t0.c2); u.uB1.value.set(t1.c1);
     /* ribbon board between the decks: team blocks */
     const r = ribbonCanvas.getContext('2d'), rw = ribbonCanvas.width, rh = ribbonCanvas.height;
     r.textAlign = 'center'; r.textBaseline = 'middle'; r.font = '800 22px Archivo, Arial, sans-serif';
@@ -472,8 +460,9 @@
   function buildScene() {
     scene = new T.Scene();
     scene.fog = new T.Fog(0x0a1020, 190, 560);
-    skyCanvas = document.createElement('canvas'); skyCanvas.width = 4; skyCanvas.height = 256;
-    scene.background = new T.CanvasTexture(skyCanvas); scene.background.colorSpace = T.SRGBColorSpace;
+    skyMat = SH.sky();
+    skyDome = new T.Mesh(new T.SphereGeometry(800, 32, 16), skyMat);     // follows the camera, drawn first, never hides anything
+    skyDome.renderOrder = -10; skyDome.frustumCulled = false; scene.add(skyDome);
     hemiLight = new T.HemisphereLight(0xdfe8ff, 0x24402c, 2.4); scene.add(hemiLight);
     sunLight = new T.DirectionalLight(0xffffff, 2.2); sunLight.position.set(-30, 80, 40); scene.add(sunLight);
     fillLight = new T.DirectionalLight(0xcfe0ff, 0.9); fillLight.position.set(45, 30, -70); scene.add(fillLight);
@@ -485,7 +474,8 @@
     fieldCanvas = document.createElement('canvas'); fieldCanvas.width = TEXW; fieldCanvas.height = TEXH;
     fieldTex = new T.CanvasTexture(fieldCanvas); fieldTex.colorSpace = T.SRGBColorSpace;
     fieldTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    fieldMat = new T.MeshBasicMaterial({ map: fieldTex });
+    fieldMat = SH.turf(fieldTex);
+    TOWERS.forEach(([x, y], i) => fieldMat.uniforms.uTowers.value[i].set(x, TOWER_H, -y));
     const field = new T.Mesh(new T.PlaneGeometry(FW + 2 * PAD_X, Y1 - Y0), fieldMat);
     field.rotation.x = -Math.PI / 2; field.position.set(FW / 2, 0, -(Y0 + Y1) / 2); scene.add(field);
 
@@ -493,9 +483,7 @@
     ribbonCanvas = document.createElement('canvas'); ribbonCanvas.width = 512; ribbonCanvas.height = 32;
     ribbonTex = new T.CanvasTexture(ribbonCanvas); ribbonTex.colorSpace = T.SRGBColorSpace; ribbonTex.wrapS = T.RepeatWrapping;
     const ribbonMat = new T.MeshBasicMaterial({ map: ribbonTex, side: T.DoubleSide });
-    crowdCanvas = document.createElement('canvas'); crowdCanvas.width = 256; crowdCanvas.height = 128;
-    crowdTex = new T.CanvasTexture(crowdCanvas); crowdTex.colorSpace = T.SRGBColorSpace; crowdTex.wrapS = crowdTex.wrapT = T.RepeatWrapping; crowdTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    crowdMat = new T.MeshBasicMaterial({ map: crowdTex, side: T.DoubleSide });
+    crowdMat = SH.crowd();
     const ring4 = (x0, x1, ya, yb, h0, grow, rise, mat, ru, rv) => {     // inner rectangle, how far it steps out, how high it climbs
       const X0 = x0 - grow, X1 = x1 + grow, YA = ya - grow, YB = yb + grow, h1 = h0 + rise, side = ru || 9, end = ru ? ru * 0.55 : 5, v = rv || 2;
       quadMesh([x0, h0, -ya], [x0, h0, -yb], [X0, h1, -YB], [X0, h1, -YA], mat, side, v);          // left
@@ -570,7 +558,7 @@
     contact.frustumCulled = false; contact.count = 0; scene.add(contact);
     /* body parts */
     parts = PART_DEFS.map(([name, joints, color, fit, shadow]) => {
-      const mat = name === 'helmet' ? new T.MeshPhongMaterial({ color: 0xffffff, shininess: 120, specular: 0x9aa0aa }) : new T.MeshLambertMaterial({ color: 0xffffff });
+      const mat = SH.rim(name === 'helmet' ? new T.MeshPhongMaterial({ color: 0xffffff, shininess: 120, specular: 0x9aa0aa }) : new T.MeshLambertMaterial({ color: 0xffffff }));
       const mesh = new T.InstancedMesh(GEO[name], mat, CAP * joints.length);
       mesh.instanceMatrix.setUsage(T.DynamicDrawUsage); mesh.frustumCulled = false; mesh.count = 0;
       for (let i = 0; i < CAP * joints.length; i++) mesh.setColorAt(i, col.set(0xffffff));
@@ -620,31 +608,39 @@
   /* ---------- time of day and weather ---------- */
   const TIMES = {
     night: { sky: ['#04070e', '#0b1324', '#17223d'], fog: '#0a1020', hemi: ['#dfe8ff', '#24402c', 2.4], sun: ['#ffffff', 2.2, [-30, 80, 40]], fill: 0.9,
-      field: [1, 1, 1], crowd: 1, glow: 1, ground: '#0c1220', wall: '#0e1628', towers: true, shade: 0.17 },
+      field: [1, 1, 1], crowd: 1, glow: 1, ground: '#0c1220', wall: '#0e1628', towers: true, shade: 0.17,
+      stars: 1, cloud: 0.32, cloudCol: '#1b2438', rim: ['#93a8cc', 0.5] },
     dusk: { sky: ['#232a5c', '#8a4f72', '#f39a5e'], fog: '#5b4257', hemi: ['#ffd9c2', '#2c3a2e', 2.1], sun: ['#ffb27a', 2.8, [-95, 36, -20]], fill: 0.7,
-      field: [1.02, 0.94, 0.86], crowd: 1.3, glow: 0.7, ground: '#1c1b2b', wall: '#1a1c30', towers: false, shade: 0.3 },
+      field: [1.02, 0.94, 0.86], crowd: 1.3, glow: 0.7, ground: '#1c1b2b', wall: '#1a1c30', towers: false, shade: 0.3,
+      stars: 0.3, cloud: 0.5, cloudCol: '#d18c8a', rim: ['#ff9a5c', 0.5] },
     day: { sky: ['#2c6fd8', '#73abef', '#d3e6fb'], fog: '#bcd5f1', hemi: ['#ffffff', '#3f6a45', 2.8], sun: ['#fff3dc', 3.0, [-45, 90, 55]], fill: 0.55,
-      field: [1.13, 1.13, 1.1], crowd: 1.8, glow: 0, ground: '#5a6676', wall: '#3a4662', towers: false, shade: 0.38 },
+      field: [1.13, 1.13, 1.1], crowd: 1.8, glow: 0, ground: '#5a6676', wall: '#3a4662', towers: false, shade: 0.38,
+      stars: 0, cloud: 0.45, cloudCol: '#ffffff', rim: ['#d4e3ff', 0.3] },
   };
   function applyEnv(e) {
     const t = TIMES[e.time] || TIMES.night, wet = e.weather === 'rain', snow = e.weather === 'snow', bad = wet || snow, dim = wet ? 0.72 : snow ? 0.88 : 1;
     const dark = t === TIMES.night;
-    const c = skyCanvas.getContext('2d'), g = c.createLinearGradient(0, 0, 0, 256);
-    g.addColorStop(0, t.sky[0]); g.addColorStop(0.55, t.sky[1]); g.addColorStop(1, t.sky[2]);
-    c.fillStyle = g; c.fillRect(0, 0, 4, 256);
-    if (bad) { c.fillStyle = dark ? 'rgba(22,26,36,0.6)' : 'rgba(150,158,170,0.74)'; c.fillRect(0, 0, 4, 256); }     // overcast
-    scene.background.needsUpdate = true;
+    const su = skyMat.uniforms, grey = col2.set(dark ? '#161b25' : '#98a1ac');
+    [su.uTop, su.uMid, su.uHorizon].forEach((u, i) => { u.value.set(t.sky[i]); if (bad) u.value.lerp(grey, 0.72); });
+    su.uSunDir.value.set(t.sun[2][0], t.sun[2][1], t.sun[2][2]).normalize();
+    su.uSunCol.value.set(t.sun[0]).multiplyScalar(dark || bad ? 0 : 1);
+    su.uStars.value = bad ? 0 : t.stars; su.uCloud.value = bad ? 1 : t.cloud;
+    su.uCloudCol.value.set(bad ? (dark ? '#1c212b' : '#8d96a2') : t.cloudCol);
     col.set(t.fog); if (bad) col.lerp(col2.set(dark ? '#161b25' : '#98a1ac'), 0.7);
     scene.fog.color.copy(col); scene.fog.near = wet ? 70 : snow ? 50 : 190; scene.fog.far = wet ? 340 : snow ? 290 : 560;
     hemiLight.color.set(t.hemi[0]); hemiLight.groundColor.set(t.hemi[1]); hemiLight.intensity = t.hemi[2] * dim;
     sunLight.color.set(t.sun[0]); sunLight.intensity = t.sun[1] * (bad ? 0.45 : 1); sunLight.position.set(t.sun[2][0], t.sun[2][1], t.sun[2][2]);
     fillLight.intensity = t.fill;
-    fieldMat.color.setRGB(t.field[0] * dim, t.field[1] * dim, t.field[2] * dim);
-    crowdBase = t.crowd * dim;
+    crowdBase = t.crowd * dim * 0.62;
     groundMat.color.set(t.ground); wallMat.color.set(t.wall);
     const lamps = bad ? Math.max(t.glow, 0.8) : t.glow;       // the lights come on when the weather closes in
     for (const sp of towerGlow) { sp.visible = lamps > 0; sp.material.opacity = lamps; }
     for (const pn of towerPanels) pn.material.color.set(lamps > 0 ? '#f2f6ff' : '#5d6675');
+    const fu = fieldMat.uniforms;
+    fu.uTint.value.setRGB(t.field[0] * dim, t.field[1] * dim, t.field[2] * dim);
+    fu.uWet.value = wet ? 1 : 0; fu.uSnow.value = snow ? 1 : 0; fu.uLamp.value = lamps; fu.uSky.value.copy(su.uHorizon.value);
+    SH.rimColor.value.set(t.rim[0]).multiplyScalar(t.rim[1] * (bad ? 0.6 : 1));
+    glowAmount = dark ? 0.75 : t === TIMES.dusk ? 0.6 : 0.3;
     const shade = t.shade * (bad ? 0.5 : 1);
     shadowSets.forEach((set, i) => {
       set.on = t.towers || i === 0; set.mat.opacity = shade;
@@ -729,6 +725,8 @@
   function init(canvas) {
     renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
     camera = new T.PerspectiveCamera(76, 1, 2, 900);
+    renderer.info.autoReset = false;                    // the finishing pass renders several times a frame; count them all
+    post = SH.post(renderer);
     buildScene();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { teamsKey = ''; boardKey = ''; numCache.clear(); });
     return true;
@@ -845,8 +843,9 @@
     fp.needsUpdate = true;
     /* crowd reacts */
     cheer = Math.max(0, cheer - dt * 0.5);
-    crowdTex.offset.y = cheer > 0 ? Math.abs(Math.sin(time * 16)) * 0.012 * Math.min(1, cheer) : 0;
-    crowdMat.color.setScalar((1 + 0.35 * Math.min(1, cheer)) * crowdBase);
+    const cu = crowdMat.uniforms;
+    cu.uTime.value = time; cu.uCheer.value = Math.min(1, cheer); cu.uBase.value = crowdBase;
+    skyMat.uniforms.uTime.value = time;
 
     /* camera */
     const cm = s.cam, menu = G.state === 'menu';
@@ -878,10 +877,13 @@
     if (s.shake > 0) { camera.position.x += (Math.random() - 0.5) * 0.5; camera.position.y += (Math.random() - 0.5) * 0.5; }
     if (debugCam) { camera.position.set(...debugCam.pos); camLook.set(...debugCam.look); }
     camera.lookAt(camLook);
+    skyDome.position.copy(camera.position);
     for (const g of posts) g.visible = Math.abs(-camera.position.z - g.userData.y) > 14;   // not the one the camera sits beside
     if (rainPts.visible) updateWeather(rainPts, 36, 6);
     if (snowPts.visible) updateWeather(snowPts, 4.2, 1.8);
-    renderer.render(scene, camera);
+    renderer.info.reset();
+    if (post && s.fx !== false) { post.glow.value = glowAmount; post.render(scene, camera); }
+    else { renderer.setRenderTarget(null); renderer.render(scene, camera); }
   }
 
   PG.r3d = {

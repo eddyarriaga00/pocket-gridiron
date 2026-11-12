@@ -13,6 +13,7 @@
 
   const FW = 53.33, HIP = 1.0, PSCALE = 1.6;
   const SIDELINE = 20, MAXP = 22, REFS = 3, CREW = 3, CAP = SIDELINE + MAXP + REFS + CREW;  // sideline figures first, then the players, the officials, the chain crew
+  const CAM_WALL = -44;  // how far behind the goal line (in field yards) the gameplay camera may sit
   const CREW_X = -3.9, BOX_X = -2.6;  // where the sticks stand off the home sideline, and the down box a step nearer the field (on first down it shares a yard line with the back stick)
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const v3 = new T.Vector3(), v3b = new T.Vector3(), col = new T.Color(), col2 = new T.Color(), zAxis = new T.Vector3(0, 0, 1);
@@ -27,6 +28,7 @@
   const FLASHES = 48, flashLife = new Float32Array(FLASHES);
   const TOWERS = [[-70, -78], [FW + 70, -78], [-70, 178], [FW + 70, 178]];  // the four light towers, as field [x, y]
   const posts = [];
+  let nearBoard = [];
   const camPos = new T.Vector3(FW / 2, 30, 20), camLook = new T.Vector3(FW / 2, 0, -50);
 
   /* ---------- pose layout ---------- */
@@ -1287,9 +1289,9 @@
       m.position.set(FW / 2, 13, -y);
       m.rotation.y = ry;
       scene.add(m);
-      box(38, 13.2, 1, 0x05080f, FW / 2, 13, -(y + (ry ? -0.7 : 0.7)), true);
-      box(1.2, 8, 1.2, 0x10182a, FW / 2 - 12, 4, -(y + (ry ? -1 : 1)), true);
-      box(1.2, 8, 1.2, 0x10182a, FW / 2 + 12, 4, -(y + (ry ? -1 : 1)), true);
+      const parts3 = [m, box(38, 13.2, 1, 0x05080f, FW / 2, 13, -(y + (ry ? -0.7 : 0.7)), true), box(1.2, 8, 1.2, 0x10182a, FW / 2 - 12, 4, -(y + (ry ? -1 : 1)), true),
+        box(1.2, 8, 1.2, 0x10182a, FW / 2 + 12, 4, -(y + (ry ? -1 : 1)), true)];
+      if (ry) nearBoard = parts3;  // the one behind the user's own goal: hidden while the camera is behind it
     }
     /* light towers in the four corners */
     const glowC = document.createElement('canvas');
@@ -1990,9 +1992,17 @@
       /* once a ball carrier is in the open field the camera closes in on him */
       const chase = ps && ps.carrier && !ps.air && (ps.open || ps.mode === 'ko') && (G.state === 'live' || G.state === 'dead');
       zoom += ((chase ? 0.68 : 1) - zoom) * (1 - Math.exp(-dt * 2.4));
-      const view = s.camv === 'close' ? 0.8 : s.camv === 'high' ? 1.25 : 1;  // the camera choice in Settings: nearer and lower, or further and higher
+      const view = 1 / clamp(s.zoom || 1, 0.5, 2);  // the player's zoom: under 1 pulls the camera back and up, over 1 brings it in and down
       const up = cm.up, back = (up ? 40 : 46) * zoom * view, ahead = (up ? 10 : 3) * zoom + (1 - zoom) * 8, tx = lerp(FW / 2, cm.fx, 0.75 + (1 - zoom) * 0.6);
-      v3.set(tx, 24 * zoom * view, -(cm.fy - back));
+      /* The camera may not back out through the end-zone stand (the video board would hide the play). Zoomed out and
+         pinned on your own goal line, it stops at the wall and climbs instead, keeping its distance from the ball. */
+      let camY = cm.fy - back, camH = 24 * zoom * view;
+      if (camY < CAM_WALL) {
+        const reach = Math.hypot(back, camH);
+        camY = CAM_WALL;
+        camH = Math.sqrt(Math.max(camH * camH, reach * reach - (cm.fy - CAM_WALL) * (cm.fy - CAM_WALL)));
+      }
+      v3.set(tx, camH, -camY);
       v3b.set(tx, 0, -(cm.fy + ahead));
       if (G.state === 'pre' && ps && ps.mode !== 'ko' && !s.plain) {
         // start close behind the formation, then pull out
@@ -2026,7 +2036,12 @@
       for (const p of parts) p.mesh.geometry = (near && GEO_HI[p.name]) || GEO[p.name];
     }
     skyDome.position.copy(camera.position);
-    for (const g of posts) g.visible = Math.abs(-camera.position.z - g.userData.y) > 14;  // not the one the camera sits beside
+    /* Goal posts: never the one the camera sits beside, and during play not the near one when the camera is behind it
+       (backed up on your own goal line, its uprights stood between you and your quarterback). */
+    const camY = -camera.position.z, inPlay = G.state !== 'menu' && G.state !== 'intro' && G.state !== 'over';
+    for (const g of posts) g.visible = Math.abs(camY - g.userData.y) > 14 && !(inPlay && g.userData.y < 0 && camY < g.userData.y);
+    const behind = camera.position.z > 27;  // the camera has backed up past the near video board: its black back would fill the view
+    if (nearBoard[0].visible === behind) for (const m of nearBoard) m.visible = !behind;
     if (rainPts.visible) updateWeather(rainPts, 36, 6);
     if (snowPts.visible) updateWeather(snowPts, 4.2, 1.8);
     renderer.info.reset();

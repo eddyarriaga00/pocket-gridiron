@@ -407,6 +407,13 @@ what is next. Update it after every item.
   the off-line levels and raised no errors. What measurement cannot say: whether the voices sound like people or
   like a choir of synthesizers, and whether the theme is any good. `H.fingerprint()` unchanged.
 
+- 13:47 Camera zoom. `SET.zoom` (1 is standard, bigger is closer) scales the gameplay camera's height and distance and the
+  2D view's focal length; the old `camv` choice is carried over. Looked at 60%, 100% and 180%. At 60% with the ball
+  on your own 2 the camera had backed out behind the end-zone video board, whose black back filled half the screen: the
+  camera now stops 44 yards behind the goal line and climbs instead, the near board is hidden while the camera is behind
+  it, and the near goal post is hidden during play when the camera is behind it (its uprights used to stand in front
+  of your quarterback on your own goal line at any zoom). `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -493,6 +500,9 @@ what is next. Update it after every item.
       rebuilt in layers with energy a phone speaker can play; the menu has a new sixteen-bar theme; the mix ends in a bus
       compressor and a limiter; a drum roll leads into kickoffs, hits and catches are placed left to right, rain has
       thunder; Settings has a Volume choice. Still no audio files
+- [x] Camera zoom (asked for at 13:44: "make it so u can zoom in more or out of view ... different players have diff
+      preferences"): ten steps from 60% to 180%, on − and + buttons under the scoreboard, the mouse wheel, the minus and
+      equals keys, and a stepper in Settings. It replaces the three-way camera choice
 - [ ] Interface polish, a little
 - [ ] Still open from before: a person plays it on a phone; contract years could matter more; animation checked in motion
 

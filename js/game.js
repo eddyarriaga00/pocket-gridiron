@@ -11,7 +11,7 @@
     <div class="mid"><span id="qt">1st</span><b id="clk">3:00</b></div>
     <div class="side r" id="sd1"><i></i><b id="a1"></b><em></em><u id="s1">0</u></div>
   </div>
-  <div class="sub"><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="dn"></div></div>
+  <div class="sub"><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="dn"></div><div id="zm"><button id="zo" aria-label="Zoom out">−</button><button id="zi" aria-label="Zoom in">+</button></div></div>
   <div id="mine" hidden></div>
 </div>
 <div id="banner"></div><div id="toast"></div>
@@ -2643,6 +2643,8 @@
     if (e.code === 'KeyV') act('audible');
     if (e.code === 'KeyX') act('flip');
     if (e.code === 'KeyC') act('call');
+    if (e.code === 'Minus' || e.code === 'BracketLeft') zoomBy(-1);
+    if (e.code === 'Equal' || e.code === 'BracketRight') zoomBy(1);
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
   });
   addEventListener('keyup', e => {
@@ -2920,6 +2922,32 @@
   }
 
   $('#pz').onclick = openPause;
+
+  /* Camera zoom. 1 is the standard view, bigger is closer. Players differ, so it goes from well back to right in: the
+     two buttons under the scoreboard, the mouse wheel, or the minus and equals keys. */
+  const ZOOMS = [0.6, 0.7, 0.8, 0.9, 1, 1.12, 1.25, 1.4, 1.6, 1.8];
+  if (typeof SET.zoom !== 'number') SET.zoom = SET.camv === 'close' ? 1.25 : SET.camv === 'high' ? 0.8 : 1;  // the old three-way camera choice
+  const zoomTxt = () => Math.round(SET.zoom * 100) + '%';
+
+  function zoomBy(dir) {
+    let i = 0;
+    ZOOMS.forEach((v, k) => {
+      if (Math.abs(v - SET.zoom) < Math.abs(ZOOMS[i] - SET.zoom)) i = k;
+    });
+    SET.zoom = ZOOMS[clamp(i + dir, 0, ZOOMS.length - 1)];
+    save('pg.settings', SET);
+    toast('Zoom ' + zoomTxt());
+  }
+
+  $('#zo').onclick = () => zoomBy(-1);
+  $('#zi').onclick = () => zoomBy(1);
+  let wheelT = 0;
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (performance.now() - wheelT < 140 || G.state === 'menu') return;
+    wheelT = performance.now();
+    zoomBy(e.deltaY > 0 ? -1 : 1);
+  }, { passive: false });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && G.ros && G.state !== 'over' && !AUTO && !window.PG_TEST) openPause();
   });  // PG_TEST: screenshots in the test pane hide the page
@@ -3079,7 +3107,7 @@
   <h2>Look</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
   ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
-  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scv','Camera',SET.camv==='close'?'Close':SET.camv==='high'?'High':'Standard')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off')+chip('sdt','Close-up player models',SET.detail!==false?'Detailed':'Simple'):''}
+  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+`<div class="opt"><span>Camera zoom</span><div class="step"><button class="chip" id="szo" aria-label="Zoom out">−</button><b>${zoomTxt()}</b><button class="chip" id="szi" aria-label="Zoom in">+</button></div></div>`+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off')+chip('sdt','Close-up player models',SET.detail!==false?'Detailed':'Simple'):''}
   ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
   ${chip('slh','Buttons',SET.left?'Left side':'Right side')}
   <h2>Sound</h2>
@@ -3115,9 +3143,8 @@
         SET.px = SET.px === 'bal' ? 'hi' : 'bal';
         resize();
       });
-      on('scv', () => {
-        SET.camv = SET.camv === 'close' ? 'high' : SET.camv === 'high' ? 'std' : 'close';
-      });
+      on('szo', () => zoomBy(-1));
+      on('szi', () => zoomBy(1));
       on('slh', () => {
         SET.left = !SET.left;
         applyTheme();
@@ -3172,11 +3199,11 @@
 
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
-  <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
+  <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard, and beside it − and + zoom the camera out and in.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
   <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
-  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause.</li></ul></div>`;
+  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul></div>`;
     $('#bk').onclick = showMenu;
   }
 
@@ -3333,7 +3360,7 @@
     if (R3) return R3.project(x, y, z);
     const dx = x - cam.x, dy = y - cam.y, dz = z - CAMH, d = dy * CS - dz * SN;
     if (d < 1) return null;
-    const s = F / d;
+    const s = F * (SET.zoom || 1) / d;
     return { x: W / 2 + dx * s, y: CY - (dy * SN + dz * CS) * s, s };
   }
 
@@ -3649,7 +3676,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (R3) {
       ctx.clearRect(0, 0, W, H);
-      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, camv: SET.camv, detail: SET.detail !== false }, FDT);
+      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, zoom: SET.zoom, detail: SET.detail !== false }, FDT);
       if (shake > 0) shake -= FDT;
     } else {
       if (shake > 0) {

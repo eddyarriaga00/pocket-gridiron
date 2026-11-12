@@ -50,9 +50,10 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 | Time out | Time out, right after the whistle or on the play-call sheet | T |
 | Fair catch | Fair catch, while a punt to you is in the air | Space |
 | Pause | The pause button under the scoreboard | P or Esc |
+| Zoom the camera | − and + under the scoreboard | − and =, or the mouse wheel |
 
-Settings has the accent color, 2D or 3D graphics, sharpness, the camera, shadows, the glow pass, close-up model detail,
-replays, penalties, the button side, sound, music, the announcer, vibration and the control tips.
+Settings has the accent color, 2D or 3D graphics, sharpness, camera zoom, shadows, the glow pass, close-up model detail,
+replays, penalties, the button side, volume, sound, music, the announcer, vibration and the control tips.
 
 ## How it is built
 

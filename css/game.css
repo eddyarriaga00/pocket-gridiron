@@ -20,7 +20,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14p
   width:min(100vw,62vh);overflow:hidden;background:#0c1322;touch-action:none}
 #gl,#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation}
-button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:9px;height:40px;padding:0 12px;width:100%;box-sizing:border-box;
   -webkit-user-select:text;user-select:text}
 
@@ -57,7 +57,10 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 #rp{position:absolute;right:10px;top:84px;display:flex;align-items:center;gap:7px;background:rgba(6,10,19,.88);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 9px;font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;pointer-events:none}
 #rp i{width:7px;height:7px;border-radius:50%;background:var(--red)}
 /* pre-snap assignment card (career) */
-#brief{position:absolute;left:10px;bottom:16px;max-width:58%;background:rgba(6,10,19,.9);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:7px 10px;pointer-events:none}
+#bl{position:absolute;left:10px;bottom:16px;max-width:58%;display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
+#tip{background:rgba(6,10,19,.9);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:11.5px;line-height:1.35;color:var(--ink)}
+#tip::before{content:"Tip";display:block;font-family:var(--display);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+#brief{background:rgba(6,10,19,.9);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:7px 10px;pointer-events:none}
 #brief b{display:block;font-family:var(--display);font-size:12.5px;font-weight:800;letter-spacing:.04em;line-height:1.15;text-transform:uppercase}
 #brief span{display:block;margin-top:2px;font-size:11.5px;color:var(--mute);line-height:1.35}
 
@@ -129,17 +132,13 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .mode i{grid-row:1/3;grid-column:2;font-style:normal;font-size:18px;color:var(--mute)}
 .mode.main{border-color:var(--acc)}
 .mode.main b,.mode.main i{color:var(--acc)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .opt{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px;border-bottom:1px solid var(--line);font-size:13px}
 .sw{display:flex;gap:9px}
 .sw button{width:24px;height:24px;border-radius:50%;background:var(--c);border:2px solid var(--bg);box-shadow:0 0 0 1.5px var(--line)}
 .sw button.on{box-shadow:0 0 0 2px var(--ink)}
 .chip{height:28px;min-width:52px;padding:0 12px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
-.how{margin-top:4px;color:var(--mute);font-size:12px;line-height:1.6}
-.how summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;color:var(--ink);font-size:13px;cursor:pointer;list-style:none}
-.how summary::-webkit-details-marker{display:none}
-.how summary::after{content:"+";color:var(--mute);font-size:16px}
-.how[open] summary::after{content:"–"}
-.how ul{margin:0;padding:0 0 0 16px}
+.how{margin:0;padding:0 0 0 16px;color:var(--mute);font-size:12.5px;line-height:1.6}
 .fin{text-align:center}
 .fin .sc{font-family:var(--display);font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
 table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;font-variant-numeric:tabular-nums}

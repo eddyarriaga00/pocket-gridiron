@@ -27,7 +27,8 @@ what is next. Update it after every item.
 1. Preview server: `.claude/launch.json` has a config named `game` (python http.server on 48231). It is
    gitignored; recreate it if missing. Start it with the preview tool, open
    `http://localhost:48231/index.html`, set the mobile viewport (375x812).
-2. Load the harness in the page: `await fetch('tools/harness.js').then(r=>r.text()).then(t=>(0,eval)(t))`
+2. Load the harness in the page (the query string defeats the cache):
+   `await fetch('tools/harness.js?'+Date.now()).then(r=>r.text()).then(t=>(0,eval)(t))`
 3. Run:
    - `H.sim(12,180)` computer vs computer. Healthy ranges: about 4 yards per carry, completions 53-62%,
      interceptions 1-3%, about 25-35 points per game combined, `errs` empty.
@@ -102,10 +103,11 @@ what is next. Update it after every item.
 - [ ] Combine and draft opening, earning the starting job, contract and trade requests, coach trust
 
 ### 8. UX
-- [ ] First-time tips for each control context
-- [ ] Settings screen: graphics, camera, sound, music, accent
-- [ ] Auto-pause when the app is hidden
-- [ ] Halftime and final presentation
+- [x] First-time tips for each control context (shown twice each, reset in Settings)
+- [x] Settings screen: accent, graphics, sharpness, pre-snap camera, replays, sound, music, tips. How-to-play screen.
+- [x] Auto-pause when the app is hidden (the test pane triggers this; the harness bot resumes)
+- [x] Halftime report with team stats and the career stat line
+- [ ] Final presentation: player of the game, drive chart
 
 ### 9. Optimization
 - [ ] Measure FPS; cap pixel ratio; merge or instance meshes if draw calls are the limit
@@ -124,18 +126,20 @@ what is next. Update it after every item.
 - 02:45 Session start. State: `ui-refresh` has the UI refresh (fdf47ef), `main` is the live site with the
   older look. Auto-resume job created. Roadmap and harness written.
 
-- 03:15 Sound engine done. Levels checked offline with `PG.audio.measure(name)` (peak / RMS dBFS): whistle -13/-26,
+- 02:54 Sound engine done. Levels checked offline with `PG.audio.measure(name)` (peak / RMS dBFS): whistle -13/-26,
   hit -8/-30, horn -8/-22, fanfare -9/-24, music -4/-22, crowd bed -35 (quiet) to -29 (loud), big cheer -19.
   Nobody has listened to it yet: levels are verified, taste is not.
 
-- 03:50 3D renderer and player models in. 95 draw calls, 131k triangles, 0.9 ms CPU per frame on the dev machine.
+- 03:07 3D renderer and player models in. 95 draw calls, 131k triangles, 0.9 ms CPU per frame on the dev machine.
   `PG.r3d.debugCam = {pos:[x,h,-y], look:[x,h,-y]}` pins the camera for close-up screenshots; `PG.dbg.render()` forces a frame.
   `H.sim(6,120)`: 4.7 ypc, 59% completions, 2.1% INT, 24 pts/game, no errors.
 
-- 04:30 Kickoffs, replays, video boards, jog-in, loose ball. Regression clean. Note: the pane's `zoom` action can return a
+- 03:16 Kickoffs, replays, video boards, jog-in, loose ball. Regression clean. Note: the pane's `zoom` action can return a
   stale capture; use `screenshot` after `PG.dbg.render()`.
 
-- 04:50 Career depth pass. All five positions: practice, game, grade, headline, ability equip verified by script.
+- 03:19 Career depth pass. All five positions: practice, game, grade, headline, ability equip verified by script.
+
+- 03:22 UX pass done: settings and help screens, tips, auto-pause, halftime report.
 
 ## Morning hand-off
 

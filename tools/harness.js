@@ -1,5 +1,5 @@
 /* Test harness for Pocket Gridiron. Load it in the browser console or the preview pane:
-     await fetch('tools/harness.js').then(r=>r.text()).then(t=>(0,eval)(t))
+     await fetch('tools/harness.js?'+Date.now()).then(r=>r.text()).then(t=>(0,eval)(t))
    Then:  H.sim(12,180)   computer vs computer balance numbers
           H.exh(2,120)    exhibition with a scripted "user" (exercises kickoffs, play calling, passing)
           H.career('WR',2) new test career at a position, n games; returns stat lines
@@ -10,7 +10,8 @@ const q=s=>document.querySelector(s),d=()=>PG.dbg;
 const key=(code,k)=>{dispatchEvent(new KeyboardEvent('keydown',{code,key:k}));dispatchEvent(new KeyboardEvent('keyup',{code,key:k}))};
 /* one scripted-user step: pick the first card, snap, throw to the most open receiver */
 function bot(){const G=d().G,ps=d().ps;
- if(G.state==='call'){const c=q('.card');if(c)c.click();else throw new Error('call state without cards')}
+ if(G.paused){const r=q('#pr');if(r)r.click()}   // the game pauses itself when the page is hidden, which the test pane often is
+ if(G.state==='call'){const c=q('.card')||q('#h2');if(c)c.click();else throw new Error('call state without cards')}
  else if(G.state==='pre'&&(G.pad==='snap'||G.pad==='ready'))key('Space',' ');
  else if(G.state==='kickm')key('Space',' ');
  else if(G.state==='live'&&G.pad==='pass'&&ps.t>1.6+Math.random()){let b=0,bo=-1;

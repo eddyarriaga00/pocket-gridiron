@@ -17,7 +17,7 @@ app.innerHTML=`<canvas id="gl" hidden></canvas><canvas id="c"></canvas>
 <div id="banner"></div><div id="toast"></div>
 <div id="meter" hidden><p id="mtxt"></p><div class="bar"><i id="ndl"></i></div></div>
 <div id="rp" hidden><i></i>Replay · tap to skip</div>
-<div id="brief" hidden></div>
+<div id="bl"><div id="tip" hidden></div><div id="brief" hidden></div></div>
 <div id="pad"></div><div id="screen"></div><div id="ov" hidden></div>`;
 const cv=$('#c'),ctx=cv.getContext('2d'),pad=$('#pad'),scr=$('#screen');
 const FW=53.33,PITCH=48*Math.PI/180,CS=Math.cos(PITCH),SN=Math.sin(PITCH),PS=1.6,CAMH=19.3;
@@ -35,7 +35,7 @@ const ACCENTS={blue:'#4c9aff',red:'#ff5a6b',orange:'#ff8437',teal:'#2fd6c1',viol
 let ACC=ACCENTS.blue;
 function applyTheme(){if(!ACCENTS[SET.acc])SET.acc='blue';ACC=ACCENTS[SET.acc];document.documentElement.style.setProperty('--acc',ACC)}
 applyTheme();
-function resize(){const r=app.getBoundingClientRect();DPR=Math.min(2.5,window.devicePixelRatio||1);W=r.width||1;H=r.height||1;cv.width=W*DPR;cv.height=H*DPR;F=W*0.62;CY=H*0.5;if(R3)R3.resize(W,H,DPR)}
+function resize(){const r=app.getBoundingClientRect();DPR=Math.min(2.5,window.devicePixelRatio||1);W=r.width||1;H=r.height||1;cv.width=W*DPR;cv.height=H*DPR;F=W*0.62;CY=H*0.5;if(R3)R3.resize(W,H,SET.px==='bal'?Math.min(DPR,1.5):DPR)}
 addEventListener('resize',resize);
 
 /* ---------- data ---------- */
@@ -383,13 +383,15 @@ function advance(){
  if(G.final)return true;
  if(G.drill)return false;
  if(G.clock<=0){const tie=G.score[0]===G.score[1];
-  if(G.q===2){G.q=3;G.clock=G.ql;kickoff(1-G.first);banner('Halftime',tname(1-G.first)+' ball',1600)}
+  if(G.q===2){G.q=3;G.clock=G.ql;kickoff(1-G.first);if(!QUIET&&!AUTO)G.half=true;else banner('Halftime',tname(1-G.first)+' ball',1600)}
   else if(G.q>=4){if(tie&&(G.q===4||(G.mustWin&&G.q<8))){G.q++;G.ot=true;G.clock=G.ql;kickoff(rnd()<.5?0:1);banner('Overtime','Next score wins',1600)}else{G.final=true;return true}}
   else{G.q++;G.clock=G.ql;banner('End of quarter','',1200)}}
  return false}
 function next(){if(G.rp){G.rp=false;if(REC.length>50)return startReplay()}
  if(G.drill){if(--G.drill.left<=0)return endGame();const t=G.lockSide==='off'?0:1;setBall(t,t===0?30:70,FW/2);G.pendKO=null;G.score=[0,0];return startCall()}   // practice: same spot every rep
- if(advance())return endGame();startCall()}
+ if(advance())return endGame();
+ if(G.half){G.half=false;return showHalf()}
+ startCall()}
 /* Instant replay: every live frame is recorded (positions, pose flags, the ball); big plays are shown again
    at half speed from a low sideline camera. */
 const REC=[];
@@ -529,7 +531,14 @@ function padKind(){if(AUTO||G.paused||!ps)return 'none';const lk=G.lock,me=G.me;
  if(G.state==='live'){const c=ps.carrier;if(c&&userP(c))return canPass()?'pass':'carry';if(userOnD())return lk?'deflock':'def';
   if(lk&&me&&ps.offTeam===0&&!ps.turnover&&!me.down&&me!==ps.qb)return me.route&&ps.mode==='pass'&&!ps.thrown?'route':'offball'}
  return 'none'}
-function setPad(kind){if(G.pad===kind)return;G.pad=kind;pad.innerHTML='';G.sprintBtn=0;
+const TIPS={snap:'Tap Snap to start the play.',pass:'Tap a letter to throw to that receiver.',carry:'Drag to run. Juke or Spin slips a tackle.',
+ def:'Drag to chase the ball. Dive tackles, Switch changes player.',deflock:'Drag to chase the ball. Dive makes the tackle.',route:'Follow your route. Tap Call when you are open.',
+ offball:'Drag to block for the ball carrier.',ready:'Tap Ready, or wait for the snap.',kick:'Tap Kick when the marker is in the green.',defpre:'Switch picks the defender you control.'};
+let tipT;
+function tip(kind){const el=$('#tip'),t=TIPS[kind];clearTimeout(tipT);
+ if(!t||AUTO||(SET.tips&&SET.tips[kind]>=2)){el.hidden=true;return}
+ SET.tips=SET.tips||{};SET.tips[kind]=(SET.tips[kind]||0)+1;save('pg.settings',SET);el.textContent=t;el.hidden=false;tipT=setTimeout(()=>{el.hidden=true},4500)}
+function setPad(kind){if(G.pad===kind)return;G.pad=kind;pad.innerHTML='';G.sprintBtn=0;tip(kind);
  const B=(label,cls,down,up)=>{const b=document.createElement('button');b.className='pb '+cls;b.textContent=label;
   b.addEventListener('pointerdown',e=>{e.preventDefault();down()});
   if(up)for(const ev of ['pointerup','pointercancel','pointerleave'])b.addEventListener(ev,up);
@@ -590,7 +599,7 @@ function updHud(){if(!G.ros)return;const s=Math.ceil(G.clock),ko=!!ps&&ps.mode==
  $('#s0').textContent=G.score[0];$('#s1').textContent=G.score[1];$('#qt').textContent=G.q>4?'OT':ORD[G.q-1];
  $('#clk').textContent=G.drill?(G.drill.n-G.drill.left+1)+'/'+G.drill.n:Math.floor(s/60)+':'+String(s%60).padStart(2,'0');if(G.drill)$('#qt').textContent='Rep';G.dnTxt=ko?'Kickoff':downTxt();$('#dn').textContent=G.dnTxt;
  $('#sd0').classList.toggle('has',G.poss===0);$('#sd1').classList.toggle('has',G.poss===1)}
-function toMenu(){if(PG.audio)PG.audio.scene('menu');G=menuState(G.tm);P=[];ps=null;FX.length=0;$('#hud').hidden=true;pad.innerHTML='';scr.innerHTML='';setBrief('');$('#banner').classList.remove('on');$('#meter').hidden=true;CONF.length=0}
+function toMenu(){if(PG.audio)PG.audio.scene('menu');clearTimeout(tipT);$('#tip').hidden=true;G=menuState(G.tm);P=[];ps=null;FX.length=0;$('#hud').hidden=true;pad.innerHTML='';scr.innerHTML='';setBrief('');$('#banner').classList.remove('on');$('#meter').hidden=true;CONF.length=0}
 function openPause(){if(!G.ros||G.state==='over'||G.paused)return;G.paused=true;const ov=$('#ov');ov.hidden=false;
  const draw=sure=>{ov.innerHTML=sure
   ?`<div class="dlg"><h3>Leave game?</h3><p>${G.mode==='career'?'This game will not count. You can play it again from your career.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">Leave game</button><button class="btn2" id="pk">Keep playing</button></div>`
@@ -603,6 +612,7 @@ function openPause(){if(!G.ros||G.state==='over'||G.paused)return;G.paused=true;
  draw(false)}
 function closePause(){$('#ov').hidden=true;$('#ov').innerHTML='';G.paused=false}
 $('#pz').onclick=openPause;
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.ros&&G.state!=='over'&&!AUTO)openPause()});
 
 function drawArt(c,pl,def){const x=c.getContext('2d'),w=c.width=280,h=c.height=200,sc=7,ox=w/2,oy=def?h-26:h-62,X=d=>ox+d*sc,Y=d=>oy-d*sc;
  x.fillStyle='#1f6e36';x.fillRect(0,0,w,h);x.strokeStyle='rgba(255,255,255,.16)';x.lineWidth=2;
@@ -638,19 +648,39 @@ function showMenu(){toMenu();const cs=PG.career&&PG.career.summary();
  scr.innerHTML=`<div class="menu"><h1>Pocket<br><em>Gridiron</em></h1><p class="tag">Full 11-on-11 football, built for one hand.</p>
   <button class="mode main" id="mC"><b>Career</b><span>${cs||'Create a player, lock in at your position, and build a legacy one season at a time.'}</span><i>›</i></button>
   <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and control the whole roster.</span><i>›</i></button>
-  <h2>Settings</h2>
+  <div class="row2"><button class="btn2" id="mS">Settings</button><button class="btn2" id="mH">How to play</button></div></div>`;
+ $('#mC').onclick=()=>{PG.career?PG.career.open():showExh()};$('#mE').onclick=showExh;$('#mS').onclick=showSettings;$('#mH').onclick=showHow}
+function showSettings(){
+ const chip=(id,label,val)=>`<div class="opt"><span>${label}</span><button class="chip" id="${id}">${val}</button></div>`;
+ const draw=()=>{scr.innerHTML=`<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Settings</h1>
+  <h2>Look</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
-  <div class="opt"><span>Graphics</span><button class="chip" id="mgf">${R3?'3D':'Classic 2D'}</button></div>
-  <div class="opt"><span>Instant replays</span><button class="chip" id="mrp">${SET.replay!==false?'On':'Off'}</button></div>
-  <div class="opt"><span>Sound effects and crowd</span><button class="chip" id="msn">${SET.snd?'On':'Off'}</button></div>
-  <div class="opt"><span>Music</span><button class="chip" id="mmu">${SET.mus?'On':'Off'}</button></div>
-  <details class="how"><summary>How to play</summary><ul><li>Drag anywhere on the field to move your player.</li><li>Passing: tap a lettered receiver, or the matching button.</li><li>Ball in hand: Sprint, Juke, Spin. On defense: Dive, Sprint.</li><li>Keyboard: arrows, Space to snap, 1–5 to pass, J/K juke and spin, Q/E switch and dive, C to call for the ball, P to pause.</li></ul></details></div>`;
- $('#mC').onclick=()=>{snd('snap');PG.career?PG.career.open():showExh()};$('#mE').onclick=()=>{snd('snap');showExh()};
- scr.querySelectorAll('#acc button').forEach(b=>b.onclick=()=>{SET.acc=b.dataset.a;save('pg.settings',SET);applyTheme();showMenu()});
- $('#msn').onclick=()=>{SET.snd=!SET.snd;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();showMenu()};
- $('#mrp').onclick=()=>{SET.replay=SET.replay===false;save('pg.settings',SET);showMenu()};
- $('#mgf').onclick=()=>{SET.gfx=R3?'2d':'3d';save('pg.settings',SET);setGfx(SET.gfx!=='2d');showMenu()};
- $('#mmu').onclick=()=>{SET.mus=!SET.mus;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();showMenu()}}
+  ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
+  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic'):''}
+  ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
+  <h2>Sound</h2>
+  ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
+  ${chip('smu','Music',SET.mus?'On':'Off')}
+  <h2>Help</h2>
+  ${chip('stp','Control tips',SET.tips&&Object.keys(SET.tips).length?'Show again':'On')}</div>`;
+  const on=(id,f)=>{const el=$('#'+id);if(el)el.onclick=()=>{f();save('pg.settings',SET);draw()}};
+  $('#bk').onclick=showMenu;
+  scr.querySelectorAll('#acc button').forEach(b=>b.onclick=()=>{SET.acc=b.dataset.a;save('pg.settings',SET);applyTheme();draw()});
+  on('sgf',()=>{SET.gfx=R3?'2d':'3d';setGfx(SET.gfx!=='2d')});
+  on('spx',()=>{SET.px=SET.px==='bal'?'hi':'bal';resize()});
+  on('scn',()=>{SET.cin=SET.cin===false});
+  on('srp',()=>{SET.replay=SET.replay===false});
+  on('ssn',()=>{SET.snd=!SET.snd;if(PG.audio)PG.audio.refresh()});
+  on('smu',()=>{SET.mus=!SET.mus;if(PG.audio)PG.audio.refresh()});
+  on('stp',()=>{SET.tips={}})};
+ draw()}
+function showHow(){scr.innerHTML=`<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
+  <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>On fourth down the Kicks tab has punts and field goals: stop the marker in the green.</li></ul>
+  <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
+  <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
+  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, Q switch, E dive, C call for the ball, P pause.</li></ul></div>`;
+ $('#bk').onclick=showMenu}
 function showExh(){let me=SET.me,opp=SET.opp,ql=SET.ql,diff=SET.diff;if(opp===me)opp=(me+1)%TEAMS.length;
  const draw=()=>{G.tm=[me,opp];scr.innerHTML=`<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Exhibition</h1>
   <h2>Your team</h2><div class="teams" id="tms">${TEAMS.map((t,i)=>tmBtn(t,i,i===me)).join('')}</div>
@@ -665,6 +695,12 @@ function showExh(){let me=SET.me,opp=SET.opp,ql=SET.ql,diff=SET.diff;if(opp===me
   scr.querySelectorAll('#dif button').forEach(b=>b.onclick=()=>{diff=+b.dataset.d;draw()});
   $('#go').onclick=()=>{Object.assign(SET,{me,opp,ql,diff});save('pg.settings',SET);snd('whistle');startGame({a:me,b:opp,ql,diff})}};
  draw()}
+function statTable(){const a=G.stats,row=(l,f)=>`<tr><td>${f(a[0])}</td><td>${l}</td><td>${f(a[1])}</td></tr>`;
+ return `<table class="st"><tr><th>${ab(0)}</th><th></th><th>${ab(1)}</th></tr>${row('Pass yards',x=>x.pass)}${row('Rush yards',x=>x.rush)}${row('Comp / att',x=>x.comp+' / '+x.att)}${row('Turnovers',x=>x.to)}</table>`}
+function showHalf(){G.state='call';P=[];ps=null;setBrief('');snd('whistle',{long:true});
+ scr.innerHTML=`<div class="sheet fin"><div class="shd"><b>Halftime</b><span>${tname(G.poss)} get the ball</span></div><div class="sc">${G.score[0]} – ${G.score[1]}</div>
+  ${statTable()}${G.lineFn?`<p class="note">You: ${G.lineFn(G.my)}</p>`:''}<button class="go" id="h2">Second half</button></div>`;
+ $('#h2').onclick=startCall}
 function showFinal(){const s=G.score,a=G.stats,won=s[0]>s[1],tie=s[0]===s[1];
  const row=(l,f)=>`<tr><td>${f(a[0])}</td><td>${l}</td><td>${f(a[1])}</td></tr>`;
  scr.innerHTML=`<div class="sheet fin"><div class="shd"><b>${tie?'Final · tie':won?'You win':'Final'}</b><span>${G.ot?'Overtime':''}</span></div>
@@ -750,8 +786,9 @@ function drawAssign(me){
   if(q){ctx.strokeStyle='#d59bff';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(q.x,q.y,q.s*PS*0.85,q.s*PS*0.38,0,0,7);ctx.stroke()}}
  else if(me.asg==='rush')gline(me.x,me.y,ps.qb.x,ps.qb.y,0.12,'rgba(255,107,107,.8)')}
 function render(){
+ const top=scr.firstElementChild;if(top&&top.classList.contains('solid'))return;   // a full screen is covering the field
  ctx.setTransform(DPR,0,0,DPR,0,0);
- if(R3){ctx.clearRect(0,0,W,H);R3.render({G,P,ps,cam,teams:TEAMS,acc:ACC,shake,isCtl,down:G.dnTxt||''},FDT);if(shake>0)shake-=FDT}
+ if(R3){ctx.clearRect(0,0,W,H);R3.render({G,P,ps,cam,teams:TEAMS,acc:ACC,shake,isCtl,down:G.dnTxt||'',plain:SET.cin===false},FDT);if(shake>0)shake-=FDT}
  else{if(shake>0){shake-=FDT;ctx.translate(rnd(-3,3),rnd(-3,3))}drawField()}
  if(ps&&!AUTO){const me=G.me,lk=G.lock;
   if(ps.offTeam===0&&(G.state==='pre'||(G.state==='live'&&lk&&me&&me!==ps.qb&&!ps.thrown&&!ps.open)))drawArtField(G.state==='pre'?0.85:0.45);

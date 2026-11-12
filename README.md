@@ -7,10 +7,12 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 
 ## Modes
 
-- **Career** (the main focus). Create one player (QB, RB, WR, LB or CB), pick a build, get drafted, and play only that
-  player's snaps. The coach calls the plays and the drives your unit is not on the field for are simulated. Stats and
-  per-game goals earn XP for ratings and abilities. Each week has a practice session, a game grade and a headline; a
-  season has league leaders, honors and playoffs; between seasons you can change teams. There are 12 trophies.
+- **Career** (the main focus). Create one player (QB, RB, WR, LB or CB) and pick a build. At the combine you run a
+  40-yard dash and position drills; your grade sets your draft pick, your signing bonus and how much the coach trusts
+  you. Starters play every drive of their unit, the rotation and backups share them, and good games and practice earn
+  the job. You play only your own snaps: the coach calls the plays and other drives are simulated. Stats and per-game
+  goals earn XP for ratings and abilities. Each week has practice, a game grade and a headline; a season has league
+  leaders, honors and playoffs; you can ask for a trade or change teams between seasons. There are 13 trophies.
 - **Season.** Take one team through seven weeks and a four-team playoff, calling and playing every snap.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.
 
@@ -21,7 +23,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Tap a receiver for a bullet pass, hold for a lob.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
-- Fumbles, interceptions, sacks, safeties, overtime. Rain and snow make the ball harder to catch and hold.
+- Fumbles, interceptions, sacks, safeties, overtime, timeouts, false starts and offsides. Rain and snow make the
+  ball harder to catch and hold.
 - Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
 
 ## Controls
@@ -35,6 +38,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 | Sprint | Hold Sprint | Space |
 | Juke / Spin / Power / Hurdle | The buttons | J / K / L / H |
 | Switch / Dive / Hit / Strip (defense) | The buttons | Q / E / F / R |
+| Time out | Time out, right after the whistle or on the play-call sheet | T |
 | Pause | The pause button under the scoreboard | P or Esc |
 
 Settings has the accent color, 2D or 3D graphics, sharpness, shadows, the glow pass, replays, sound, music, the

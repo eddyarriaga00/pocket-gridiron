@@ -35,6 +35,14 @@
 
   let C = load(KEY, null);
   if (C && (C.v !== 1 || !POS[C.pos])) C = null;
+  if (C && C.trust === undefined) C.trust = 70;  // careers from before coach trust existed stay starters
+
+  /* Coach trust (0 to 100) decides how much you play: [trust needed, role, share of your unit's drives] */
+  const ROLES = [[60, 'Starter', 1], [35, 'Rotation', 0.6], [0, 'Backup', 0.36]];
+  const roleOf = tr => ROLES.find(r => (tr === undefined ? C.trust : tr) >= r[0]);
+  const share = () => roleOf()[2];
+  const PICK_TRUST = [78, 70, 62, 56, 50, 44, 38, 32], PICK_XP = [1500, 1200, 1000, 800, 650, 500, 400, 300];
+  const WORK_TARGET = { QB: 300, RB: 220, WR: 220, LB: 140, CB: 130 };  // drill production that earns a grade of 85
   const persist = () => save(KEY, C);
   const ovrOf = (pos, a) => Math.round(POS[pos].attrs.reduce((s, [k], i) => s + a[k] * POS[pos].w[i], 0));
   const ovr = () => ovrOf(C.pos, C.attrs);
@@ -135,13 +143,13 @@
   }
 
   function pickGoals() {
-    const n = goalPool(C.pos, C.ql).length, ix = [...Array(n).keys()];
+    const n = goalPool(C.pos, C.ql * share()).length, ix = [...Array(n).keys()];
     while (ix.length > 3) ix.splice(Math.floor(rnd(ix.length)), 1);
     C.goals = ix;
   }
 
   const goals = () => {
-    const pool = goalPool(C.pos, C.ql);
+    const pool = goalPool(C.pos, C.ql * share());
     return C.goals.map(i => pool[i]).filter(Boolean);
   };
 
@@ -194,7 +202,7 @@
 
   /* a game grade from goals met, the result and the stat line, scaled so every position can reach an A */
   function gradeOf(m, won, met) {
-    const scale = { QB: 1, RB: 1, WR: 1.25, LB: 2.3, CB: 2.8 }[C.pos], k = C.ql / 120;
+    const scale = { QB: 1, RB: 1, WR: 1.25, LB: 2.3, CB: 2.8 }[C.pos], k = C.ql / 120 * share();  // a part-time player is judged on part-time numbers
     const stat = xpFor(m, false).filter(([l]) => l !== 'Game played').reduce((t, [, v]) => t + v, 0) * scale / k;
     const pts = met * 2 + (won ? 1 : 0) + (stat >= 650 ? 3 : stat >= 380 ? 2 : stat >= 170 ? 1 : 0);
     return [pts, ['F', 'D', 'C', 'C+', 'B', 'B+', 'A-', 'A', 'A', 'A+', 'A+'][Math.min(10, pts)]];
@@ -244,6 +252,7 @@
 
   /* Trophies: [id, name, how to earn it, test]. Checked after every game, upgrade and season. */
   const TROPHIES = [
+    ['top', 'First overall', 'Go first in the draft', () => C.pick === 1],
     ['win', 'First win', 'Win a game', () => C.log.some(g => g.res === 'W') || C.career.g > 0 && C.rings > 0],
     ['td', 'Pay dirt', 'Score or throw your first touchdown', () => C.career.ptd + C.career.rtd + C.career.rectd > 0],
     ['big', 'Monster game', 'Earn an A+ game grade', () => C.log.some(g => g.grade === 'A+')],
@@ -285,7 +294,8 @@
    <div><label class="lbl" for="cj">Number</label><input id="cj" inputmode="numeric" maxlength="2" placeholder="1–99" value="${esc(st.num)}"></div></div>
    <h2>Position</h2><div class="seg" id="cp">${Object.keys(POS).map(k=>`<button data-p="${k}" class="${k===st.pos?'on':''}">${k}</button>`).join('')}</div>
    <h2>${P.label} build</h2><div class="arch" id="ca">${P.arch.map(([n,a],i)=>`<button data-a="${i}" class="${i===st.arch?'on':''}"><b>${n} · ${ovrOf(st.pos,a)} OVR</b><span>${P.attrs.map(([k,l])=>`${l} ${a[k]}`).join(' · ')}</span></button>`).join('')}</div>
-   <h2>Team</h2><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Let the league decide</b><span>Enter the draft</span><u>?</u></button>
+   <h2>Into the league</h2><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Enter the draft</b><span>Work out at the combine first</span><u>›</u></button>
+   <p class="note" style="grid-column:1/3;margin:2px 0">Or walk on with a team: no draft, no signing bonus, and you start in the rotation.</p>
    ${TEAMS.map((t,i)=>`<button class="tm ${i===st.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`).join('')}</div>
    <button class="go" id="cgo">Start career</button></div>`;
       const keep = () => {
@@ -313,31 +323,123 @@
       });
       $('#cgo').onclick = () => {
         keep();
-        const P2 = POS[st.pos], [an, aa] = P2.arch[st.arch];
-        let tm = st.team;
-        const drafted = tm < 0;
-        if (drafted) {
-          const w = TEAMS.map(t => 96 - t.ovr);
-          let r = rnd(w.reduce((a, b) => a + b, 0));
-          tm = 0;
-          for (let i = 0; i < w.length; i++) {
-            r -= w[i];
-            if (r <= 0) {
-              tm = i;
-              break;
-            }
-          }
+        const [an, aa] = POS[st.pos].arch[st.arch], num = clamp(parseInt(st.num, 10) || Math.floor(rnd(1, 99)), 0, 99);
+        C = { v: 1, name: st.name.trim() || 'Rookie', num, pos: st.pos, arch: an, attrs: { ...aa }, team: Math.max(0, st.team), xp: 0, xpTotal: 0, season: 1, rings: 0, ql: 180, career: ZERO(), trust: 50 };
+        PG.snd('whistle');
+        if (st.team < 0) {
+          C.pre = {};  // at the combine: nothing is saved until the draft
+          return showCombine();
         }
-        const num = clamp(parseInt(st.num, 10) || Math.floor(rnd(1, 99)), 0, 99);
-        C = { v: 1, name: st.name.trim() || 'Rookie', num, pos: st.pos, arch: an, attrs: { ...aa }, team: tm, xp: 0, xpTotal: 0, season: 1, rings: 0, ql: 180, career: ZERO() };
         initSeason();
         persist();
-        PG.snd('whistle');
         showHub('up');
-        if (drafted) PG.banner('Drafted', `${full(tm)} select ${esc(C.name)}`, 2600);
-      }
+        PG.banner('Signed', `${esc(C.name)} walks on with the ${full(C.team)}`, 2600);
+      };
     };
     draw();
+  }
+
+  /* ---------- the combine and the draft ----------
+     Two workouts set a draft grade. A high pick goes to a weak team with a big bonus and the coach's trust;
+     a late pick lands on a strong team and has to earn his snaps. */
+  function showCombine() {
+    const pre = C.pre, on = (id, f) => {
+      const el = $('#' + id);
+      if (el) el.onclick = f;
+    };
+    scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button><h1 class="sm">The <em>combine</em></h1>
+  <p class="tag">Two workouts in front of every team. The better you do, the earlier you are drafted: a bigger signing bonus, and a coach who trusts you from day one.</p>
+  <div class="nx"><small>Workout 1</small><h4>40-yard dash</h4><p>${pre.dash?`${pre.dash.time.toFixed(2)} seconds · grade ${pre.dash.grade}`:'Tap as fast as you can.'}</p>${pre.dash?'':'<button class="go sm" id="d1">Run the dash</button>'}</div>
+  <div class="nx"><small>Workout 2</small><h4>${POS[C.pos].label} drills</h4><p>${pre.work?`${line(pre.work.m)} · grade ${pre.work.grade}`:'Five live reps at your position.'}</p>${pre.dash&&!pre.work?'<button class="go sm" id="d2">Start the drills</button>':''}</div>
+  ${pre.dash&&pre.work?'<button class="go" id="d3">Go to the draft</button>':'<div class="stack"><button class="btn2" id="skip">Skip the combine</button></div>'}</div>`;
+    $('#bk').onclick = PG.showMenu;
+    on('d1', showDash);
+    on('d2', workout);
+    on('d3', () => draft(Math.round(pre.dash.grade * 0.4 + pre.work.grade * 0.6)));
+    on('skip', () => draft(Math.round(rnd(58, 78))));
+  }
+
+  /* The dash is a tapping race: every tap is a stride, speed bleeds away between taps, and your Speed rating sets the ceiling. */
+  function showDash() {
+    const vmax = 9.6 + (C.attrs.spd - 60) * 0.06;
+    let x = 0, v = 0, t0 = 0, last = 0, timer = 0, done = false;
+    scr.innerHTML = `<div class="menu solid"><h1 class="sm">40-yard <em>dash</em></h1><p class="tag">Tap the button as fast as you can. The clock starts on your first tap.</p>
+  <div class="dash"><div class="lane"><i id="dr"></i></div><b id="dt">0.00</b><span id="dy">0 of 40 yards</span></div>
+  <button class="go" id="tap" data-quiet style="height:112px;font-size:19px">Tap!</button></div>`;
+    const finish = time => {
+      done = true;
+      clearInterval(timer);
+      removeEventListener('keydown', onKey);
+      const best = 40 / vmax + 0.45, grade = clamp(Math.round(100 - (time - best) * 60), 35, 100);  // graded against the best this player could run
+      C.pre.dash = { time, grade };
+      if (grade >= 90) C.attrs.spd = Math.min(99, C.attrs.spd + 1);  // a great time is worth a point of speed
+      PG.snd('whistle');
+      showCombine();
+      PG.banner(time.toFixed(2) + ' seconds', grade >= 90 ? 'The scouts are writing. Speed +1' : grade >= 70 ? 'A solid time' : 'A slow one', 2200);
+    };
+    const tick = () => {
+      const now = performance.now(), dt = Math.min(0.25, (now - last) / 1000), t = (now - t0) / 1000;
+      last = now;
+      v *= Math.exp(-0.9 * dt);
+      x += v * dt;
+      $('#dr').style.width = Math.min(100, x / 40 * 100) + '%';
+      $('#dt').textContent = t.toFixed(2);
+      $('#dy').textContent = Math.min(40, Math.floor(x)) + ' of 40 yards';
+      if (x >= 40 || t > 12) finish(Math.min(t, 12));
+    };
+    const tap = () => {
+      if (done) return;
+      if (!t0) {
+        t0 = last = performance.now();
+        timer = setInterval(tick, 16);
+      }
+      v = Math.min(vmax, v + 1.35);
+      PG.snd('tick');
+    };
+    const onKey = e => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        tap();
+      }
+    };
+    $('#tap').addEventListener('pointerdown', e => {
+      e.preventDefault();
+      tap();
+    });
+    addEventListener('keydown', onKey);
+  }
+
+  /* five live reps with a neutral squad; what you produce is the grade */
+  function workout() {
+    PG.snd('whistle');
+    PG.startGame({ a: C.team, b: (C.team + 3) % TEAMS.length, ql: 180, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [80, 77], diff: 1, drill: 5, env: { time: 'day', weather: 'clear' }, line: chip,
+      onEnd: r => {
+        const m = r.my, stat = xpFor(m, false).filter(([l]) => l !== 'Game played').reduce((t, [, v]) => t + v, 0);
+        C.pre.work = { m: { ...m }, grade: clamp(Math.round(40 + stat / WORK_TARGET[C.pos] * 45), 35, 100) };
+        PG.toMenu();
+        showCombine();
+      },
+      onQuit: () => showCombine() });
+  }
+
+  function draft(grade) {
+    const order = TEAMS.map((_, i) => i).sort((a, b) => TEAMS[a].ovr - TEAMS[b].ovr);  // the weakest team picks first
+    const pick = clamp(1 + Math.floor((100 - grade) / 9), 1, 8), tm = order[pick - 1], bonus = PICK_XP[pick - 1], pre = C.pre || {};
+    delete C.pre;
+    Object.assign(C, { team: tm, trust: PICK_TRUST[pick - 1], pick, xp: C.xp + bonus, xpTotal: C.xpTotal + bonus });
+    initSeason();
+    checkTrophies();
+    persist();
+    const others = ['QB', 'RB', 'WR', 'LB', 'CB', 'OT', 'DE', 'S'], any = a => a[Math.floor(Math.random() * a.length)];
+    const opens = { Starter: 'you start from day one', Rotation: 'you open in the rotation', Backup: 'you open as a backup' }[roleOf()[1]];
+    scr.innerHTML = `<div class="menu solid"><h1 class="sm">The <em>draft</em></h1>
+  <p class="tag">${pre.dash?`Dash ${pre.dash.time.toFixed(2)} s, grade ${pre.dash.grade}${pre.work?` · drills grade ${pre.work.grade}`:''} · `:''}Draft grade ${grade}</p>
+  <table class="lg">${order.map((ti,n)=>n===pick-1?`<tr class="me"><td>${n+1}. ${full(ti)}</td><td>${esc(C.name)}, ${C.pos}</td></tr>`:`<tr><td>${n+1}. ${full(ti)}</td><td>${any(PG.NAMES)}, ${any(others)}</td></tr>`).join('')}</table>
+  <div class="nx"><small>Pick ${pick} of 8</small><h4>${full(tm)}</h4><p>Signing bonus +${fmt(bonus)} XP · Coach trust ${C.trust}: ${opens}.</p></div>
+  <button class="go" id="camp">Report to camp</button></div>`;
+    $('#camp').onclick = () => showHub('up');
+    PG.snd('fanfare');
+    if (PG.audio) PG.audio.say(`With pick number ${pick}, the ${full(tm)} select ${C.name}, ${POS[C.pos].label.toLowerCase()}.`, true);
   }
 
   /* ---------- hub ---------- */
@@ -357,6 +459,12 @@
   }
 
   const pracKey = () => C.season + '-' + C.week + '-' + C.phase;
+
+  function trustHtml() {
+    const [, role, sh] = roleOf(), up = ROLES[ROLES.findIndex(r => r[1] === role) - 1];
+    return `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
+      + (up ? `<p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.${C.phase==='reg'&&C.tradeSeason!==C.season?' <button class="lnk" id="trade">Ask for a trade</button>':''}</p>` : '');
+  }
 
   function tabUp() {
     const P = POS[C.pos];
@@ -427,6 +535,7 @@
     $('#bk').onclick = () => showHub('season');
     scr.querySelectorAll('.tm').forEach(b => b.onclick = () => {
       const i = +b.dataset.i, moved = i !== C.team;
+      if (moved) C.trust = clamp(Math.round(58 + (ovr() - C.ovrs[i]) * 1.5), 30, 85);  // a new coach: how you rate against his team decides where you start
       C.team = i;
       C.season++;
       initSeason();
@@ -443,6 +552,7 @@
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc" style="--c:${t.c1}"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="xp"><span>To spend</span><b>${fmt(C.xp)} XP</b></div>
+  ${trustHtml()}
   ${nextCard()}
   <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
   ${tab==='up'?tabUp():tab==='season'?tabSeason():tabStats()}
@@ -496,6 +606,16 @@
       };
       const fa = $('#fa');
       if (fa) fa.onclick = showFreeAgency;
+      const tr = $('#trade');
+      if (tr) tr.onclick = () => {
+        // the weakest team in the league always has room for a starter
+        const to = TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => C.ovrs[a] - C.ovrs[b])[0];
+        Object.assign(C, { team: to, trust: 66, tradeSeason: C.season });
+        pickGoals();
+        persist();
+        showHub('up');
+        PG.banner('Traded', `${esc(C.name)} goes to the ${full(to)}`, 2600);
+      };
       $('#ret').onclick = showRetire;
     };
     draw();
@@ -512,7 +632,7 @@
   function play() {
     const opp = nextOpp();
     PG.snd('whistle');
-    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: 1,
+    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: 1, share: share(),
       mustWin: C.phase !== 'reg', env: PG.envFor(C.season, C.week + (C.phase === 'reg' ? 0 : C.phase === 'semi' ? 8 : 9), C.phase !== 'reg' || C.week >= 5), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
@@ -527,11 +647,12 @@
         const xp = items.reduce((t, [, v]) => t + v, 0);
         C.xp += xp;
         C.xpTotal += xp;
+        C.trust = clamp(C.trust + 3, 5, 100);  // the coach notices who shows up
         C.prac = pracKey();
         persist();
         scr.innerHTML = `<div class="sheet"><div class="shd"><b>Practice done</b><span>${line(m)}</span></div>
     <ul class="gl">${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}<li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
-    <button class="go" id="rc">Continue</button></div>`;
+    <p class="note">Coach trust +3 (now ${C.trust}).</p><button class="go" id="rc">Continue</button></div>`;
         $('#rc').onclick = () => {
           PG.toMenu();
           showHub('up');
@@ -558,6 +679,11 @@
     C.career.g++;
     C.xp += xp;
     C.xpTotal += xp;
+    /* the coach's view of that game: a B is neutral, better earns trust, worse costs it */
+    const role0 = roleOf()[1], t0 = C.trust;
+    C.trust = clamp(Math.round(C.trust + (pts - 4.5) * 3 + (won ? 1 : 0)), 5, 100);
+    const role1 = roleOf()[1], dTrust = C.trust - t0;
+    const moved = role1 === role0 ? '' : ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) ? ` The coach moves you up: ${role1.toLowerCase()}.` : ` The coach moves you down: ${role1.toLowerCase()}.`;
     const wk = LG.short(C);
     C.log.push({ wk, opp, us, them, res, line: line(m), grade, pts, met });
     C.news = headline(m, won, us, them, opp);
@@ -574,7 +700,7 @@
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
-  ${r.potgHtml || ''}${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
+  ${r.potgHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">Continue</button></div>`;
     $('#rc').onclick = () => {
       PG.toMenu();
@@ -586,10 +712,10 @@
   PG.career = {
     open() {
       PG.toMenu();
-      C ? showHub('up') : showCreate();
+      C ? (C.pre ? showCombine() : showHub('up')) : showCreate();
     },
     summary() {
-      if (!C) return null;
+      if (!C || C.pre) return null;
       const ph = C.phase === 'reg' ? `week ${C.week+1}` : C.phase === 'semi' ? 'semifinal' : C.phase === 'final' ? 'championship game' : 'offseason';
       return `Continue: ${esc(C.name)} · ${C.pos} · ${ovr()} OVR · ${TEAMS[C.team].name}, season ${C.season}, ${ph}`;
     },

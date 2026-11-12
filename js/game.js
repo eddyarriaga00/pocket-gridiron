@@ -104,6 +104,7 @@
 
   function setBall(t, y, x) {
     y = clamp(y, 1, 99);
+    if (t !== G.poss) G.possN = (G.possN || 0) + 1;  // a new possession
     G.poss = t;
     G.los = y;
     G.bx = hash(x);
@@ -137,7 +138,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, introT: 0, to: [3, 3], runoff: 0, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
@@ -1537,6 +1538,14 @@
     }
     if (G.lock) {
       if ((G.lockSide === 'off') !== (G.poss === 0)) return simDrives();
+      if (G.share < 1 && !G.drill) {
+        // not the starter: the coach decides drive by drive whether you go in
+        if (G.benchN !== G.possN) {
+          G.benchN = G.possN;
+          G.sit = rnd() > G.share;
+        }
+        if (G.sit) return simDrives(true);
+      }
       G.op = cpuOff(G.poss);
       G.dp = cpuDef();
       if (G.lock === 'QB' && G.op.cat !== 'special') return showCall('qb');
@@ -1735,12 +1744,14 @@
   }
 
   /* Career: play the snaps the user's unit is not on the field for, headless, until their unit is back on. */
-  function simDrives() {
-    const was = AUTO, t = G.poss, s0 = G.score.slice();
+  /* Plays out drives nobody is controlling: the other unit's, or (own = true) one drive of your own unit that the
+     coach has you watching from the sideline. */
+  function simDrives(own) {
+    const was = AUTO, t = G.poss, s0 = G.score.slice(), n0 = G.possN;
     let plays = 0, over = false, guard = 0;
     AUTO = true;
     QUIET = true;
-    while (!over && guard++ < 300 && (G.lockSide === 'off') !== (G.poss === 0)) {
+    while (!over && guard++ < 300 && (own ? G.possN === n0 : (G.lockSide === 'off') !== (G.poss === 0))) {
       if (G.poss === t) plays++;
       G.op = cpuOff(G.poss);
       G.dp = cpuDef();
@@ -1786,7 +1797,7 @@
     }
     G.state = 'dead';
     G.deadT = 2.3;
-    banner(big, sub, 2100);
+    banner(big, own ? 'You watched this one from the sideline' : sub, 2100);
     updHud();
     if (pts >= 6 && mine) {
       confetti(0);

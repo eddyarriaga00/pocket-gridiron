@@ -153,6 +153,16 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .potg small{display:block;color:var(--acc);font-family:var(--display);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .potg b{display:block;font-family:var(--display);font-size:13.5px;font-weight:800;margin-top:2px}
 .potg span{display:block;color:var(--mute);font-size:11.5px;margin-top:1px}
+.trust{margin:8px 2px 0;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-family:var(--display);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.trust b{color:var(--ink);font-size:13px}
+.trust .bar{grid-column:1/3;height:5px;border-radius:3px;background:var(--panel3);overflow:hidden}
+.trust .bar i{display:block;height:100%;background:var(--acc)}
+.lnk{background:none;border:0;padding:0;color:var(--acc);font:inherit;text-decoration:underline}
+.dash{margin:28px 2px 26px;text-align:center}
+.dash .lane{height:14px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.dash .lane i{display:block;height:100%;width:0;background:var(--acc)}
+.dash b{display:block;margin-top:20px;font-family:var(--display);font-size:56px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.dash span{color:var(--mute);font-size:12px}
 .fin{text-align:center}
 .fin .sc{font-family:var(--display);font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
 table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;font-variant-numeric:tabular-nums}

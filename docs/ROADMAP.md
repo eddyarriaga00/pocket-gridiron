@@ -109,7 +109,9 @@ what is next. Update it after every item.
 - [x] Game grades (F to A+), a headline after each game, season honors (All-League, League MVP) with XP bonuses
 - [x] Live stat chip under the scorebug; goals with check marks in the pause menu
 - [x] The computer quarterback tests the receiver a user cornerback is covering more often
-- [ ] Combine and draft opening, earning the starting job, contract and trade requests, coach trust
+- [x] Combine (a tapping 40-yard dash and five position reps), a draft whose pick sets team, bonus and coach trust; roles
+      (starter, rotation, backup) that decide how many drives you play; trust moves with game grades and practice; trade requests.
+      Contracts are not modelled
 
 ### 8. UX
 - [x] First-time tips for each control context (shown twice each, reset in Settings)
@@ -232,6 +234,13 @@ what is next. Update it after every item.
   Seeded computer games: 3.4 timeouts used a game, a flag on 2% of snaps. `H.sim(16,180)`: 4.5 ypc, 57% completions, 33 pts,
   no errors. `H.fingerprint()` re-baselined (the flag roll changes the random sequence on purpose).
 
+- 07:43 Career opening and coach trust. New career flow: create, combine, draft, hub (or walk on with a team and skip the draft).
+  `C.trust` 0 to 100: 60 starts, 35 rotates (about 6 drives in 10), below that backup (about 4 in 10). The engine takes
+  `share` and sits the player for whole drives (`simDrives(true)`). Goals and grades scale with the share so a part-timer is
+  judged fairly. Checked: a scripted rookie went dash, drills, draft (pick 4, trust 56, rotation) and into the hub; two-game
+  bot careers at all five positions and a two-season run finish with no errors; `H.fingerprint()` unchanged.
+  Not checked by a person: how the dash feels to tap, and whether trust rises at a fair pace for a real player.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -241,6 +250,6 @@ what is next. Update it after every item.
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.
 - Play on a real phone: touch feel, frame rate with shadows and the glow pass on, button reach with five buttons on the pad.
 - More penalties (holding, pass interference); a real loose-ball scramble instead of an instant recovery.
-- Career: combine and draft opening, earning the starting job, coach trust, contracts.
+- Career: contracts and salary, rivalries, a coach who talks to you between games.
 - Run cycle with foot planting; tackle animations that involve both players.
 - Achievements outside Career.

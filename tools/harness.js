@@ -42,13 +42,15 @@ window.H = (() => {
     }
   }
 
+  /* plays until the game is over, or until it has gone back to the menu (the combine workout does that by itself) */
   function run(max) {
+    const going = () => d().G.state !== 'over' && d().G.state !== 'menu';
     let n = 0;
-    while (d().G.state !== 'over' && n++ < (max || 400000)) {
+    while (going() && n++ < (max || 400000)) {
       bot();
       d().step(0.02);
     }
-    if (d().G.state !== 'over') throw new Error('game did not finish');
+    if (going()) throw new Error('game did not finish');
   }
 
   return {

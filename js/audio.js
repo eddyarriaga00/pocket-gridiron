@@ -484,7 +484,7 @@
   /* interface clicks: every menu button ticks, primary buttons confirm */
   document.addEventListener('click', e => {
     const b = e.target && e.target.closest && e.target.closest('button');
-    if (!b || b.classList.contains('pb')) return;
+    if (!b || b.classList.contains('pb') || b.dataset.quiet !== undefined) return;
     play(b.classList.contains('go') ? 'ok' : 'tick');
   }, true);
 

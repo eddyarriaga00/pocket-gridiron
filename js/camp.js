@@ -9,7 +9,7 @@
   const yds = n => `${n} yard${n === 1 ? '' : 's'}`;
   const gainTxt = g => g > 0 ? yds(g) : g === 0 ? 'no gain' : 'loss of ' + -g;
   const count = (r, f) => r.filter(f).length, sum = (r, f) => r.reduce((t, x) => t + f(x), 0);
-  const starsHtml = n => `<i class="stars" role="img" aria-label="${n} of 3 stars"><u>${'★'.repeat(n)}</u>${'★'.repeat(3 - n)}</i>`;
+  const starsHtml = n => `<i class="stars" role="img" aria-label="${n} of 3 stars"><u>${'★'.repeat(n)}</u>${'☆'.repeat(3 - n)}</i>`;
 
   /* script: one entry per rep. p is the offensive play, say is the coaching card shown before the snap, h its heading.
      dcall: the defense for every rep (left out, the computer picks as it would in a game).
@@ -48,7 +48,7 @@
   function open() {
     PG.toMenu();
     const n = totalStars();
-    scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Training camp</h1>
+    scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Training camp</h1>
   <p class="tag">Three short drills, five plays each. Earn up to three stars in every one.</p>
   ${DRILLS.map(d=>`<button class="mode" data-d="${d.id}"><b>${d.name}</b><span>${d.what}</span>${starsHtml(bestStars(d))}</button>`).join('')}
   <p class="note">${n===9?'Nine stars out of nine. You are ready for anything.':n?`${n} of 9 stars so far.`:'Nothing here counts against you. Repeat a drill as often as you like.'}</p></div>`;
@@ -59,7 +59,7 @@
   /* what the drill asks for, before it starts */
   function card(d) {
     const b = S.best[d.id];
-    scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Training camp</button><h1 class="sm">${d.name}</h1><p class="tag">${d.what}</p>
+    scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Training camp</button><h1 class="sm">${d.name}</h1><p class="tag">${d.what}</p>
   <h2>How</h2><ul class="how">${d.how.map(t=>`<li>${t}</li>`).join('')}</ul>
   <h2>Stars</h2><ul class="gl">${d.marks.map((m,i)=>`<li><span>${starsHtml(i+1)}</span><b>${d.markTxt(m)}</b></li>`).join('')}</ul>
   ${b?`<p class="note">Your best: ${b.text}.</p>`:''}<button class="go" id="go">Start drill</button></div>`;

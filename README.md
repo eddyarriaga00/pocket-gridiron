@@ -34,6 +34,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
 - Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
+- Every control has a touch area of at least 44 by 44 pixels, however small it is drawn, and the layout is checked from
+  320-pixel phones up to a desktop window. A phone held sideways is asked to turn upright.
 
 ## Controls
 
@@ -103,6 +105,12 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 - `PG.dbg.seed(n)` makes any run repeatable; `PG.audio.spoken` lists what the announcer has said.
 - `await PG.audio.report()` renders every sound off line and gives its peak, loudness and spectrum;
   `PG.audio.meter` reads the level of what is playing now.
+
+`tools/audit.js` is the interface audit. Load it the same way after the harness, then run
+`await A.menus(); A.play('exh'); A.play('career'); A.play('camp'); A.report()` at a phone size such as 320 by 568.
+It walks every screen and a scripted game and lists touch areas under 44 pixels, overlapping controls, clipped or cut
+text, type under 10 pixels, contrast under 4.5 to 1 (measured against the picture really behind the text) and blocks
+of the in-game display that overlap. An empty report is the standard.
 
 `node tools/fmt.js <files>` is the house formatter. `node --expose-internals tools/astcheck.js before.js after.js`
 proves a reformat did not change the program.

@@ -78,15 +78,15 @@
       $('#bk').onclick = PG.showMenu;
       scr.querySelectorAll('#st button').forEach(b => b.onclick = () => {
         st.team = +b.dataset.i;
-        draw();
+        PG.keepScroll(draw);
       });
       scr.querySelectorAll('#sd button').forEach(b => b.onclick = () => {
         st.diff = +b.dataset.d;
-        draw();
+        PG.keepScroll(draw);
       });
       scr.querySelectorAll('#sq button').forEach(b => b.onclick = () => {
         st.ql = +b.dataset.q;
-        draw();
+        PG.keepScroll(draw);
       });
       $('#sgo').onclick = () => {
         S = { v: 1, team: st.team, diff: st.diff, ql: st.ql, year: 1, titles: 0, log: [], stats: ZERO() };
@@ -166,7 +166,7 @@
       scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
         tab = b.dataset.t;
         sure = false;
-        draw();
+        PG.keepScroll(draw);
       });
       const pl = $('#play');
       if (pl) pl.onclick = play;
@@ -183,7 +183,7 @@
       $('#ret').onclick = () => {
         if (!sure) {
           sure = true;
-          draw();
+          PG.keepScroll(draw);
           return;
         }
         S = null;

@@ -22,7 +22,8 @@ window.H = (() => {
   function bot() {
     const G = d().G, ps = d().ps;
     if (throwKey) {
-      if (!G.chg || G.chg.t >= 0.3 || G.state !== 'live') {  // also let go when the play dies under him, or the key would be held for ever
+      if (!G.chg || G.chg.t >= 0.3 || G.state !== 'live') {
+        // also let go when the play dies under him, or the key would be held for ever
         dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1', key: throwKey }));
         throwKey = null;
       }
@@ -256,6 +257,16 @@ window.H = (() => {
     /* A repeatable run: seeded simulations and one traced game. The string must be identical before and after any
        change that is not supposed to alter behaviour (formatting, moving code between files). It erases the test career. */
     fingerprint() {
+      /* the weather and the penalty switch saved in Settings change how a game plays, so the run pins them and puts them back */
+      const keep = { tod: PG.SET.tod, wx: PG.SET.wx, pen: PG.SET.pen };
+      Object.assign(PG.SET, { tod: 'night', wx: 'clear', pen: true });
+      try {
+        return this.fingerprint0();
+      } finally {
+        Object.assign(PG.SET, keep);
+      }
+    },
+    fingerprint0() {
       PG.dbg.seed(20261112);
       const sim = this.sim(4, 120);
       PG.dbg.seed(777);

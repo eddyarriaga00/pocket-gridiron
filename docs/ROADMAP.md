@@ -16,7 +16,11 @@ what is next. Update it after every item.
 - **After each item:** test, `python3 tools/bundle.py`, commit, `git push origin main`, republish
   `pocket-gridiron.html` to the existing artifact (https://claude.ai/artifact/6N1EjYsyKa7uDekXEQTQey),
   then tick the item below and add a line to the log.
-- **No questions.** The owner is asleep. Decide, note the decision in the log, keep going.
+- **No questions during automatic runs.** Decide, note the decision in the log, keep going.
+- **What the automatic loop is for** (the owner, 14:10 on 2026-11-12: "yes automatic improvement loop yes but make
+  major improvements or if not just work on improving ui more and more"): each run takes the biggest improvement it
+  can finish and verify from "Next ideas" at the bottom of this file; when none fits, it refines the interface and
+  runs the interface audit. Sound should keep moving toward "sounds like football" (the owner's words).
 - **Taste (stated by the owner):** no yellow or gold anywhere; no condensed italic display type (Archivo,
   upright, is the display face); small controls (54px actions, 70px snap, 50px receiver buttons).
 - **Original game.** No real league, team, player or video game names, logos or likenesses.
@@ -38,12 +42,20 @@ what is next. Update it after every item.
    - `H.sim(12,180)` computer vs computer. Healthy ranges: about 4 yards per carry, completions 53-62%,
      interceptions 1-3%, about 25-35 points per game combined, `errs` empty.
    - `H.exh(2,120)` scripted user in exhibition (exercises play calling, kicks, kickoffs). `errs` empty.
-   - `H.career('QB',2)`, and RB, WR, LB, CB. `errs` empty, stats non-zero.
+   - `H.career('QB',2)` and `H.career('WR',2)` (a new career is a quarterback or a receiver). `errs` empty, stats non-zero.
+   - `H.fingerprint()` must equal `localStorage['pg.fingerprint']` after any change that should not alter play. It pins
+     the weather and the penalty switch itself, so what is saved in Settings cannot disturb it.
    - `H.camp('pass',4)`, and 'run', 'tackle': a training-camp drill played by a simple test player. `errs` empty.
    - `await H.fps(3)` with the pane visible, during a live play. Target 55+ in the pane.
 4. Screenshot the menu, a pre-snap view, a live play, the career hub. Synchronous stepping does not repaint,
    so wait a second before a screenshot.
 5. Console: no errors.
+6. Interface audit, after any change to the stylesheet or to a screen. Load `tools/audit.js` the same way as the
+   harness, then at 320x568 and 390x844 at least (the first is the tightest phone):
+   `await A.menus(); A.play('exh'); A.play('season'); A.play('career'); A.play('camp'); A.report()`.
+   The report must be empty. It lists touch areas under 44 pixels, overlapping or covered controls, clipped or cut
+   text, type under 10 pixels, contrast under 4.5 to 1 (measured against the picture really behind the text, read back
+   from the canvases) and blocks of the in-game display that overlap. `A.menus()` replaces the test season and career.
 
 ## Architecture
 
@@ -433,6 +445,19 @@ what is next. Update it after every item.
   render came out 91% below 200 Hz. A live run played every one of them without an error; with the horn, the fanfare,
   the cannon and a full cheer at once the output peaked at -3 dB. The band rests at least 16 seconds between pieces.
 
+- 14:42 Bug test and interface pass. Looked up the numbers first: Apple's guidelines ask for 44 by 44 point touch
+  areas, Material for 48 dp, WCAG 2.2 sets a 24 pixel floor (AA) and 44 as the enhanced level; text contrast 4.5 to 1
+  (3 to 1 for large type); safe-area insets need `viewport-fit=cover` (already set). `tools/audit.js` measures all of
+  that on the live page. Found by it, on a 320x568 phone: the play tag and the coaching card ran under the thumb
+  buttons; "Punt return" was cut off; the kick caption was white on snow (1.1 to 1); the tagline and the how-to-play
+  text sat over the moon at 1.6 to 2.9 to 1; locked trophies were at 2.1 to 1; nine kinds of control were under 44
+  pixels (the trade link was 17 high); eleven labels were under 10 pixels. Found by hand while testing: Settings and the
+  Career and Season hubs jumped back to the top on every tap (measured: scroll 465 to 0; now 190 to 190), and How to
+  play still said "tap a letter for a bullet pass", which the power bar replaced. `H.fingerprint()` unchanged;
+  exhibition, quarterback and receiver careers, a full receiver season and all three drills ran clean; no console
+  errors. One trap for later runs: the seeded run used to read the weather from Settings, so a test that leaves snow
+  switched on made it look like a regression. It pins the weather itself now.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -543,13 +568,33 @@ what is next. Update it after every item.
       every kickoff, a band in the stands between plays (a drum cadence, the "Charge!" bugle call with the crowd's
       answer, a phrase of the fight song), a "LET'S GO!" chant with its claps, and a cannon with fireworks on home
       touchdowns. Still to be judged by ear
-- [ ] Bug test every screen and mode; research interface guidelines; fix what turns up
-- [ ] The automatic loop back on, briefed with "major improvements, otherwise the interface"
+- [x] Bug test every screen and mode; research interface guidelines; fix what turns up. `tools/audit.js` now walks
+      every menu screen and a scripted game in each mode and measures them (see "How to test", step 6). The first run
+      on the smallest phone listed 65 problems; after the fixes it lists none at 320, 360, 390, 430, 768 and 1280
+      wide, in both graphics modes, left-handed, and in day snow. What changed:
+      the bottom of the game screen is one grid (kick meter or power bar, tips beside the thumb pad, the play tag
+      along the bottom edge), so nothing there can overlap; every control has a touch area of at least 44 by 44
+      pixels without being drawn any bigger; no type under 10 pixels; the menu scrim is thin only behind the title and
+      heavier on reading screens; locked trophies and milestones are readable; redrawing a screen keeps its scroll
+      position (changing a setting or a hub tab used to throw the page back to the top); the trade request is a button
+      with a second tap to confirm; a phone held sideways gets a "turn your phone upright" notice and the game pauses
+- [x] The automatic loop back on, briefed with "major improvements, otherwise the interface"
 
-### Next ideas (nothing here is started)
-- Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.
-- Play on a real phone: touch feel, frame rate with shadows and the glow pass on, button reach with five buttons on the pad.
-- More penalties (holding, pass interference); a real loose-ball scramble instead of an instant recovery.
-- Career: contracts and salary, rivalries, a coach who talks to you between games.
-- Run cycle with foot planting; tackle animations that involve both players.
-- Achievements outside Career.
+### Next ideas (nothing here is started; the automatic loop works from the top)
+Major improvements, biggest first:
+- Sound that says football even more: the referee announcing penalties and first downs over the stadium speakers, a
+  crowd that counts down the play clock and gets loud on third down when the visitors have the ball, pads popping
+  louder with the speed of the hit, a marching-band break at halftime. Nobody has listened yet: keep measuring.
+- Motion: a run cycle with planted feet, tackles that involve both players (wrap and drive), a quarterback throwing
+  motion that follows the power bar, touchdown celebrations.
+- A real loose-ball scramble instead of an instant recovery; a pile.
+- A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
+- Career: an awards night at the end of the season, age and decline over a long career, a hall of fame screen that
+  keeps retired players, a rival who talks back.
+- Presentation: a drive summary after each score, a halftime stat screen with leaders, replays from a second angle.
+Interface, when no major item fits in a run:
+- Run `tools/audit.js` after every change and keep its report empty.
+- A person on a real phone still has to judge touch feel, the frame rate with close-up models, and the sound.
+- The on-field receiver letters and the drag ring are drawn on the canvas, so the audit cannot see them: check their
+  size and contrast by hand in day, dusk, night, rain and snow.
+- Settings could show what each graphics option costs; the play-call sheet could remember the last tab per down.

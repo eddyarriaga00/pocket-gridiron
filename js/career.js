@@ -365,17 +365,17 @@
         keep();
         st.pos = b.dataset.p;
         st.arch = 0;
-        draw();
+        keepScroll(draw);
       });
       scr.querySelectorAll('#ca button').forEach(b => b.onclick = () => {
         keep();
         st.arch = +b.dataset.a;
-        draw();
+        keepScroll(draw);
       });
       scr.querySelectorAll('#ct button').forEach(b => b.onclick = () => {
         keep();
         st.team = +b.dataset.i;
-        draw();
+        keepScroll(draw);
       });
       $('#cgo').onclick = () => {
         keep();
@@ -549,7 +549,7 @@
   function trustHtml() {
     const [, role, sh] = roleOf(), up = ROLES[ROLES.findIndex(r => r[1] === role) - 1];
     return (C.coach ? `<p class="coach"><small>Coach</small>${esc(C.coach)}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
-      + (up ? `<p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.${C.phase==='reg'&&C.tradeSeason!==C.season?' <button class="lnk" id="trade">Ask for a trade</button>':''}</p>` : '');
+      + (up ? `<p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.</p>` : '');
   }
 
   function tabUp() {
@@ -665,9 +665,14 @@
     return url ? `<img class="kit" src="${url}" alt="">` : '';
   }
 
+  /* A player who is not starting may ask out once a season: the weakest other team always has room for a starter. */
+  const canTrade = () => roleOf()[1] !== 'Starter' && C.phase === 'reg' && C.tradeSeason !== C.season;
+  const tradeTo = () => TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => C.ovrs[a] - C.ovrs[b])[0];
+
   function showHub(tab) {
     tab = tab || 'up';
     const t = team(C.team);
+    let sure = false;  // the trade button has been tapped once
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
@@ -680,11 +685,13 @@
   <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
   <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
-  <div class="stack"><button class="btn2 warn" id="ret">Retire</button></div></div>`;
+  <div class="stack">${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
+  ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}</div>`;
       $('#bk').onclick = PG.showMenu;
       scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
         tab = b.dataset.t;
-        draw();
+        sure = false;
+        keepScroll(draw);
       });
       scr.querySelectorAll('.at button').forEach(b => b.onclick = () => {
         const k = b.dataset.k, c = cost(C.attrs[k]), s0 = slots();
@@ -736,8 +743,11 @@
       if (fa) fa.onclick = showFreeAgency;
       const tr = $('#trade');
       if (tr) tr.onclick = () => {
-        // the weakest team in the league always has room for a starter
-        const to = TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => C.ovrs[a] - C.ovrs[b])[0];
+        if (!sure) {
+          sure = true;
+          return keepScroll(draw);
+        }
+        const to = tradeTo();
         Object.assign(C, { team: to, trust: 66, tradeSeason: C.season, coach: 'New team, clean slate. You are starting for us: show me why we made the call.' });
         setRival();
         pickGoals();
@@ -750,12 +760,7 @@
     draw();
   }
 
-  function keepScroll(draw) {
-    const el = scr.querySelector('.menu'), y = el ? el.scrollTop : 0;
-    draw();
-    const n = scr.querySelector('.menu');
-    if (n) n.scrollTop = y;
-  }
+  const keepScroll = draw => PG.keepScroll(draw);  // redraw without losing the place on the page
 
   /* ---------- playing a game ---------- */
   function play() {

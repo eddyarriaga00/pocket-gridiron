@@ -13,13 +13,20 @@
   </div>
   <div class="sub"><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="dn"></div><div id="zm"><button id="zo" aria-label="Zoom out">−</button><button id="zi" aria-label="Zoom in">+</button></div></div>
   <div id="mine" hidden></div>
+  <div id="rp" hidden><i></i>Replay · tap to skip</div>
 </div>
 <div id="banner"></div><div id="toast"></div>
-<div id="meter" hidden><p id="mtxt"></p><div class="bar"><i id="ndl"></i></div></div>
-<div id="pw" hidden><span>Power</span><div class="trk"><i id="pwf"></i></div><b id="pwl"></b></div>
-<div id="rp" hidden><i></i>Replay · tap to skip</div>
-<div id="bl"><div id="tip" hidden></div><div id="brief" hidden></div><div id="ptype" hidden><b></b><span></span></div></div>
-<div id="pad"></div><div id="screen"></div><div id="ov" hidden></div>`;
+<div id="deck">
+  <div id="meter" hidden><p id="mtxt"></p><div class="bar"><i id="ndl"></i></div></div>
+  <div id="pw" hidden><span>Power</span><div class="trk"><i id="pwf"></i></div><b id="pwl"></b></div>
+  <div id="bl"><div id="tip" hidden></div><div id="brief" hidden></div></div>
+  <div id="pad"></div>
+  <div id="ptype" hidden><b></b><span></span></div>
+</div>
+<div id="screen"></div><div id="ov" hidden></div>`;
+
+  /* a phone on its side: the stylesheet shows this instead of a sliver of a game (small touch screens in landscape only) */
+  document.body.insertAdjacentHTML('beforeend', '<div id="turn" role="status"><i></i><b>Turn your phone upright</b><span>Pocket Gridiron is played in portrait.</span></div>');
   const cv = $('#c'), ctx = cv.getContext('2d'), pad = $('#pad'), scr = $('#screen');
   const FW = 53.33, PITCH = 48 * Math.PI / 180, CS = Math.cos(PITCH), SN = Math.sin(PITCH), PS = 1.6, CAMH = 19.3;
   let W = 1, H = 1, F = 1, CY = 1, DPR = 1, AUTO = false, QUIET = false, FDT = 0.016, SDT = 0.016, shake = 0;  // FDT: last frame time, SDT: current simulation step
@@ -675,6 +682,7 @@
     if (!canPass() || !ps.recs[i] || ps.recs[i].down) return;
     G.chg = { i, t: 0, pid: pid === undefined ? null : pid };
     G.pwShow = null;
+    $('#tip').hidden = true;  // the tip said "hold a letter": it makes way for the power bar
   }
 
   function endCharge(i) {
@@ -2109,7 +2117,7 @@
       if (G.poss === 0 && !AUTO && !G.lock) {
         G.state = 'kickm';
         G.meter = rnd(3);
-        $('#mtxt').textContent = fg ? `${d}-yard field goal · stop in the green` : 'Punt · stop in the green';
+        $('#mtxt').textContent = fg ? `${d} yards · stop in the green` : 'Punt · stop in the green';  // one line on the narrowest phone; the tag below names the kick
         return;
       }
       toast(fg ? `${d}-yard field goal attempt` : tname(G.poss) + ' punt');
@@ -2629,16 +2637,15 @@
   function tip(kind) {
     const el = $('#tip'), t = TIPS[kind];
     clearTimeout(tipT);
-    const coached = !!(G.drill && G.drill.script);
-    if (!t || AUTO || (!coached && SET.tips && SET.tips[kind] >= 2)) {
+    /* a tip shows the first two times its buttons come up; in a camp drill it shows once per drill, whatever has been
+       seen before, and after that the coaching card has the corner to itself */
+    const coached = !!(G.drill && G.drill.script), seen = coached ? G.drill.tips || (G.drill.tips = {}) : SET.tips || (SET.tips = {});
+    if (!t || AUTO || (seen[kind] || 0) >= (coached ? 1 : 2)) {
       el.hidden = true;
       return;
     }
-    if (!coached) {
-      SET.tips = SET.tips || {};
-      SET.tips[kind] = (SET.tips[kind] || 0) + 1;
-      save('pg.settings', SET);
-    }
+    seen[kind] = (seen[kind] || 0) + 1;
+    if (!coached) save('pg.settings', SET);
     el.textContent = t;
     el.hidden = false;
     tipT = setTimeout(() => {
@@ -2706,9 +2713,15 @@
       spr();
       B('Dive', '', () => act('dive'));
     }
-    /* three buttons side by side reach further across the screen: the tip box and the play card give them room */
+    fitPad();
+  }
+
+  /* The pad takes exactly the width of its widest row of buttons, and the tip box and the play card beside it get
+     everything that is left (the grid in the stylesheet does the sharing), so they cannot run under the buttons. */
+  function fitPad() {
+    pad.style.width = '';
     const bs = [...pad.children];
-    app.classList.toggle('pad3', bs.length > 2 && Math.max(...bs.map(b => b.offsetLeft + b.offsetWidth)) - Math.min(...bs.map(b => b.offsetLeft)) > 150);
+    if (bs.length) pad.style.width = Math.ceil(Math.max(...bs.map(b => b.offsetLeft + b.offsetWidth)) - Math.min(...bs.map(b => b.offsetLeft))) + 'px';
   }
 
   addEventListener('keydown', e => {
@@ -2928,11 +2941,11 @@
 
   function updHud() {
     if (!G.ros) return;
-    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my, G.drill) : '', k = [G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left, G.drill && G.drill.reps.length, G.to].join();
+    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my, G.drill) : '', k = [G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left, G.drill && G.drill.reps.length, G.to, G.state === 'over' || G.state === 'replay'].join();
     if (k === hudKey) return;
     hudKey = k;
     const mine = $('#mine');
-    mine.hidden = !ln;
+    mine.hidden = !ln || G.state === 'over' || G.state === 'replay';  // the result sheet and the replay badge take its place
     mine.textContent = ln;
     $('#s0').textContent = G.score[0];
     $('#s1').textContent = G.score[1];
@@ -2956,7 +2969,7 @@
     FX.length = 0;
     $('#hud').hidden = true;
     pad.innerHTML = '';
-    app.classList.remove('pad3');
+    pad.style.width = '';
     scr.innerHTML = '';
     setBrief('');
     $('#banner').classList.remove('on');
@@ -3041,6 +3054,12 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && G.ros && G.state !== 'over' && !AUTO && !window.PG_TEST) openPause();
   });  // PG_TEST: screenshots in the test pane hide the page
+
+  /* the game also stops when the "turn your phone" notice covers it */
+  const sideways = window.matchMedia ? matchMedia('(orientation:landscape) and (max-height:480px) and (pointer:coarse)') : null;
+  if (sideways && sideways.addEventListener) sideways.addEventListener('change', e => {
+    if (e.matches && G.ros && G.state !== 'over' && !AUTO) openPause();
+  });
 
   function drawArt(c, pl, def) {
     const x = c.getContext('2d'), w = c.width = 280, h = c.height = 200, sc = 7, ox = w / 2, oy = def ? h - 26 : h - 62, X = d => ox + d * sc, Y = d => oy - d * sc;
@@ -3216,7 +3235,7 @@
   function showSettings() {
     const chip = (id, label, val) => `<div class="opt"><span>${label}</span><button class="chip" id="${id}">${val}</button></div>`;
     const draw = () => {
-      scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Settings</h1>
+      scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Settings</h1>
   <h2>Look</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
   ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
@@ -3238,7 +3257,7 @@
         if (el) el.onclick = () => {
           f();
           save('pg.settings', SET);
-          draw();
+          keepScroll(draw);
         }
       };
       $('#bk').onclick = showMenu;
@@ -3246,7 +3265,7 @@
         SET.acc = b.dataset.a;
         save('pg.settings', SET);
         applyTheme();
-        draw();
+        keepScroll(draw);
       });
       on('sgf', () => {
         SET.gfx = R3 ? '2d' : '3d';
@@ -3311,12 +3330,12 @@
   }
 
   function showHow() {
-    scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
+    scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard, and beside it − and + zoom the camera out and in.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
-  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul></div>`;
+  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. Hold 1–5 to build throw power, let go to throw.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul></div>`;
     $('#bk').onclick = showMenu;
   }
 
@@ -3339,23 +3358,23 @@
         do {
           opp = (opp + d + TEAMS.length) % TEAMS.length;
         } while (opp === me);
-        draw();
+        keepScroll(draw);
       };
       scr.querySelectorAll('#tms .tm').forEach(b => b.onclick = () => {
         me = +b.dataset.i;
         if (opp === me) opp = (me + 1) % TEAMS.length;
-        draw();
+        keepScroll(draw);
       });
       $('#opl').onclick = () => stepO(-1);
       $('#opr').onclick = () => stepO(1);
       $('#bk').onclick = showMenu;
       scr.querySelectorAll('#qls button').forEach(b => b.onclick = () => {
         ql = +b.dataset.q;
-        draw();
+        keepScroll(draw);
       });
       scr.querySelectorAll('#dif button').forEach(b => b.onclick = () => {
         diff = +b.dataset.d;
-        draw();
+        keepScroll(draw);
       });
       scr.querySelectorAll('#tod button').forEach(b => b.onclick = () => {
         tod = b.dataset.v;
@@ -3385,7 +3404,8 @@
     return `<div class="kits">${list.map(fig).join('<em>vs</em>')}</div>`;
   }
 
-  /* redraw a menu without losing the scroll position */
+  /* Menu screens redraw themselves after every choice. This puts the page back where it was, so a tap half way down a
+     long screen (a setting, a tab) does not throw it back to the top. */
   function keepScroll(draw) {
     const el = scr.querySelector('.menu'), y = el ? el.scrollTop : 0;
     draw();
@@ -4115,7 +4135,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster, kitsHtml, watchPotd,
+    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

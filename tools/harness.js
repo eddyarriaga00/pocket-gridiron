@@ -17,8 +17,17 @@ window.H = (() => {
   };
 
   /* one scripted-user step: pick the first card, snap, throw to the most open receiver */
+  let throwKey = null;  // the number key the test player is holding down to build throw power
+
   function bot() {
     const G = d().G, ps = d().ps;
+    if (throwKey) {
+      if (!G.chg || G.chg.t >= 0.3 || G.state !== 'live') {  // also let go when the play dies under him, or the key would be held for ever
+        dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1', key: throwKey }));
+        throwKey = null;
+      }
+      return;
+    }
     if (G.paused) {
       const r = q('#pr');
       if (r) r.click();
@@ -39,7 +48,8 @@ window.H = (() => {
           b = i;
         }
       });
-      key('Digit1', String(b + 1));
+      throwKey = String(b + 1);
+      dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1', key: throwKey }));  // released by a later step, when the bar is a little past half
     }
   }
 

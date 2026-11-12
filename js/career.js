@@ -20,6 +20,10 @@
       arch: [['Thumper', { spd: 68, tkl: 80, shd: 74, cov: 60 }], ['Sideline to Sideline', { spd: 80, tkl: 70, shd: 64, cov: 68 }], ['Cover Backer', { spd: 74, tkl: 68, shd: 62, cov: 78 }]] },
     CB: { role: 'CB1', base: 'CB', label: 'Cornerback', attrs: [['spd', 'Speed'], ['cov', 'Coverage'], ['bsk', 'Ball skills'], ['tkl', 'Tackling']], w: [.3, .35, .25, .1],
       arch: [['Shutdown', { spd: 76, cov: 80, bsk: 66, tkl: 62 }], ['Ball Hawk', { spd: 74, cov: 70, bsk: 80, tkl: 60 }], ['Speedster', { spd: 84, cov: 68, bsk: 66, tkl: 60 }]] } };
+
+  /* New careers are quarterback or wide receiver (the owner's call, 2026-11-12). The other three stay in the table so a
+     career begun before then still loads and plays. */
+  const PLAYABLE = ['QB', 'WR'];
   const RANKS = [[0, 'Rookie'], [4000, 'Starter'], [10000, 'Playmaker'], [20000, 'All-Pro'], [35000, 'Franchise player'], [55000, 'Legend']];
   const ZERO = () => ({ g: 0, att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 });
   const GOAL_XP = 250;
@@ -344,7 +348,7 @@
    <p class="tag">You play one player. When your unit is off the field, the drive is simulated and you get the result.</p>
    <h2>Player</h2><div class="two"><div><label class="lbl" for="cn">Name</label><input id="cn" maxlength="16" autocomplete="off" placeholder="Last name" value="${esc(st.name)}"></div>
    <div><label class="lbl" for="cj">Number</label><input id="cj" inputmode="numeric" maxlength="2" placeholder="1–99" value="${esc(st.num)}"></div></div>
-   <h2>Position</h2><div class="seg" id="cp">${Object.keys(POS).map(k=>`<button data-p="${k}" class="${k===st.pos?'on':''}">${k}</button>`).join('')}</div>
+   <h2>Position</h2><div class="seg" id="cp">${PLAYABLE.map(k=>`<button data-p="${k}" class="${k===st.pos?'on':''}">${POS[k].label}</button>`).join('')}</div>
    <h2>${P.label} build</h2><div class="arch" id="ca">${P.arch.map(([n,a],i)=>`<button data-a="${i}" class="${i===st.arch?'on':''}"><b>${n} · ${ovrOf(st.pos,a)} OVR</b><span>${P.attrs.map(([k,l])=>`${l} ${a[k]}`).join(' · ')}</span></button>`).join('')}</div>
    <h2>Into the league</h2><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Enter the draft</b><span>Work out at the combine first</span><u>›</u></button>
    <p class="note" style="grid-column:1/3;margin:2px 0">Or walk on with a team: no draft, no signing bonus, and you start in the rotation.</p>

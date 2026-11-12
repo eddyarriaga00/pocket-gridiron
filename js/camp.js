@@ -18,10 +18,10 @@
      the computer and lands around one star, one who plays the drill as taught lands on two or three. */
   const DRILLS = [
     { id: 'pass', name: 'Passing', side: 'off', dcall: 'Cover 3', what: 'Find the open receiver and get him the ball.',
-      how: ['Tap Snap. Each receiver has a letter over his head.', 'Tap a letter, or its button, to throw him a bullet pass.', 'Hold the letter down to lob the ball over a defender.', 'After the catch you are the receiver: drag to run.'],
-      script: [{ p: 'Slants', say: 'Quick throws. Tap a letter as soon as that receiver cuts inside.' }, { p: 'Curl Flat', say: 'The outside receivers stop and turn back to you. Throw when one turns.' },
-        { p: 'Stick', say: 'Three short routes. Pick the receiver with no defender close to him.' }, { p: 'Smash', say: 'A corner route goes deep behind a short one. Hold the letter to lob it.' },
-        { p: 'Four Verticals', say: 'Everybody goes deep. Hold a letter to lob it over the top.' }],
+      how: ['Tap Snap. Each receiver has a letter over his head.', 'Hold a letter, or its button: the green bar fills with power. Let go to throw.', 'A quick tap floats a lob over a defender. A full bar fires a bullet.', 'After the catch you are the receiver: drag to run.'],
+      script: [{ p: 'Slants', say: 'Quick throws. As a receiver cuts inside, hold his letter until the bar is nearly full, then let go.' }, { p: 'Curl Flat', say: 'The outside receivers stop and turn back to you. Throw when one turns.' },
+        { p: 'Stick', say: 'Three short routes. Pick the receiver with no defender close to him.' }, { p: 'Smash', say: 'A corner route goes deep behind a short one. A quick tap floats the ball over the defender.' },
+        { p: 'Four Verticals', say: 'Everybody goes deep. Tap for a lob over the top, or hold for a bullet into a gap.' }],
       marks: [2, 3, 4], markTxt: n => `${n} completions`, score: r => count(r, x => x.caught),
       total: r => `${count(r, x => x.caught)} of ${r.length} complete · ${yds(sum(r, x => x.caught ? x.gain : 0))}`, chip: (r, n) => `Complete ${count(r, x => x.caught)} / ${n}`,
       rep: x => x.caught ? [true, (x.td ? 'Touchdown · ' : 'Complete · ') + gainTxt(x.gain)] : [false, x.big.replace(/!$/, '')] },

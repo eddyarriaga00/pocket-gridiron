@@ -16,6 +16,7 @@
 </div>
 <div id="banner"></div><div id="toast"></div>
 <div id="meter" hidden><p id="mtxt"></p><div class="bar"><i id="ndl"></i></div></div>
+<div id="pw" hidden><span>Power</span><div class="trk"><i id="pwf"></i></div><b id="pwl"></b></div>
 <div id="rp" hidden><i></i>Replay · tap to skip</div>
 <div id="bl"><div id="tip" hidden></div><div id="brief" hidden></div></div>
 <div id="pad"></div><div id="screen"></div><div id="ov" hidden></div>`;
@@ -655,11 +656,34 @@
   const armRange = q => 32 + ((q.pow ?? q.rt) - 60) * 0.55;
 
   /* type: 'bullet' (flat and fast), 'lob' (high and slow), or undefined for the default arc */
+  /* Your throw: holding a receiver's letter (on the field, on the pad, or its number key) fills the power bar, and
+     letting go throws with that much on the ball. A quick tap floats it; a full bar fires it. */
+  const CHARGE = 0.55;  // seconds from an empty bar to a full one
+
+  function startCharge(i, pid) {
+    if (!canPass() || !ps.recs[i] || ps.recs[i].down) return;
+    G.chg = { i, t: 0, pid: pid === undefined ? null : pid };
+    G.pwShow = null;
+  }
+
+  function endCharge(i) {
+    const c = G.chg;
+    if (!c || (i !== undefined && i !== c.i)) return;
+    G.chg = null;
+    if (!canPass() || !ps.recs[c.i]) return;
+    const pw = clamp(c.t / CHARGE, 0, 1);
+    G.pwShow = { pw, t: 1.1 };  // the bar stays up for a moment, showing what was thrown
+    throwTo(ps.recs[c.i], null, pw);
+  }
+
   function throwTo(r, pt, type) {
     const q = ps.carrier;
     if (!q || ps.thrown) return;
     let tx, ty, T = 0.6, d;
-    const sf = type === 'bullet' ? 1.22 : type === 'lob' ? 0.84 : 1, hf = type === 'bullet' ? 0.55 : type === 'lob' ? 1.45 : 1;
+    /* power, 0 to 1: a floated lob at 0 (slow, high), an ordinary pass at a half, a bullet at 1 (fast, flat).
+       The computer's quarterbacks throw at a half; yours throws what the power bar says. */
+    const pw = typeof type === 'number' ? clamp(type, 0, 1) : type === 'bullet' ? 1 : type === 'lob' ? 0 : 0.5;
+    const sf = pw < 0.5 ? lerp(0.84, 1, pw * 2) : lerp(1, 1.22, pw * 2 - 1), hf = pw < 0.5 ? lerp(1.45, 1, pw * 2) : lerp(1, 0.55, pw * 2 - 1);
     if (r) {
       const pf = 1 + ((q.pow ?? q.rt) - 80) * 0.006, range = armRange(q);
       tx = r.x;
@@ -1400,6 +1424,7 @@
       }
     }
     const off = ps.offTeam, dir = G.dir, c = ps.carrier, los = ps.los, me = QUIET ? null : G.me;
+    G.chg = null;  // a throw still being wound up dies with the play
     let big = '', sub = '', stop = false, score = false, rpGain = 0;
     if (kind === 'inc') {
       big = arg || 'Incomplete';
@@ -2024,6 +2049,7 @@
   }
 
   function snap() {
+    G.chg = G.pwShow = null;
     setBrief('');
     if (PG.audio) PG.audio.crowd.stopClaps();
     REC.length = 0;
@@ -2452,9 +2478,8 @@
     if (G.state !== 'live') return;
     const c = ps.carrier;
     if (k === 'num') {
-      if (canPass()) {
-        if (ps.recs[n]) throwTo(ps.recs[n]);
-      } else if (userOnD()) {
+      if (canPass()) startCharge(n);
+      else if (userOnD()) {
         if (n === 0) switchDef();
         if (n === 1) diveDef();
       }
@@ -2505,7 +2530,7 @@
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
     offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
@@ -2558,22 +2583,7 @@
     } else if (kind === 'ready') B('READY', 'big', () => act('main'));
     else if (kind === 'kick') B('KICK', 'big', () => act('main'));
     else if (kind === 'pass') ps.recs.forEach((r, i) => {
-      let tm = null;  // a quick tap is a bullet, holding the button floats a lob
-      const go = type => {
-        if (canPass() && ps.recs[i]) throwTo(ps.recs[i], null, type);
-      };
-      B(r.let, 'rc', () => {
-        tm = setTimeout(() => {
-          tm = null;
-          go('lob');
-        }, 210);
-      }, () => {
-        if (tm) {
-          clearTimeout(tm);
-          tm = null;
-          go('bullet');
-        }
-      }).style.background = r.col;
+      B(r.let, 'rc', () => startCharge(i), () => endCharge(i)).style.background = r.col;  // hold to build power, let go to throw
     });
     else if (kind === 'carry') {
       spr();
@@ -2636,6 +2646,13 @@
   });
   addEventListener('keyup', e => {
     keys[e.code] = 0;
+    const n = '12345'.indexOf(e.key);
+    if (n >= 0) endCharge(n);
+  });
+
+  /* a finger that came down on a receiver's letter throws wherever it comes up */
+  for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => {
+    if (G.chg && G.chg.pid !== null && G.chg.pid === e.pointerId) endCharge();
   });
   const xy = e => {
     const r = cv.getBoundingClientRect();
@@ -2648,7 +2665,7 @@
       return;
     }
     if (canPass()) for (const r of ps.recs) if (r.hx !== undefined && hyp(x - r.hx, y - r.hy) < 30) {
-      throwTo(r);
+      startCharge(ps.recs.indexOf(r), e.pointerId);
       return;
     }
     if (G.state === 'pre' && ps.mode === 'pass' && userP(ps.qb) && !P.some(p => p.jog)) for (const r of ps.recs) if (r.hx !== undefined && hyp(x - r.hx, y - r.hy) < 26) {
@@ -3146,7 +3163,7 @@
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause.</li></ul></div>`;
@@ -3543,6 +3560,14 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(p.let, x, by + 0.5);
+      if (G.chg && ps.recs[G.chg.i] === p) {
+        // the power you are building, as a green ring closing round his letter
+        ctx.strokeStyle = '#3ddc84';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(x, by, 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(G.chg.t / CHARGE, 0.02, 1));
+        ctx.stroke();
+      }
     }
   }
 
@@ -3720,6 +3745,16 @@
       ctx.arc(stick.ox + stick.x * 36, stick.oy - stick.y * 36, 15, 0, 7);
       ctx.fill();
     }
+    const pwEl = $('#pw'), pwOn = G.state === 'live' && (G.chg || G.pwShow);
+    if (pwEl.hidden === !!pwOn) pwEl.hidden = !pwOn;
+    if (pwOn) {
+      const v = G.chg ? clamp(G.chg.t / CHARGE, 0, 1) : G.pwShow.pw, key = Math.round(v * 100);
+      if (pwEl.dataset.v !== String(key)) {
+        pwEl.dataset.v = key;
+        $('#pwf').style.width = key + '%';
+        $('#pwl').textContent = (v < 1 / 3 ? 'Lob ' : v < 2 / 3 ? 'Touch ' : 'Bullet ') + key;
+      }
+    }
     const m = $('#meter'), km = G.state === 'kickm';
     if (m.hidden === km) m.hidden = !km;
     if (km) $('#ndl').style.left = (50 + 50 * Math.sin(G.meter * 4.2)) + '%';
@@ -3746,6 +3781,16 @@
       }
     } else if (st === 'replay') replayStep(dt);
     else if (st === 'live') {
+      if (G.chg) {
+        // the bar fills while the letter is held; a hold well past full throws anyway, and a sack or a dead receiver cancels it
+        const r = ps.recs[G.chg.i];
+        if (!canPass() || !r || r.down) G.chg = null;
+        else {
+          G.chg.t += dt;
+          if (G.chg.t > CHARGE + 1) endCharge();
+        }
+      }
+      if (G.pwShow && (G.pwShow.t -= dt) <= 0) G.pwShow = null;
       tick(dt);
       record();
       if (inp.sprint && inp.manual) G.stam = Math.max(0, G.stam - dt / 3.2);

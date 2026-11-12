@@ -387,6 +387,13 @@ what is next. Update it after every item.
   signed with another team from the offers screen), and a save with the contract fields deleted (treated as one year left).
   Free agency used to be open every offseason; now it opens only when the deal is up. Round 7 is complete.
 
+- 13:24 Positions and throw power. `throwTo(r, pt, power)` takes 0 to 1 (the computer's quarterbacks throw at a half, as
+  before, so `H.fingerprint()` is unchanged). The bar fills in 0.55 s of game time; a hold a second past full throws anyway.
+  Scripted checks: a two-step tap on the pad gave "Lob 7" (0.97 s in the air over 19 yards), a full bar from an on-field
+  letter gave a bullet (0.77 s), moving to another letter mid-hold moved the charge, and a sack mid-hold cancels it. The
+  test player now holds its key for 0.3 s; the first version of that deadlocked a quarterback career (a stale charge
+  after a sack stopped it snapping), which is why `finish()` clears the charge.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -460,10 +467,16 @@ what is next. Update it after every item.
       team makes an offer of years, salary, a signing bonus in XP and a role, and you choose. Salary is a scoreboard, not a
       currency: it totals up on the retirement screen
 
-### Round 8 (not started; suggestions for whoever picks this up)
-- [ ] A person plays it on a phone: touch feel, frame rate with the near models, the sound mix, the star marks in camp
-- [ ] Career: contract years could matter more (a holdout, a franchise tag, a no-trade clause), and money could buy something
-- [ ] Animation in motion: everything since Round 3 was checked in stills only
+### Round 8 (the owner's requests at 13:15 on 2026-11-12: "improve audio drastically, improve ui a little ... i want it so u
+### can only be wr and qb ... add a bar that has a green bar for power when u click a letter to throw to ... keep improving")
+- [x] Career: a new player is a quarterback or a wide receiver. The other three positions stay in the code so an older
+      career still loads
+- [x] Throw power: hold a receiver's letter (on the field, on the pad, or its number key) and a green bar fills; let go to
+      throw with that much on the ball. A quick tap floats a lob, a full bar fires a bullet, and the bar and a ring round
+      the receiver's letter show the level. This replaces "tap for a bullet, hold for a lob"
+- [ ] Audio, rebuilt (asked for twice)
+- [ ] Interface polish, a little
+- [ ] Still open from before: a person plays it on a phone; contract years could matter more; animation checked in motion
 
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.

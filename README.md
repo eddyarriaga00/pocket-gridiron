@@ -7,7 +7,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 
 ## Modes
 
-- **Career** (the main focus). Create one player (QB, RB, WR, LB or CB) and pick a build. At the combine you run a
+- **Career** (the main focus). Create one player, a quarterback or a wide receiver, and pick a build. At the combine you run a
   40-yard dash and position drills; your grade sets your draft pick, your signing bonus and how much the coach trusts
   you. Starters play every drive of their unit, the rotation and backups share them, and good games and practice earn
   the job. You play only your own snaps: the coach calls the plays and other drives are simulated. Stats and per-game
@@ -28,7 +28,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Pass plays, run plays, play action, screens, bootlegs, field goals, punts, live kickoffs, kneel and spike. Seventeen
   offensive plays and eight defensive calls. Before the snap you can tap a receiver's letter to change his route, call an audible or flip
   the play; on defense you can change the coverage.
-- Tap a receiver for a bullet pass, hold for a lob.
+- Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
@@ -41,7 +41,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 |---|---|---|
 | Move | Drag anywhere on the field | Arrows / WASD |
 | Snap, ready, kick | The large button | Space |
-| Pass (as quarterback) | Tap a lettered receiver or its button; hold for a lob | 1–5 |
+| Pass (as quarterback) | Hold a lettered receiver or its button: a green bar fills with power. Let go to throw (a quick tap is a lob, a full bar a bullet) | 1–5 |
 | Call for the ball (career receiver or back) | Call | C |
 | Sprint | Hold Sprint | Space |
 | Juke / Spin / Power / Hurdle | The buttons | J / K / L / H |
@@ -95,7 +95,7 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 ```
 
 - `H.sim(12, 180)` plays computer against computer and reports yards per carry, completion rate and so on.
-- `H.exh(2, 120)`, `H.career('QB', 2)`, `H.careerSeasons('WR', 2)` play scripted games in each mode.
+- `H.exh(2, 120)`, `H.career('QB', 2)`, `H.careerSeasons('WR', 2)` play scripted games in each mode (careers are QB or WR).
 - `H.camp('run', 4)` plays a training-camp drill (`'pass'`, `'run'` or `'tackle'`) with a simple test player.
 - `H.fingerprint()` is a seeded run. After a change that should not alter behaviour it must return the same string.
 - `PG.dbg.seed(n)` makes any run repeatable; `PG.audio.spoken` lists what the announcer has said.

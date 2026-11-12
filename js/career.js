@@ -55,30 +55,17 @@ function hero(){const a=effAttrs(),x={};
  if(C.pos==='CB'){x.cov=a.cov;x.bsk=a.bsk;x.tkl=a.tkl}
  return {rt:ovr(),spd:BASE[POS[C.pos].base]*(1+(a.spd-80)*0.004),num:C.num,name:C.name,x}}
 
-/* ---------- league ---------- */
-function mkSched(){const n=TEAMS.length,ids=[...Array(n).keys()];
- for(let i=n-1;i>0;i--){const j=Math.floor(rnd(i+1));[ids[i],ids[j]]=[ids[j],ids[i]]}
- const rounds=[];for(let r=0;r<n-1;r++){const wk=[];for(let i=0;i<n/2;i++)wk.push([ids[i],ids[n-1-i]]);rounds.push(wk);ids.splice(1,0,ids.pop())}
- return rounds}
-function initSeason(){
- C.ovrs=C.ovrs?C.ovrs.map(o=>clamp(o+Math.round(rnd(-3,3)),76,93)):TEAMS.map(t=>t.ovr);
- C.week=0;C.phase='reg';C.sched=mkSched();C.tab=TEAMS.map(()=>({w:0,l:0,t:0,pf:0,pa:0}));C.stats=ZERO();C.log=[];C.po=null;C.around=[];pickGoals()}
-function record(a,b,sa,sb){const A=C.tab[a],B=C.tab[b];A.pf+=sa;A.pa+=sb;B.pf+=sb;B.pa+=sa;if(sa>sb){A.w++;B.l++}else if(sb>sa){B.w++;A.l++}else{A.t++;B.t++}}
-function simScore(a,b){const pa=1/(1+Math.pow(10,-(C.ovrs[a]-C.ovrs[b])/10)),aw=rnd()<pa;
- const w=pick([10,13,14,17,17,20,21,24,27,31]),l=Math.max(0,w-pick([1,3,3,4,7,7,10,10,14]));return aw?[w,l]:[l,w]}   // on the scale of played games
-const simWinner=(a,b)=>{const [x,y]=simScore(a,b);return x>y?a:b};
-const seeds=()=>TEAMS.map((_,i)=>i).sort((a,b)=>{const A=C.tab[a],B=C.tab[b];return (B.w+B.t/2)-(A.w+A.t/2)||(B.pf-B.pa)-(A.pf-A.pa)});
-const recTxt=i=>{const r=C.tab[i];return `${r.w}-${r.l}${r.t?'-'+r.t:''}`};
-function nextOpp(){if(C.phase==='reg'){const m=C.sched[C.week].find(p=>p.includes(C.team));return m[0]===C.team?m[1]:m[0]}return C.po.opp}
-function closeSeason(finish){C.po.finish=finish;C.phase='done';let bonus={Champion:1500,'Runner-up':800,Semifinalist:400}[finish]||0;
+/* ---------- league (the shared rules are in league.js) ---------- */
+const LG=PG.league;
+function initSeason(){LG.start(C);C.stats=ZERO();C.log=[];pickGoals()}
+const recTxt=i=>LG.recTxt(C,i),nextOpp=()=>LG.nextOpp(C);
+/* postseason bonus and honors, once the league says the season is over */
+function closeSeason(finish){let bonus={Champion:1500,'Runner-up':800,Semifinalist:400}[finish]||0;
  const reg=C.log.filter(g=>g.pts!==undefined&&/^Wk/.test(g.wk)),avg=reg.length?reg.reduce((t,g)=>t+g.pts,0)/reg.length:0,aw=[];
  if(avg>=6.5){aw.push('All-League');bonus+=600}
  if(avg>=7.5&&finish==='Champion'){aw.push('League MVP');bonus+=1200}
  C.po.awards=aw;C.awards=(C.awards||[]).concat(aw.map(n=>({season:C.season,name:n})));
  C.po.bonus=bonus;C.xp+=bonus;C.xpTotal+=bonus}
-function startPlayoffs(){const s=seeds().slice(0,4),i=s.indexOf(C.team);C.po={seeds:s};
- if(i<0){C.po.champ=simWinner(simWinner(s[0],s[3]),simWinner(s[1],s[2]));closeSeason('Missed the playoffs');return}
- const rest=[0,1,2,3].filter(k=>k!==i&&k!==3-i);C.phase='semi';C.po.opp=s[3-i];C.po.other=[s[rest[0]],s[rest[1]]];pickGoals()}
 
 /* ---------- goals, XP, stat lines ---------- */
 function goalPool(pos,ql){const k=ql/120,r10=v=>Math.max(10,Math.round(v*k/10)*10),n=v=>Math.max(1,Math.round(v*k));
@@ -163,7 +150,7 @@ function nextCard(){const t=C.team;
  if(C.phase==='done'){const po=C.po;return `<div class="nx"><small>Season ${C.season} complete</small><h4>${po.finish}</h4>
   <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
   <button class="go sm" id="nxs">Start season ${C.season+1}</button></div>`}
- const o=nextOpp(),lab=C.phase==='reg'?`Week ${C.week+1} of ${C.sched.length}`:C.phase==='semi'?'Playoffs · Semifinal':'Championship game';
+ const o=nextOpp(),lab=LG.label(C);
  return `<div class="nx"><small>${lab}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}</p>
   <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
   ${C.prac!==pracKey()?'<button class="btn2" id="prac" style="margin-top:8px">Practice first · bonus XP</button>':'<p class="note" style="margin-top:8px">Practice is done for this week.</p>'}</div>
@@ -178,11 +165,8 @@ function tabPerks(){const n=slots(),on=(C.perks||[]).slice(0,n),nextAt=SLOT_AT[n
   +PERKS[C.pos].map(([name,what])=>{const eq=on.includes(name),full2=!eq&&on.length>=n;
    return `<div class="pk"><b>${name}</b><span>${what}</span><button data-p="${name}" class="${eq?'on':''}" ${full2?'disabled':''}>${eq?'Equipped':n?'Equip':'Locked'}</button></div>`}).join('')
   +`<p class="note">${nextAt?`Next slot opens at ${nextAt} overall.`:'All three slots are open.'}</p>`}
-function tabSeason(){const s=seeds();
- return `<table class="lg"><tr><th>Team</th><th>W-L</th><th>PF</th><th>PA</th></tr>${s.map((i,n)=>`<tr class="${i===C.team?'me':''}"><td>${n+1}. ${full(i)}</td><td>${recTxt(i)}</td><td>${C.tab[i].pf}</td><td>${C.tab[i].pa}</td></tr>`).join('')}</table>
-  <p class="note">Top four make the playoffs.</p>
-  ${C.around.length?`<h2>Around the league</h2><table class="lg">${C.around.map(([a,sa,b,sb])=>`<tr><td>${team(a).name} ${sa}, ${team(b).name} ${sb}</td></tr>`).join('')}</table>`:''}
-  ${C.log.length?`<h2>Your games</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${team(g.opp).ab}</td></tr>`).join('')}</table>`:''}`}
+function tabSeason(){return LG.standingsHtml(C)
+  +(C.log.length?`<h2>Your games</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${team(g.opp).ab}</td></tr>`).join('')}</table>`:'')}
 function tabStats(){const cols=COLS[C.pos],row=(l,m)=>`<tr><td>${l}</td>${cols.map(([,k])=>`<td>${m[k]}</td>`).join('')}</tr>`;
  return `<table class="lg"><tr><th></th>${cols.map(([h])=>`<th>${h}</th>`).join('')}</tr>${row('Season',C.stats)}${row('Career',C.career)}</table>
   ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}${g.grade?' · '+g.grade:''}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`}
@@ -228,14 +212,10 @@ function gameEnd(r,opp){let us=r.score[0],them=r.score[1];const m=r.my;
  const items=xpFor(m,won),met=gl.filter(g=>g.ok).length,xp=items.reduce((t,[,v])=>t+v,0)+met*GOAL_XP,[pts,grade]=gradeOf(m,won,met);
  for(const k in m){C.stats[k]=(C.stats[k]||0)+m[k];C.career[k]=(C.career[k]||0)+m[k]}C.stats.g++;C.career.g++;
  C.xp+=xp;C.xpTotal+=xp;
- const wk=C.phase==='reg'?`Wk ${C.week+1}`:C.phase==='semi'?'Semifinal':'Final';
+ const wk=LG.short(C);
  C.log.push({wk,opp,us,them,res,line:line(m),grade,pts});C.news=headline(m,won,us,them,opp);
- if(C.phase==='reg'){record(C.team,opp,us,them);C.around=[];
-  for(const [a,b] of C.sched[C.week])if(a!==C.team&&b!==C.team){const [sa,sb]=simScore(a,b);record(a,b,sa,sb);C.around.push([a,sa,b,sb])}
-  C.week++;if(C.week>=C.sched.length)startPlayoffs();else pickGoals()}
- else if(C.phase==='semi'){const ow=simWinner(C.po.other[0],C.po.other[1]);
-  if(won){C.phase='final';C.po.opp=ow;pickGoals()}else{C.po.champ=simWinner(opp,ow);closeSeason('Semifinalist')}}
- else if(C.phase==='final'){if(won){C.rings++;C.po.champ=C.team;closeSeason('Champion')}else{C.po.champ=opp;closeSeason('Runner-up')}}
+ const fin=LG.advance(C,opp,us,them);
+ if(fin){if(fin==='Champion')C.rings++;closeSeason(fin)}else pickGoals();
  persist();
  scr.innerHTML=`<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>
   <div class="nx" style="margin-top:0"><small>Your game · grade ${grade}</small><h4>${line(m)}</h4><p style="margin:4px 0 0">${esc(C.news)}</p></div>
@@ -252,5 +232,4 @@ PG.career={
   return `Continue: ${esc(C.name)} · ${C.pos} · ${ovr()} OVR · ${TEAMS[C.team].name}, season ${C.season}, ${ph}`},
  /* test hook */
  get data(){return C}};
-PG.boot();
 })();

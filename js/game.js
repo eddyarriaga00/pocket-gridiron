@@ -117,7 +117,7 @@ const userP=p=>!AUTO&&!!p&&p.team===0&&(!G.lock||p===G.me);
 
 /* opt: {a,b,ql,diff,mode,lock,hero,ovr,mustWin,onEnd,onQuit} */
 function startGame(o){
- const lock=o.lock||null,first=o.mode==='career'&&rnd()<0.5?1:0;
+ const lock=o.lock||null,first=o.mode&&o.mode!=='exh'&&rnd()<0.5?1:0;   // exhibition always opens with the user receiving
  G={state:'dead',mode:o.mode||'exh',tm:[o.a,o.b],ros:[mkRoster(o.a,0,o.ovr&&o.ovr[0]),mkRoster(o.b,[-6,0,5][o.diff??1],o.ovr&&o.ovr[1])],
   score:[0,0],q:1,ql:o.ql||180,clock:o.ql||180,stats:[0,1].map(()=>({pass:0,rush:0,comp:0,att:0,to:0})),stam:1,pad:null,deadT:0,ot:false,final:false,
   sel:null,me:null,preT:0,meter:0,lock,lockSide:lock?(OFFR.includes(lock)?'off':'def'):null,first,drill:o.drill?{n:o.drill,left:o.drill}:null,lineFn:o.line||null,goalsFn:o.goals||null,mustWin:!!o.mustWin,onEnd:o.onEnd||null,onQuit:o.onQuit||null,paused:false,last:'',
@@ -617,7 +617,7 @@ function updHud(){if(!G.ros)return;const s=Math.ceil(G.clock),ko=!!ps&&ps.mode==
 function toMenu(){if(PG.audio)PG.audio.scene('menu');clearTimeout(tipT);$('#tip').hidden=true;G=menuState(G.tm);P=[];ps=null;FX.length=0;$('#hud').hidden=true;pad.innerHTML='';scr.innerHTML='';setBrief('');$('#banner').classList.remove('on');$('#meter').hidden=true;CONF.length=0}
 function openPause(){if(!G.ros||G.state==='over'||G.paused)return;G.paused=true;const ov=$('#ov');ov.hidden=false;
  const draw=sure=>{ov.innerHTML=sure
-  ?`<div class="dlg"><h3>Leave game?</h3><p>${G.mode==='career'?'This game will not count. You can play it again from your career.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">Leave game</button><button class="btn2" id="pk">Keep playing</button></div>`
+  ?`<div class="dlg"><h3>Leave game?</h3><p>${G.mode!=='exh'?'This game will not count. You can play it again.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">Leave game</button><button class="btn2" id="pk">Keep playing</button></div>`
   :`<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pmu">Music: ${SET.mus?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
   const on=(id,f)=>{const el=$('#'+id);if(el)el.onclick=f};
   on('pr',closePause);on('pk',()=>draw(false));on('pq',()=>draw(true));
@@ -662,9 +662,10 @@ const tmBtn=(t,i,on)=>`<button class="tm ${on?'on':''}" data-i="${i}" style="--c
 function showMenu(){toMenu();const cs=PG.career&&PG.career.summary();
  scr.innerHTML=`<div class="menu"><h1>Pocket<br><em>Gridiron</em></h1><p class="tag">Full 11-on-11 football, built for one hand.</p>
   <button class="mode main" id="mC"><b>Career</b><span>${cs||'Create a player, lock in at your position, and build a legacy one season at a time.'}</span><i>›</i></button>
-  <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and control the whole roster.</span><i>›</i></button>
+  <button class="mode" id="mSe"><b>Season</b><span>${(PG.season&&PG.season.summary())||'Take one team through seven games and the playoffs.'}</span><i>›</i></button>
+  <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and play one game.</span><i>›</i></button>
   <div class="row2"><button class="btn2" id="mS">Settings</button><button class="btn2" id="mH">How to play</button></div></div>`;
- $('#mC').onclick=()=>{PG.career?PG.career.open():showExh()};$('#mE').onclick=showExh;$('#mS').onclick=showSettings;$('#mH').onclick=showHow}
+ $('#mC').onclick=()=>{PG.career?PG.career.open():showExh()};$('#mSe').onclick=()=>{PG.season?PG.season.open():showExh()};$('#mE').onclick=showExh;$('#mS').onclick=showSettings;$('#mH').onclick=showHow}
 function showSettings(){
  const chip=(id,label,val)=>`<div class="opt"><span>${label}</span><button class="chip" id="${id}">${val}</button></div>`;
  const draw=()=>{scr.innerHTML=`<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Settings</h1>
@@ -851,7 +852,7 @@ function frame(ts){const dt=Math.min(0.034,(ts-last)/1000||0.016);last=ts;FDT=dt
  try{for(let i=0;i<n;i++)step(dt);render()}catch(e){console.error(e)}
  requestAnimationFrame(frame)}
 
-const PG=window.PG={TEAMS,BASE,OFFR,DEFR,SET,rnd,pick,clamp,load,save,scr,$,startGame,showMenu,toMenu,banner,toast,snd,
+const PG=window.PG={TEAMS,BASE,OFFR,DEFR,SET,rnd,pick,clamp,load,save,scr,$,startGame,showMenu,toMenu,banner,toast,snd,statTable,
  boot(){resize();setGfx(SET.gfx!=='2d');showMenu();requestAnimationFrame(frame)},
  /* test hooks */
  dbg:{auto:v=>{AUTO=v},step,render,get G(){return G},get ps(){return ps},get P(){return P}}};

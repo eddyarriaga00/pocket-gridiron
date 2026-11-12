@@ -119,6 +119,16 @@ what is next. Update it after every item.
 - [ ] Split `game.js` into readable modules with normal formatting
 - [ ] README update (controls, modes, layout, libraries)
 
+### Round 2 (added during the night)
+- [x] Model detail: tapered chest and limbs, short sleeves, joints, helmet decal; fill light
+- [x] Follow camera in the open field; camera flashes in the stands
+- [x] Bullet (tap) and lob (hold) passes; pre-snap hot routes by tapping a receiver's letter; QB Kneel and Spike
+- [x] Season mode (`js/season.js`): one team, seven weeks, playoffs, standings, schedule, team stats
+- [x] `js/league.js`: schedule, standings, simulated scores and playoffs shared by Career and Season
+- [ ] Career extras: league leaders, trophies, free agency, retirement summary
+- [ ] Seedable RNG, then split and reformat `game.js` with a same-seed equivalence check
+- [ ] README refresh
+
 ### Stretch
 - [ ] Weather and time of day, announcer voice, achievements, offline install
 
@@ -141,6 +151,9 @@ what is next. Update it after every item.
 - 03:19 Career depth pass. All five positions: practice, game, grade, headline, ability equip verified by script.
 
 - 03:22 UX pass done: settings and help screens, tips, auto-pause, halftime report.
+
+- 03:32 Round 2 so far: model detail, follow camera, flashes, bullet/lob, hot routes, kneel/spike, Season mode.
+  Found and fixed a testing pitfall: `python -m http.server` let the browser reuse stale scripts; use `tools/serve.py`.
 
 ## Morning hand-off
 

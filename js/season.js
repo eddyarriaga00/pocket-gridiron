@@ -1,0 +1,123 @@
+/* Pocket Gridiron: Season mode.
+   Take one team through the league and call every snap on both sides of the ball. The league itself
+   (schedule, standings, simulated scores, playoffs) is in league.js; this file is the save and the screens. */
+(() => {
+  'use strict';
+  const { TEAMS, load, save, scr, $ } = PG, LG = PG.league, KEY = 'pg.season.v1';
+  const DIFF = ['Rookie', 'Pro', 'All-Pro'];
+  const ZERO = () => ({ g: 0, pf: 0, pa: 0, pass: 0, rush: 0, to: 0, take: 0 });
+  const full = i => `${TEAMS[i].city} ${TEAMS[i].name}`;
+
+  let S = load(KEY, null);
+  if (S && S.v !== 1) S = null;
+  const persist = () => save(KEY, S);
+
+  function showNew() {
+    const st = { team: PG.SET.me || 0, diff: 1, ql: 180 };
+    const draw = () => {
+      scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button><h1 class="sm">New <em>season</em></h1>
+        <p class="tag">Seven games, then the top four play for the title. You call and play every snap.</p>
+        <h2>Your team</h2><div class="teams" id="st">${TEAMS.map((t, i) =>
+          `<button class="tm ${i === st.team ? 'on' : ''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`).join('')}</div>
+        <h2>Difficulty</h2><div class="seg" id="sd">${DIFF.map((d, i) => `<button data-d="${i}" class="${i === st.diff ? 'on' : ''}">${d}</button>`).join('')}</div>
+        <h2>Quarter length</h2><div class="seg" id="sq">${[60, 120, 180, 300].map(q => `<button data-q="${q}" class="${q === st.ql ? 'on' : ''}">${q / 60} min</button>`).join('')}</div>
+        <button class="go" id="sgo">Start season</button></div>`;
+      $('#bk').onclick = PG.showMenu;
+      scr.querySelectorAll('#st button').forEach(b => b.onclick = () => { st.team = +b.dataset.i; draw(); });
+      scr.querySelectorAll('#sd button').forEach(b => b.onclick = () => { st.diff = +b.dataset.d; draw(); });
+      scr.querySelectorAll('#sq button').forEach(b => b.onclick = () => { st.ql = +b.dataset.q; draw(); });
+      $('#sgo').onclick = () => {
+        S = { v: 1, team: st.team, diff: st.diff, ql: st.ql, year: 1, titles: 0, log: [], stats: ZERO() };
+        LG.start(S); persist(); PG.snd('whistle'); hub('table');
+      };
+    };
+    draw();
+  }
+
+  function nextCard() {
+    if (S.phase === 'done') {
+      const po = S.po;
+      return `<div class="nx"><small>Season ${S.year} complete</small><h4>${po.finish}</h4>
+        <p>${full(S.team)} finished ${LG.recTxt(S, S.team)}. ${po.champ === S.team ? 'You are the champions.' : `Champion: ${full(po.champ)}.`}</p>
+        <button class="go sm" id="nxs">Start season ${S.year + 1}</button></div>`;
+    }
+    const o = LG.nextOpp(S);
+    return `<div class="nx"><small>${LG.label(S)}</small><h4>vs ${full(o)}</h4>
+      <p>${S.ovrs[o]} OVR, ${LG.recTxt(S, o)} · You are ${LG.recTxt(S, S.team)}</p>
+      <button class="go sm" id="play">Play game</button></div>`;
+  }
+  function tabSchedule() {
+    const rows = S.log.map(g => `<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${full(g.opp)}</td></tr>`);
+    if (S.phase === 'reg') for (let w = S.week; w < S.sched.length; w++) {
+      const m = S.sched[w].find(p => p.includes(S.team)), o = m[0] === S.team ? m[1] : m[0];
+      rows.push(`<tr><td style="color:var(--mute)">Wk ${w + 1} · vs ${full(o)} (${S.ovrs[o]})</td></tr>`);
+    }
+    return `<table class="lg">${rows.join('')}</table>`;
+  }
+  function tabTeam() {
+    const s = S.stats, g = Math.max(1, s.g), per = v => (v / g).toFixed(1);
+    const row = (l, v) => `<tr><td>${l}</td><td>${v}</td><td>${per(v)}</td></tr>`;
+    return `<table class="lg"><tr><th></th><th>Total</th><th>Per game</th></tr>${row('Points for', s.pf)}${row('Points against', s.pa)}
+      ${row('Passing yards', s.pass)}${row('Rushing yards', s.rush)}${row('Giveaways', s.to)}${row('Takeaways', s.take)}</table>
+      ${s.g ? '' : '<p class="note">Team numbers show up after your first game.</p>'}`;
+  }
+  function hub(tab) {
+    tab = tab || 'table';
+    const t = TEAMS[S.team];
+    let sure = false;
+    const draw = () => {
+      scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
+        <div class="pc" style="--c:${t.c1}"><div><h3>${t.name}</h3><p>${t.city} · Season ${S.year} · ${LG.recTxt(S, S.team)}<br>${DIFF[S.diff]} · ${S.ql / 60} min quarters${S.titles ? ` · ${S.titles} title${S.titles > 1 ? 's' : ''}` : ''}</p></div>
+          <div class="ovr">${S.ovrs[S.team]}<small>OVR</small></div></div>
+        ${nextCard()}
+        <div class="tabs" style="margin-top:16px">${[['table', 'Standings'], ['sched', 'Schedule'], ['team', 'Team']].map(([k, l]) =>
+          `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
+        ${tab === 'table' ? LG.standingsHtml(S) : tab === 'sched' ? tabSchedule() : tabTeam()}
+        <div class="stack"><button class="btn2 warn" id="ret">${sure ? 'Tap again to erase this season' : 'Start over'}</button></div></div>`;
+      $('#bk').onclick = PG.showMenu;
+      scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; sure = false; draw(); });
+      const pl = $('#play'); if (pl) pl.onclick = play;
+      const ns = $('#nxs'); if (ns) ns.onclick = () => { S.year++; S.log = []; S.stats = ZERO(); LG.start(S); persist(); hub('table'); };
+      $('#ret').onclick = () => {
+        if (!sure) { sure = true; draw(); return; }
+        S = null; try { localStorage.removeItem(KEY); } catch (_) {}
+        showNew();
+      };
+    };
+    draw();
+  }
+
+  function play() {
+    const opp = LG.nextOpp(S);
+    PG.snd('whistle');
+    PG.startGame({ a: S.team, b: opp, ql: S.ql, diff: S.diff, mode: 'season', ovr: [S.ovrs[S.team], S.ovrs[opp]], mustWin: S.phase !== 'reg',
+      onEnd: r => gameEnd(r, opp), onQuit: () => hub('table') });
+  }
+  function gameEnd(r, opp) {
+    let us = r.score[0], them = r.score[1];
+    if (S.phase !== 'reg' && us === them) { if (Math.random() < 0.5) us += 3; else them += 3; }   // a playoff game cannot end level
+    const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', wk = LG.short(S), table = PG.statTable();
+    S.log.push({ wk, opp, us, them, res });
+    const s = S.stats;
+    s.g++; s.pf += us; s.pa += them; s.pass += r.stats[0].pass; s.rush += r.stats[0].rush; s.to += r.stats[0].to; s.take += r.stats[1].to;
+    const fin = LG.advance(S, opp, us, them);
+    if (fin === 'Champion') S.titles++;
+    persist();
+    scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>${won ? 'Victory' : res === 'T' ? 'Tie game' : 'Final'}</b><span>${wk} vs ${TEAMS[opp].ab}</span></div>
+      <div class="sc">${us} – ${them}</div>${table}
+      ${fin ? `<p class="note">${fin === 'Champion' ? 'Champions. The title is yours.' : 'Season over: ' + fin.toLowerCase() + '.'}</p>` : ''}
+      <button class="go" id="rc">Continue</button></div>`;
+    $('#rc').onclick = () => { PG.toMenu(); hub('table'); };
+    if (fin === 'Champion') PG.banner('Champions!', full(S.team), 3000);
+  }
+
+  PG.season = {
+    open() { PG.toMenu(); if (S) hub('table'); else showNew(); },
+    summary() {
+      if (!S) return null;
+      const ph = S.phase === 'reg' ? `week ${S.week + 1}` : S.phase === 'semi' ? 'semifinal' : S.phase === 'final' ? 'championship game' : 'offseason';
+      return `Continue: ${TEAMS[S.team].name} · ${LG.recTxt(S, S.team)} · season ${S.year}, ${ph}`;
+    },
+    get data() { return S; },
+  };
+})();

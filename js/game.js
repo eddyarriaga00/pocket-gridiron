@@ -852,7 +852,7 @@ function frame(ts){const dt=Math.min(0.034,(ts-last)/1000||0.016);last=ts;FDT=dt
  try{for(let i=0;i<n;i++)step(dt);render()}catch(e){console.error(e)}
  requestAnimationFrame(frame)}
 
-const PG=window.PG={TEAMS,BASE,OFFR,DEFR,SET,rnd,pick,clamp,load,save,scr,$,startGame,showMenu,toMenu,banner,toast,snd,statTable,
+const PG=window.PG={TEAMS,NAMES:SUR,BASE,OFFR,DEFR,SET,rnd,pick,clamp,load,save,scr,$,startGame,showMenu,toMenu,banner,toast,snd,statTable,
  boot(){resize();setGfx(SET.gfx!=='2d');showMenu();requestAnimationFrame(frame)},
  /* test hooks */
  dbg:{auto:v=>{AUTO=v},step,render,get G(){return G},get ps(){return ps},get P(){return P}}};

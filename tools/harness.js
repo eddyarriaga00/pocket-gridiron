@@ -35,7 +35,7 @@ return {
  exh(games=2,ql=120){const out=[],errs=[];
   for(let g=0;g<games;g++){try{PG.showMenu();q('#mE').click();q('#go').click();run();out.push(d().G.score.join('-'));const b=q('#again');if(b)b.click()}catch(e){errs.push(String(e.stack).slice(0,400))}}
   return {out,errs}},
- newCareer(pos,team='2'){PG.career.open();if(q('#ret')){q('#ret').click();q('#ret').click()}
+ newCareer(pos,team='2'){PG.career.open();if(q('#ret')){q('#ret').click();q('#nc').click()}
   q('#cn').value='Test';q('#cn').dispatchEvent(new Event('input'));q('#cj').value='9';q('#cj').dispatchEvent(new Event('input'));
   [...document.querySelectorAll('#cp button')].find(b=>b.dataset.p===pos).click();
   [...document.querySelectorAll('#ct button')].find(b=>b.dataset.i===team).click();q('#cgo').click()},
@@ -43,5 +43,10 @@ return {
  career(pos,games=2){const out=[],errs=[];try{this.newCareer(pos);for(let i=0;i<games;i++){const r=this.playCareerGame();
    out.push(r.score.join('-')+' '+Object.entries(r.my).filter(([,v])=>v).map(([k,v])=>k+v).join(' '))}}catch(e){errs.push(String(e.stack).slice(0,400))}
   return {out,errs,xp:PG.career.data&&PG.career.data.xp}},
+ /* whole seasons: plays until `seasons` have finished, then reports each finish and the trophies earned */
+ careerSeasons(pos,seasons=1){const out=[],errs=[];try{this.newCareer(pos);const C=()=>PG.career.data;let guard=0;
+   while(out.length<seasons&&guard++<60){if(C().phase==='done'){out.push(C().po.finish+' '+C().tab[C().team].w+'-'+C().tab[C().team].l);if(out.length<seasons)q('#nxs').click()}else this.playCareerGame()}}
+  catch(e){errs.push(String(e.stack).slice(0,400))}
+  const c=PG.career.data;return {out,errs,troph:Object.keys(c.troph||{}),ovr:c.attrs,xp:c.xp,career:c.career}},
  fps(sec=3){return new Promise(res=>{let n=0;const t0=performance.now();const f=()=>{n++;if(performance.now()-t0<sec*1000)requestAnimationFrame(f);else res(+(n/sec).toFixed(1))};requestAnimationFrame(f)})}
 };})();

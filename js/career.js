@@ -113,6 +113,30 @@ function chip(m){
  if(C.pos==='WR')return `${m.rec} rec · ${m.recyd} yds · ${m.rectd} TD`;
  if(C.pos==='LB')return `${m.tkl} tkl · ${m.sack} sack · ${m.int} int`;
  return `${m.tkl} tkl · ${m.int} int · ${m.pbu} pbu`}
+/* League leaders: the other seven teams' starters at your position, generated from team strength so the same
+   season always shows the same race. [label, stat key (or a function of the stat line), per-game base at 3-minute quarters] */
+const LEAD={QB:['Passing yards','pyd',150],RB:['Rushing yards','ryd',60],WR:['Receiving yards','recyd',58],LB:['Tackles','tkl',3.4],CB:['Passes defended',m=>m.pbu+m.int,0.8]};
+function leaders(){const [label,key,base]=LEAD[C.pos],g=C.stats.g,k=C.ql/180,val=m=>typeof key==='function'?key(m):m[key];
+ const rows=TEAMS.map((t,i)=>{if(i===C.team)return {name:C.name,ab:t.ab,v:val(C.stats),me:true};
+  let h=(C.season*131+i*977+C.pos.charCodeAt(0)*31)>>>0;const r=()=>{h=(h*1664525+1013904223)>>>0;return h/4294967296};
+  const per=base*k*(1+(C.ovrs[i]-83)*0.02)*(0.8+r()*0.45);
+  return {name:PG.NAMES[Math.floor(r()*PG.NAMES.length)],ab:t.ab,v:Math.round(per*g*(0.92+r()*0.16)),me:false}});
+ return {label,rows:rows.sort((a,b)=>b.v-a.v)}}
+/* Trophies: [id, name, how to earn it, test]. Checked after every game, upgrade and season. */
+const TROPHIES=[
+ ['win','First win','Win a game',()=>C.log.some(g=>g.res==='W')||C.career.g>0&&C.rings>0],
+ ['td','Pay dirt','Score or throw your first touchdown',()=>C.career.ptd+C.career.rtd+C.career.rectd>0],
+ ['big','Monster game','Earn an A+ game grade',()=>C.log.some(g=>g.grade==='A+')],
+ ['goals','Checklist','Meet all three goals in one game',()=>C.log.some(g=>g.met===3)],
+ ['ten','Regular','Play 10 career games',()=>C.career.g>=10],
+ ['o80','Rising','Reach 80 overall',()=>ovr()>=80],
+ ['o90','Elite','Reach 90 overall',()=>ovr()>=90],
+ ['perks','Fully loaded','Equip three abilities',()=>(C.perks||[]).length>=3&&slots()>=3],
+ ['po','Postseason','Make the playoffs',()=>!!C.madePO],
+ ['honor','All-League','Earn a season honor',()=>(C.awards||[]).length>0],
+ ['ring','Champion','Win the title',()=>C.rings>0],
+ ['dyn','Dynasty','Win three titles',()=>C.rings>=3]];
+function checkTrophies(){C.troph=C.troph||{};const got=[];for(const [id,name,,test] of TROPHIES)if(!C.troph[id]&&test()){C.troph[id]=1;got.push(name)}return got}
 const COLS={
  QB:[['G','g'],['Comp','comp'],['Att','att'],['Yds','pyd'],['TD','ptd'],['INT','pint']],
  RB:[['G','g'],['Car','car'],['Yds','ryd'],['TD','rtd'],['Rec','rec']],
@@ -149,7 +173,7 @@ function showCreate(){const st={name:'',num:'',pos:'QB',arch:0,team:-1};
 function nextCard(){const t=C.team;
  if(C.phase==='done'){const po=C.po;return `<div class="nx"><small>Season ${C.season} complete</small><h4>${po.finish}</h4>
   <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
-  <button class="go sm" id="nxs">Start season ${C.season+1}</button></div>`}
+  <button class="go sm" id="nxs">Start season ${C.season+1}</button><button class="btn2" id="fa" style="margin-top:8px">Free agency · change teams</button></div>`}
  const o=nextOpp(),lab=LG.label(C);
  return `<div class="nx"><small>${lab}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}</p>
   <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
@@ -169,8 +193,29 @@ function tabSeason(){return LG.standingsHtml(C)
   +(C.log.length?`<h2>Your games</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${team(g.opp).ab}</td></tr>`).join('')}</table>`:'')}
 function tabStats(){const cols=COLS[C.pos],row=(l,m)=>`<tr><td>${l}</td>${cols.map(([,k])=>`<td>${m[k]}</td>`).join('')}</tr>`;
  return `<table class="lg"><tr><th></th>${cols.map(([h])=>`<th>${h}</th>`).join('')}</tr>${row('Season',C.stats)}${row('Career',C.career)}</table>
+  ${leadersHtml()}${trophiesHtml()}
   ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}${g.grade?' · '+g.grade:''}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`}
-function showHub(tab){tab=tab||'up';const t=team(C.team);let sure=false;
+function leadersHtml(){if(!C.stats.g)return '';const L=leaders();
+ return `<h2>League leaders · ${L.label}</h2><table class="lg">${L.rows.slice(0,5).map((r,i)=>`<tr class="${r.me?'me':''}"><td>${i+1}. ${esc(r.name)} <span style="color:var(--mute)">${r.ab}</span></td><td>${r.v}</td></tr>`).join('')}
+  ${L.rows.findIndex(r=>r.me)>4?`<tr class="me"><td>${L.rows.findIndex(r=>r.me)+1}. ${esc(C.name)}</td><td>${L.rows.find(r=>r.me).v}</td></tr>`:''}</table>`}
+function trophiesHtml(){const have=C.troph||{},n=TROPHIES.filter(t=>have[t[0]]).length;
+ return `<h2>Trophies · ${n} of ${TROPHIES.length}</h2><div class="tro">${TROPHIES.map(([id,name,how])=>`<div class="${have[id]?'on':''}"><b>${name}</b><span>${how}</span></div>`).join('')}</div>`}
+/* the end of a career: one last look, then a clean slate */
+function showRetire(){const m=C.career;
+ scr.innerHTML=`<div class="menu solid"><h1 class="sm">Career <em>so far</em></h1>
+  <div class="pc" style="--c:${team(C.team).c1};margin-top:14px"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label}<br>${C.season} season${C.season>1?'s':''} · ${m.g} games · ${rank()}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
+  <div class="nx"><small>Career totals</small><h4>${line(m)}</h4><p>${C.rings} title${C.rings===1?'':'s'} · ${(C.awards||[]).length} honor${(C.awards||[]).length===1?'':'s'} · ${fmt(C.xpTotal)} XP earned</p></div>
+  ${trophiesHtml()}
+  <button class="go" id="keep">Keep playing</button><div class="stack"><button class="btn2 warn" id="nc">Erase and start a new career</button></div>
+  <p class="note">A new career replaces this one. It cannot be undone.</p></div>`;
+ $('#nc').onclick=()=>{C=null;try{localStorage.removeItem(KEY)}catch(_){}showCreate()};$('#keep').onclick=()=>showHub('up')}
+/* free agency: between seasons you can sign anywhere */
+function showFreeAgency(){
+ scr.innerHTML=`<div class="menu solid"><button class="back" id="bk">‹ Back</button><h1 class="sm">Free <em>agency</em></h1><p class="tag">Pick where you play next season. Ratings are from the season that just ended.</p>
+  <h2>Teams</h2><div class="teams">${TEAMS.map((t,i)=>`<button class="tm ${i===C.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}${i===C.team?' · current':''}</b><span>${t.name}</span><u>${C.ovrs[i]}</u></button>`).join('')}</div></div>`;
+ $('#bk').onclick=()=>showHub('season');
+ scr.querySelectorAll('.tm').forEach(b=>b.onclick=()=>{const i=+b.dataset.i,moved=i!==C.team;C.team=i;C.season++;initSeason();persist();showHub('up');if(moved)PG.banner('Signed',`${esc(C.name)} joins the ${full(i)}`,2600)})}
+function showHub(tab){tab=tab||'up';const t=team(C.team);
  const draw=()=>{scr.innerHTML=`<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc" style="--c:${t.c1}"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="xp"><span>To spend</span><b>${fmt(C.xp)} XP</b></div>
@@ -178,17 +223,18 @@ function showHub(tab){tab=tab||'up';const t=team(C.team);let sure=false;
   <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
   ${tab==='up'?tabUp():tab==='season'?tabSeason():tabStats()}
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
-  <div class="stack"><button class="btn2 warn" id="ret">${sure?'Tap again to erase this career':'Retire and start over'}</button></div></div>`;
+  <div class="stack"><button class="btn2 warn" id="ret">Retire</button></div></div>`;
   $('#bk').onclick=PG.showMenu;
-  scr.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;sure=false;draw()});
-  scr.querySelectorAll('.at button').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=cost(C.attrs[k]),s0=slots();if(C.xp<c||C.attrs[k]>=99)return;C.xp-=c;C.attrs[k]++;persist();PG.snd('buy');keepScroll(draw);if(slots()>s0)PG.banner('New ability slot','Pick one below',2200)});
+  scr.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw()});
+  scr.querySelectorAll('.at button').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=cost(C.attrs[k]),s0=slots();if(C.xp<c||C.attrs[k]>=99)return;C.xp-=c;C.attrs[k]++;persist();PG.snd('buy');const tr=checkTrophies();if(tr.length)persist();keepScroll(draw);if(slots()>s0)PG.banner('New ability slot','Pick one below',2200);else if(tr.length)PG.banner('Trophy',tr[0],2200)});
   scr.querySelectorAll('.pk button').forEach(b=>b.onclick=()=>{const n=b.dataset.p,cur=(C.perks||[]).slice(0,slots()),i=cur.indexOf(n);
-   if(i>=0)cur.splice(i,1);else if(cur.length<slots())cur.push(n);else return;C.perks=cur;persist();keepScroll(draw)});
+   if(i>=0)cur.splice(i,1);else if(cur.length<slots())cur.push(n);else return;C.perks=cur;const tr=checkTrophies();persist();keepScroll(draw);if(tr.length)PG.banner('Trophy',tr[0],2200)});
   const pr=$('#prac');if(pr)pr.onclick=practice;
   scr.querySelectorAll('#hq button').forEach(b=>b.onclick=()=>{C.ql=+b.dataset.q;pickGoals();persist();keepScroll(draw)});
   const pl=$('#play');if(pl)pl.onclick=play;
   const ns=$('#nxs');if(ns)ns.onclick=()=>{C.season++;initSeason();persist();showHub('up')};
-  $('#ret').onclick=()=>{if(!sure){sure=true;keepScroll(draw);return}C=null;try{localStorage.removeItem(KEY)}catch(_){}showCreate()}};
+  const fa=$('#fa');if(fa)fa.onclick=showFreeAgency;
+  $('#ret').onclick=showRetire};
  draw()}
 function keepScroll(draw){const el=scr.querySelector('.menu'),y=el?el.scrollTop:0;draw();const n=scr.querySelector('.menu');if(n)n.scrollTop=y}
 
@@ -213,15 +259,18 @@ function gameEnd(r,opp){let us=r.score[0],them=r.score[1];const m=r.my;
  for(const k in m){C.stats[k]=(C.stats[k]||0)+m[k];C.career[k]=(C.career[k]||0)+m[k]}C.stats.g++;C.career.g++;
  C.xp+=xp;C.xpTotal+=xp;
  const wk=LG.short(C);
- C.log.push({wk,opp,us,them,res,line:line(m),grade,pts});C.news=headline(m,won,us,them,opp);
+ C.log.push({wk,opp,us,them,res,line:line(m),grade,pts,met});C.news=headline(m,won,us,them,opp);
  const fin=LG.advance(C,opp,us,them);
+ if(C.phase==='semi'||C.phase==='final'||(fin&&fin!=='Missed the playoffs'))C.madePO=1;
  if(fin){if(fin==='Champion')C.rings++;closeSeason(fin)}else pickGoals();
+ const trophies=checkTrophies();
  persist();
  scr.innerHTML=`<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>
   <div class="nx" style="margin-top:0"><small>Your game · grade ${grade}</small><h4>${line(m)}</h4><p style="margin:4px 0 0">${esc(C.news)}</p></div>
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
+  ${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">Continue</button></div>`;
  $('#rc').onclick=()=>{PG.toMenu();showHub(C.phase==='done'?'season':'up')};
  if(C.phase==='done'&&C.po.finish==='Champion')PG.banner('Champions!',full(C.team),3000)}

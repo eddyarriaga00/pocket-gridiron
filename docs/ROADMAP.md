@@ -125,7 +125,7 @@ what is next. Update it after every item.
 - [x] Bullet (tap) and lob (hold) passes; pre-snap hot routes by tapping a receiver's letter; QB Kneel and Spike
 - [x] Season mode (`js/season.js`): one team, seven weeks, playoffs, standings, schedule, team stats
 - [x] `js/league.js`: schedule, standings, simulated scores and playoffs shared by Career and Season
-- [ ] Career extras: league leaders, trophies, free agency, retirement summary
+- [x] Career extras: league leaders at your position, 12 trophies, free agency between seasons, a retirement screen
 - [ ] Seedable RNG, then split and reformat `game.js` with a same-seed equivalence check
 - [ ] README refresh
 
@@ -154,6 +154,11 @@ what is next. Update it after every item.
 
 - 03:32 Round 2 so far: model detail, follow camera, flashes, bullet/lob, hot routes, kneel/spike, Season mode.
   Found and fixed a testing pitfall: `python -m http.server` let the browser reuse stale scripts; use `tools/serve.py`.
+
+- 03:37 Career extras in. `H.careerSeasons(pos,n)` plays whole seasons: all five positions finish a season with no errors,
+  a three-season WR run earned six trophies, free agency moves the player and starts the next season.
+  League-leader baselines per game at 3-minute quarters: QB 150 yds, RB 60, WR 58, LB 3.4 tackles, CB 0.8 passes defended
+  (a scripted bot gets about 143, 67, 60, 2.6 and 0.25, so a real player should be in the race).
 
 ## Morning hand-off
 

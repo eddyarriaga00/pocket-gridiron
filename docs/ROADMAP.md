@@ -247,6 +247,11 @@ what is next. Update it after every item.
   loses by about 27 points a game; with fumbles switched off it is the same, so it is not the scramble. Computer against
   computer is steady at about 32 points a game combined. A smarter test bot is needed before reading anything into that.
 
+- 07:52 Audibles. `setupPlay(true)` re-aligns for the same snap; `G.flip` mirrors formation, run path and the two sided routes.
+  Checked by script (a toss sweep's path flips from left to right, two audibles in a row, the drive still counts one play,
+  the snap works afterwards, the defense steps from Cover 2 to Cover 3) and by a screenshot of the three-button pad.
+  `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -255,7 +260,8 @@ what is next. Update it after every item.
 ### Round 4 (queued at 07:45; work through these in order)
 - [x] Loose-ball scramble: a fumble is a live ball. Players near it dive, a miss squirts it away, the user steers the nearest
       teammate (Sprint and Dive). Out of bounds or three seconds untouched and it stays with the team that lost it
-- [ ] Audibles at the line: change the play or flip it before the snap; a blitz or drop-back adjustment on defense
+- [x] Audibles at the line: on offense Audible steps through four standby plays and Flip mirrors the play; on defense
+      Audible steps through the coverage calls. Players slide to their new spots (keys V and X)
 - [ ] Two-point conversions and onside kicks when trailing late
 - [ ] Run cycle with a proper foot plant and arm drive; a two-man tackle animation (wrap and take down)
 - [ ] Career: a coach who reacts to your last game in the hub, and a rival player at your position to chase on the leaders board

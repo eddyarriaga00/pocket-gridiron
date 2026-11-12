@@ -212,17 +212,22 @@
     return p;
   }
 
-  function setupPlay() {
-    G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc'
-    if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false };  // a new possession
-    G.drive.plays++;
-    const off = G.poss, dir = off === 0 ? 1 : -1, op = G.op, dp = G.dp, bx = G.bx, los = G.los;
+  /* Lines both teams up for G.op against G.dp. With shift = true it is a change at the line (an audible or a flip):
+     the same snap, so nothing is counted again and the players slide to their new spots instead of breaking a huddle. */
+  function setupPlay(shift) {
+    const was = shift ? Object.fromEntries(P.map(p => [p.team + p.role, [p.x, p.y]])) : null, selRole = shift && G.sel ? G.sel.role : null;
+    if (!shift) {
+      G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc'
+      if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false };  // a new possession
+      G.drive.plays++;
+    }
+    const off = G.poss, dir = off === 0 ? 1 : -1, op = G.op, dp = G.dp, bx = G.bx, los = G.los, fl = G.flip ? -1 : 1;
     G.dir = dir;
     P = [];
     const mk = (team, role, dx, dy) => mkP(team, role, clamp(bx + dx, 1, FW - 1), los + dir * dy);
     for (const r of OLR) mk(off, r, OLX[r], -0.6);
     const f = FORM[op.f], o = {};
-    for (const r in f) o[r] = mk(off, r, f[r][0], f[r][1]);
+    for (const r in f) o[r] = mk(off, r, f[r][0] * fl, f[r][1]);  // fl mirrors the formation when the play is flipped
     const kick = op.cat === 'special';
     ps = { t: 0, mode: kick ? 'kick' : op.cat === 'run' ? 'run' : 'pass', offTeam: off, qb: o.QB, carrier: o.QB, thrown: false, air: null, caught: false, handoff: false, open: false, turnover: false,
       think: 0, scr: false, runner: null, recs: [], pa: !!op.pa, los, fd: G.fd, bx, drop: { x: bx, y: los - dir * (op.f === 'gun' ? 7.5 : 6.5) }, kick: null, passer: null, tgt: null, tackler: null };
@@ -238,12 +243,13 @@
     if (ps.mode === 'run') {
       const rn = o[op.run.who];
       ps.runner = rn;
-      rn.path = op.run.path.map(([x, y]) => [bx + x, los + dir * y]);
+      rn.path = op.run.path.map(([x, y]) => [bx + x * fl, los + dir * y]);
       rn.pi = 0;
     }
     if (!kick) for (const r in f) {
       if (r === 'QB') continue;
-      const nm = (op.r || {})[r];
+      let nm = (op.r || {})[r];
+      if (G.flip && (nm === 'flatL' || nm === 'flatR')) nm = nm === 'flatL' ? 'flatR' : 'flatL';  // these two name a side, so they swap
       if (nm && ROUTES[nm]) {
         o[r].route = mkRoute(o[r], nm, dir);
         o[r].rn = nm;
@@ -318,10 +324,22 @@
       }
     }
     G.me = G.lock && !kick ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : null;
-    G.sel = G.lock ? G.me : off === 1 ? d.MLB : null;
+    G.sel = G.lock ? G.me : off === 1 ? (selRole && d[selRole]) || d.MLB : null;
     for (const p of P) {
       p.sx = p.x;
       p.sy = p.y;
+    }
+    if (was) {
+      for (const p of P) {
+        // slide from where each man stood
+        const w = was[p.team + p.role];
+        if (!w) continue;
+        p.x = w[0];
+        p.y = w[1];
+        const dd = hyp(p.sx - p.x, p.sy - p.y);
+        if (dd > 0.15) p.jog = Math.max(3, dd / 0.7);
+      }
+      return;
     }
     if (!AUTO && !QUIET && !kick) {
       // break the huddle: both sides start bunched up and jog to their spots
@@ -1698,6 +1716,8 @@
   function begin() {
     if (G.op.quick) return quickPlay();
     scr.innerHTML = '';
+    G.flip = false;
+    G.audI = -1;
     setupPlay();
     G.preT = 0;
     if (G.op.cat === 'special') {
@@ -1990,6 +2010,33 @@
     s.dive = 0.32;
   }
 
+  /* Changes at the line of scrimmage. On offense Audible steps through four standby plays and Flip mirrors the play;
+     on defense Audible steps through the coverage calls. The other side does not get to answer. */
+  const AUDIBLES = ['Inside Zone', 'Slants', 'Four Verticals', 'HB Draw'];
+
+  function audible(flipIt) {
+    if (G.state !== 'pre' || !ps || ps.mode === 'kick' || ps.mode === 'ko' || P.some(p => p.jog)) return;
+    const mine = G.lock ? G.me && G.me === ps.qb : G.poss === 0;
+    if (mine) {
+      if (flipIt) G.flip = !G.flip;
+      else {
+        do G.audI = (G.audI + 1) % AUDIBLES.length;
+        while (AUDIBLES[G.audI] === G.op.n);
+        G.op = OFF.find(p => p.n === AUDIBLES[G.audI]);
+        G.flip = false;
+      }
+      setupPlay(true);
+      setBrief(briefTxt());
+      toast(flipIt ? 'Flipped: ' + G.op.n : 'Audible: ' + G.op.n);
+    } else if (!G.lock && G.poss === 1 && !flipIt) {
+      G.dp = DEF[(DEF.indexOf(G.dp) + 1) % DEF.length];
+      setupPlay(true);
+      toast('Defense: ' + G.dp.n);
+    } else return;
+    G.pad = null;  // redraw the buttons for the new play
+    snd('tick');
+  }
+
   /* Hit stick: a short, hard lunge. More likely to bring him down and to jar the ball loose, slower to recover from a miss. */
   function hitStick() {
     const s = G.sel;
@@ -2036,6 +2083,7 @@
       }
       return;
     }
+    if (k === 'audible' || k === 'flip') return audible(k === 'flip');
     if (k === 'timeout') {
       if ((G.state === 'dead' || G.state === 'call') && !G.lock) {
         timeout(0);
@@ -2100,9 +2148,9 @@
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter first to change his route.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
-    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control.' };
+    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
 
   function tip(kind) {
@@ -2141,8 +2189,13 @@
       return b;
     };
     const spr = () => B('Sprint', 'spr', () => G.sprintBtn = 1, () => G.sprintBtn = 0);
-    if (kind === 'snap') B('SNAP', 'big', () => act('main'));
-    else if (kind === 'ready') B('READY', 'big', () => act('main'));
+    if (kind === 'snap') {
+      B('SNAP', 'big', () => act('main'));
+      if (ps && ps.mode !== 'kick') {
+        B('Audible', '', () => act('audible'));
+        B('Flip', '', () => act('flip'));
+      }
+    } else if (kind === 'ready') B('READY', 'big', () => act('main'));
     else if (kind === 'kick') B('KICK', 'big', () => act('main'));
     else if (kind === 'pass') ps.recs.forEach((r, i) => {
       let tm = null;  // a quick tap is a bullet, holding the button floats a lob
@@ -2183,8 +2236,10 @@
       spr();
       B('Call', 'hot', () => act('call'));
     } else if (kind === 'offball') spr();
-    else if (kind === 'defpre') B('Switch', '', () => act('switch'));
-    else if (kind === 'timeout') B('Time out', '', () => act('timeout'));
+    else if (kind === 'defpre') {
+      B('Switch', '', () => act('switch'));
+      B('Audible', '', () => act('audible'));
+    } else if (kind === 'timeout') B('Time out', '', () => act('timeout'));
     else if (kind === 'loose') {
       spr();
       B('Dive', '', () => act('dive'));
@@ -2210,6 +2265,8 @@
     if (e.code === 'KeyF') act('hit');
     if (e.code === 'KeyR') act('strip');
     if (e.code === 'KeyT') act('timeout');
+    if (e.code === 'KeyV') act('audible');
+    if (e.code === 'KeyX') act('flip');
     if (e.code === 'KeyC') act('call');
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
   });
@@ -2679,10 +2736,10 @@
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
-  <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
+  <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
-  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, C call for the ball, P pause.</li></ul></div>`;
+  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause.</li></ul></div>`;
     $('#bk').onclick = showMenu;
   }
 

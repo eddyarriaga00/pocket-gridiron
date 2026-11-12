@@ -87,7 +87,7 @@ what is next. Update it after every item.
 - [x] Poses: line, under-center, two-point and wide stances; run cycle; backpedal with eyes on the quarterback; pocket carry;
       tucked carry; throw; catch reach; block; dive; stumble; fall; celebration and heads-down
 - [x] Blob shadows, user ring, pass target ring in 3D
-- [ ] Look at up close: the fall and the kicker's leg swing (celebration and officials are done)
+- [x] Looked at up close: the fall after a tackle. The kicker's leg swing has still not been viewed
 
 ### 5. Game feel
 - [x] Break-the-huddle jog to formation; the ball travels from the turf to the quarterback on the snap
@@ -101,7 +101,7 @@ what is next. Update it after every item.
 - [x] Live kickoffs and returns in exhibition (touchbacks when the kick reaches the end zone); career and simulations use the 25
 - [x] Computer tuning after the 3D pass: `H.sim(14,180)` gives 4.1 ypc, 62% completions, 2% sacks, 0.9% INT, 28 pts/game
 - [x] Lob and bullet passes (hold vs tap)
-- [ ] Penalties and timeouts (fumbles are in)
+- [x] Timeouts (three a half, the computer manages its own late in a half) and two pre-snap flags (false start, offside)
 
 ### 7. Career depth
 - [x] Abilities: slots open at 74, 80 and 87 overall; four per position; they boost the ratings the engine plays with
@@ -178,8 +178,8 @@ what is next. Update it after every item.
 ### Round 3 (planned at 03:49; the owner's top request is better models and animation, so that goes first)
 - [x] Models: body types by position, pant stripes, wristbands, glossy helmets; real body-shaped shadows on the turf
 - [x] Reviewed by eye: day, dusk, rain and snow all look right
-- [ ] Still to look at up close: the handoff pose, truck, stiff arm, hit stick and strip (a celebration, the hurdle and an
-      official's touchdown signal were checked by screenshot)
+- [x] Looked at up close: handoff, truck, hit stick, a celebration, the hurdle, an official's touchdown signal.
+      Not viewed: the stiff arm and the strip swipe
 - [x] Shader pass (GLSL, `js/shaders.js`): turf with blade detail, view-dependent mowing stripes and wet reflections; sky dome with
       sun, stars and clouds; a crowd drawn seat by seat that hops when it cheers; rim light on players; a finishing pass with glow,
       vignette and color (Settings can turn it off)
@@ -227,6 +227,11 @@ what is next. Update it after every item.
   `playerOfGame()` picks from it; simulated career drives have no players, so only played snaps count. Regression clean:
   `H.fingerprint()` unchanged, exhibition, a season game and all five career positions finish without errors.
 
+- 07:37 Timeouts and flags. `G.runoff` is the time that ran off after the last play; a timeout hands it back. The user gets a
+  Time out button for the moment after the whistle and another on the play-call sheet (key T). Scoreboard shows three pips a team.
+  Seeded computer games: 3.4 timeouts used a game, a flag on 2% of snaps. `H.sim(16,180)`: 4.5 ypc, 57% completions, 33 pts,
+  no errors. `H.fingerprint()` re-baselined (the flag roll changes the random sequence on purpose).
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -235,7 +240,7 @@ what is next. Update it after every item.
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.
 - Play on a real phone: touch feel, frame rate with shadows and the glow pass on, button reach with five buttons on the pad.
-- Penalties and timeouts; a real loose-ball scramble instead of an instant recovery.
+- More penalties (holding, pass interference); a real loose-ball scramble instead of an instant recovery.
 - Career: combine and draft opening, earning the starting job, coach trust, contracts.
 - Run cycle with foot planting; tackle animations that involve both players.
-- Offline install (service worker); achievements outside Career.
+- Achievements outside Career.

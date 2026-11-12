@@ -31,6 +31,8 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .side.r{flex-direction:row-reverse}
 .side i{width:5px;align-self:stretch;background:var(--c,#888)}
 .side b{padding-block:8px;font-size:14px;font-weight:800;letter-spacing:.05em}
+.side b[data-to]::after{content:attr(data-to);display:block;margin-top:2px;font-size:6px;line-height:1;letter-spacing:2.5px;color:var(--mute)}
+.side b[data-to]{padding-block:5px}
 .side u{text-decoration:none;font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;margin-left:auto;padding:0 12px}
 .side.r u{margin-left:0;margin-right:auto}
 .side em{width:6px;height:6px;border-radius:50%;background:var(--acc);visibility:hidden}

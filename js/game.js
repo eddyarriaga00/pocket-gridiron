@@ -137,7 +137,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, introT: 0, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, introT: 0, to: [3, 3], runoff: 0, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
@@ -1267,7 +1267,9 @@
       react(1 - off, 0.9, 2.5);
     }
     if (kind === 'tackle' && ps.fumble && !ps.fumble.lost) sub += ' · fumble, recovered';
-    if (!stop && !score) G.clock = Math.max(0, G.clock - 13);
+    G.runoff = !stop && !score ? Math.min(13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle
+    G.clock -= G.runoff;
+    cpuTimeout();
     if (G.ot && score) G.final = true;
     G.last = sub === 'Turnover on downs' ? sub : big;
     callPlay(kind, arg, big, sub, rpGain, c);
@@ -1285,15 +1287,65 @@
     updHud();
   }
 
+  /* A timeout gives back the seconds that ran off after the last play. Three per half for each team. */
+  function timeout(t) {
+    if (!G.to || G.to[t] <= 0 || G.runoff <= 0 || G.drill) return false;
+    G.to[t]--;
+    G.clock += G.runoff;
+    G.runoff = 0;
+    hudKey = '';
+    if (!AUTO && !QUIET) {
+      snd('whistle');
+      toast(`Timeout, ${tname(t)} · ${G.to[t]} left`);
+      say(`Timeout, ${tname(t)}.`);
+      updHud();
+    }
+    return true;
+  }
+
+  /* The computer's clock management: late in a half, the side that needs time stops the clock.
+     It speaks for team 1 always, and for team 0 when the computer or the career coach runs that team. */
+  function cpuTimeout() {
+    if (G.runoff <= 0 || G.drill || !(G.q === 2 || G.q >= 4) || G.clock > Math.min(120, G.ql * 0.4)) return;
+    for (const t of [0, 1]) {
+      if (t === 0 && !AUTO && !G.lock) continue;  // the user decides for their own team
+      const lead = G.score[t] - G.score[1 - t], hasBall = G.poss === t, deep = hasBall && (t === 0 ? G.los > 45 : G.los < 55);
+      const want = G.q === 2 ? deep : lead < 0 ? lead >= -16 : lead === 0 && deep;
+      if (want && timeout(t)) return;
+    }
+  }
+
+  /* A flag before the snap: five yards, or half the distance to the goal, and the down is played again */
+  function flag(name, team) {
+    const off = ps.offTeam, dir = off === 0 ? 1 : -1, onOff = team === off;
+    const room = onOff ? (off === 0 ? G.los : 100 - G.los) : (off === 0 ? 100 - G.los : G.los);
+    const yd = Math.min(5, Math.max(1, Math.floor(room / 2)));
+    G.los = clamp(G.los + (onOff ? -dir : dir) * yd, 1, 99);
+    G.togo += onOff ? yd : -yd;
+    if (G.togo <= 0) setBall(off, G.los, G.bx);  // enough for a first down
+    G.last = name;
+    G.rp = false;
+    G.runoff = 0;
+    G.state = 'dead';
+    G.deadT = 1.9;
+    banner('Flag', `${name}, ${tname(team)} · ${yd} yard${yd === 1 ? '' : 's'}`, 1700);
+    snd('whistle');
+    react(1 - team, 0.4, 1.5);
+    say(`Flag on the play. ${name}, ${tname(team)}. ${yd} yards.`, true);
+    updHud();
+  }
+
   /* Quarter and game-end bookkeeping. Returns true when the game is over. */
   function advance() {
     if (G.final) return true;
     if (G.drill) return false;
     if (G.clock <= 0) {
       const tie = G.score[0] === G.score[1];
+      G.runoff = 0;  // too late for a timeout: the period is over
       if (G.q === 2) {
         G.q = 3;
         G.clock = G.ql;
+        G.to = [3, 3];
         kickoff(1 - G.first);
         if (!QUIET && !AUTO) G.half = true;
         else banner('Halftime', tname(1 - G.first) + ' ball', 1600);
@@ -1438,7 +1490,7 @@
   /* ---------- play calling ---------- */
   function cpuOff(t) {
     const toGoal = t === 0 ? 100 - G.los : G.los, ld = G.score[t] - G.score[1 - t];
-    if (G.q === 4 && ld > 0 && G.down <= 3 && G.clock <= (4 - G.down) * 40) return OFF.find(p => p.quick === 'kneel');  // ahead late: run it out
+    if (G.q === 4 && ld > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1 - t]) * 40) return OFF.find(p => p.quick === 'kneel');  // ahead late: run it out
     if (G.down === 4) {
       const desp = G.q >= 4 && ld < 0 && G.clock < 100;
       if (toGoal + 17 <= 52 && !(desp && ld < -3)) return OFF.find(p => p.n === 'Field Goal');
@@ -1511,8 +1563,9 @@
     if (kneel) {
       G.los = clamp(G.los - dir, 1, 99);
       G.togo += 1;
-      G.clock = Math.max(0, G.clock - 40);
-    }
+      G.runoff = Math.min(40, G.clock);
+      G.clock -= G.runoff;
+    } else G.runoff = 0;
     let sub2 = kneel ? '40 seconds run off' : 'Clock stopped';
     if (G.down > 4) {
       setBall(1 - off, G.los, G.bx);
@@ -1522,6 +1575,7 @@
     G.rp = false;
     G.state = 'dead';
     G.deadT = 1.3;
+    cpuTimeout();
     banner(G.last, sub2, 1100);
     snd('whistle');
     updHud();
@@ -1569,6 +1623,12 @@
       p.jog = 0;
     }
     if (ps.mode === 'kick') return doKick(rnd(0.55, 1));
+    if (!G.drill) {
+      // once in a long while somebody jumps
+      const r = rnd();
+      if (r < 0.011) return flag('False start', ps.offTeam);
+      if (r < 0.02) return flag('Offside', 1 - ps.offTeam);
+    }
     G.state = 'live';
     ps.t = 0;
     snd('snap');
@@ -1860,6 +1920,14 @@
       }
       return;
     }
+    if (k === 'timeout') {
+      if ((G.state === 'dead' || G.state === 'call') && !G.lock) {
+        timeout(0);
+        const b = $('#tmo');
+        if (b) b.remove();
+      }
+      return;
+    }
     if (k === 'switch' && G.state === 'pre' && G.poss === 1 && !G.lock) return switchDef();
     if (G.state !== 'live') return;
     const c = ps.carrier;
@@ -1895,7 +1963,10 @@
   }
 
   function padKind() {
-    if (AUTO || G.paused || !ps) return 'none';
+    if (AUTO || G.paused) return 'none';
+    /* right after the whistle, while the clock is running: the one moment a timeout is worth calling */
+    if (G.state === 'dead' && G.runoff > 0 && !G.lock && !G.drill && G.to && G.to[0] > 0) return 'timeout';
+    if (!ps) return 'none';
     const lk = G.lock, me = G.me;
     if (G.state === 'pre') {
       if (ps.mode === 'kick' || ps.mode === 'ko') return 'none';
@@ -1914,7 +1985,7 @@
 
   const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter first to change his route.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
-    offball: 'Drag to block for the ball carrier.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control.' };
+    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control.' };
   let tipT;
 
   function tip(kind) {
@@ -1996,6 +2067,7 @@
       B('Call', 'hot', () => act('call'));
     } else if (kind === 'offball') spr();
     else if (kind === 'defpre') B('Switch', '', () => act('switch'));
+    else if (kind === 'timeout') B('Time out', '', () => act('timeout'));
   }
 
   addEventListener('keydown', e => {
@@ -2016,6 +2088,7 @@
     if (e.code === 'KeyH') act('hurdle');
     if (e.code === 'KeyF') act('hit');
     if (e.code === 'KeyR') act('strip');
+    if (e.code === 'KeyT') act('timeout');
     if (e.code === 'KeyC') act('call');
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
   });
@@ -2188,7 +2261,7 @@
 
   function updHud() {
     if (!G.ros) return;
-    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my) : '', k = [G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left].join();
+    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my) : '', k = [G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left, G.to].join();
     if (k === hudKey) return;
     hudKey = k;
     const mine = $('#mine');
@@ -2201,6 +2274,7 @@
     if (G.drill) $('#qt').textContent = 'Rep';
     G.dnTxt = ko ? 'Kickoff' : downTxt();
     $('#dn').textContent = G.dnTxt;
+    for (const t of [0, 1]) $('#a' + t).dataset.to = G.drill ? '' : '●'.repeat(G.to[t]) + '○'.repeat(3 - G.to[t]);
     $('#sd0').classList.toggle('has', G.poss === 0);
     $('#sd1').classList.toggle('has', G.poss === 1);
   }
@@ -2364,7 +2438,7 @@
     }
     const draw = () => {
       const list = side === 'off' ? OFF.filter(p => p.cat === cat) : side === 'qb' ? qb : DEF;
-      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${downTxt()}</span></div>${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card">${side==='qb'&&i===0?'<em>Coach’s pick</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
+      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card">${side==='qb'&&i===0?'<em>Coach’s pick</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
       scr.querySelectorAll('.card').forEach((el, i) => {
         drawArt(el.querySelector('canvas'), list[i], side === 'def');
         el.onclick = () => {
@@ -2380,6 +2454,11 @@
         cat = b.dataset.c;
         draw();
       });
+      const tmo = $('#tmo');
+      if (tmo) tmo.onclick = () => {
+        timeout(0);
+        draw();
+      };
     };
     draw();
   }
@@ -2478,10 +2557,10 @@
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
-  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, C call for the ball, P pause.</li></ul></div>`;
+  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, C call for the ball, P pause.</li></ul></div>`;
     $('#bk').onclick = showMenu;
   }
 

@@ -837,7 +837,7 @@
     if (ctl) { ring.position.set(ctl.x, 0.05, -ctl.y); ring.material.color.set(s.acc); }
 
     /* down markers */
-    const showLines = G.state !== 'menu' && G.state !== 'over' && !(ps && ps.mode === 'ko');
+    const showLines = G.state !== 'menu' && G.state !== 'over' && G.state !== 'intro' && !(ps && ps.mode === 'ko');
     const L = ps ? ps.los : G.los, FD = ps ? ps.fd : G.fd;
     losLine.visible = showLines; fdLine.visible = showLines && FD > 0.1 && FD < 99.9; sticks.visible = fdLine.visible;
     losLine.position.z = -L; fdLine.position.z = -FD; sticks.position.set(-2.6, 0, -FD);
@@ -866,6 +866,10 @@
     if (menu) {
       const a = time * 0.06;
       v3.set(FW / 2 + Math.sin(a) * 58, 30 + Math.sin(a * 0.7) * 6, -50 + Math.cos(a) * 95); v3b.set(FW / 2, 2, -50);
+    } else if (G.state === 'intro') {                                    // before kickoff: sweep down into the stadium
+      let e = clamp((G.introT || 0) / 3.8, 0, 1); e = e * e * (3 - 2 * e);
+      const a = lerp(-1.15, -0.25, e);
+      v3.set(FW / 2 + Math.sin(a) * 100, lerp(84, 27, e), -50 + Math.cos(a) * 114); v3b.set(FW / 2, 4, -50);
     } else if (G.state === 'replay' && ps) {                             // replay: low, from the middle of the field
       const side = cm.fx > FW / 2 ? -1 : 1;
       v3.set(cm.fx + side * 13, 3.4, -(cm.fy - st.dir * 5)); v3b.set(cm.fx, 1.5, -cm.fy);

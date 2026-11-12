@@ -180,13 +180,15 @@ what is next. Update it after every item.
 - [x] Shader pass (GLSL, `js/shaders.js`): turf with blade detail, view-dependent mowing stripes and wet reflections; sky dome with
       sun, stars and clouds; a crowd drawn seat by seat that hops when it cheers; rim light on players; a finishing pass with glow,
       vignette and color (Settings can turn it off)
-- [ ] Animation: better run cycle, catch, tackle wrap, handoff, throw follow-through, referee, celebration variety
+- [x] Animation: handoff exchange, three touchdown celebrations, officials who jog and signal, reserves that react,
+      truck, stiff arm, hurdle, hit stick and strip poses (the run cycle itself is unchanged)
 - [x] Weather and time of day: day, dusk, night, rain, snow
 - [x] Moves: Power (truck a tackler in front, stiff-arm one beside), Hurdle, Hit (hit stick), Strip; fumbles (lost or recovered);
       rain and snow make catches, fumbles and field goals harder
 - [x] Sound round 2: announcer calls through the device's speech synthesizer (Settings and the pause menu can turn it off),
       a stomp-stomp-clap chant, an organ riff the crowd answers, rain and wind beds, a muffled mix while paused
-- [ ] Presentation: pre-game intro, player of the game, drive summary
+- [x] Presentation: a flyover with a matchup card before kickoff (tap to skip), a drive summary after touchdowns, a box score
+      that names a player of the game on every final screen (worth 300 XP when it is your career player)
 - [ ] README refresh, final regression, morning summary
 
 - 04:01 Round 3, first part, committed in a working but only partly checked state (the usage limit arrived here).
@@ -217,6 +219,10 @@ what is next. Update it after every item.
   the half and the final score. The test pane has no speech voices, so the calls were checked as text only; nobody has heard
   them. Levels (peak / RMS dBFS): organ -11/-22, stomp -19/-40. The announcer's word choice uses `Math.random`, never the game's
   seeded generator, so `H.fingerprint()` is unchanged.
+
+- 07:30 Presentation. New game state `intro` (3.8 s, tap or Space to skip; skipped in simulations). `G.box` is the box score,
+  `playerOfGame()` picks from it; simulated career drives have no players, so only played snaps count. Regression clean:
+  `H.fingerprint()` unchanged, exhibition, a season game and all five career positions finish without errors.
 
 ## Morning hand-off
 

@@ -548,7 +548,8 @@
       else them += 3;
     }  // a playoff game cannot end level
     const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', gl = goals().map(g => ({ d: g.d, ok: !!g.t(m) }));
-    const items = xpFor(m, won), met = gl.filter(g => g.ok).length, xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP, [pts, grade] = gradeOf(m, won, met);
+    const star = r.potg && r.potg.team === 0 && r.potg.role === POS[C.pos].role;  // you were the player of the game
+    const items = xpFor(m, won).concat(star ? [['Player of the game', 300]] : []), met = gl.filter(g => g.ok).length, xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP, [pts, grade] = gradeOf(m, won, met);
     for (const k in m) {
       C.stats[k] = (C.stats[k] || 0) + m[k];
       C.career[k] = (C.career[k] || 0) + m[k];
@@ -573,7 +574,7 @@
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
-  ${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
+  ${r.potgHtml || ''}${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">Continue</button></div>`;
     $('#rc').onclick = () => {
       PG.toMenu();

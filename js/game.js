@@ -1074,6 +1074,7 @@
           o.vx = o.vy = 0;
           ps.tackler = o;
           snd('hit', { power: pw });
+          if (userP(c2) || o === G.sel || pw > 1.05) buzz(Math.round(14 + pw * 22));  // you feel the ones you are in, and the big ones
           if (pw > 1.05 && !QUIET && !AUTO && PG.audio) PG.audio.crowd.ooh(0.6);
           hitFx(c2.x, c2.y);
           if (ps.fum) {
@@ -1085,6 +1086,7 @@
               p.block = null;
             }
             if (!AUTO && !QUIET) {
+              buzz(45);
               toast('Fumble! Get on it');
               say('Fumble!', true);
               if (PG.audio) PG.audio.crowd.ooh(0.9);
@@ -1427,6 +1429,7 @@
       kickoff(1 - t);
       confetti(t);
       if (t === 0) {
+        buzz([40, 60, 40, 60, 90]);
         snd('horn');
         snd('fanfare');
       }
@@ -2522,6 +2525,19 @@
     if (a) a.play(type, opts);
   }
 
+  /* a short buzz on phones that can vibrate (most Android browsers; iPhones cannot from a web page) */
+  let touched = false;  // browsers refuse to vibrate before the first tap
+  addEventListener('pointerdown', () => {
+    touched = true;
+  }, { capture: true, once: true });
+
+  function buzz(pattern) {
+    if (AUTO || QUIET || !touched || SET.hap === false || !navigator.vibrate) return;
+    try {
+      navigator.vibrate(pattern);
+    } catch (_) {}
+  }
+
   /* the announcer; silent in simulations */
   function say(text, urgent) {
     if (AUTO || QUIET || !PG.audio) return;
@@ -2856,7 +2872,8 @@
   <h2>Rules</h2>
   ${chip('spn','Penalties',SET.pen!==false?'On':'Off')}
   <h2>Help</h2>
-  ${chip('stp','Control tips',SET.tips&&Object.keys(SET.tips).length?'Show again':'On')}</div>`;
+  ${chip('stp','Control tips',SET.tips&&Object.keys(SET.tips).length?'Show again':'On')}
+  ${navigator.vibrate?chip('shp','Vibration',SET.hap!==false?'On':'Off'):''}</div>`;
       const on = (id, f) => {
         const el = $('#' + id);
         if (el) el.onclick = () => {
@@ -2906,6 +2923,10 @@
       on('san', () => {
         SET.ann = SET.ann === false;
         if (PG.audio) PG.audio.refresh();
+      });
+      on('shp', () => {
+        SET.hap = SET.hap === false;
+        if (SET.hap) buzz(30);
       });
       on('stp', () => {
         SET.tips = {};

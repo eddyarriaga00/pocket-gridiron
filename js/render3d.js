@@ -119,7 +119,7 @@
     f.bodyS.set(b[0], 1, b[1]); f.limbS.set(b[3], 1, b[3]);
     f.shL.position.x = -0.31 * b[0]; f.shR.position.x = 0.31 * b[0];
     f.hipL.position.x = -0.11 * (0.5 + 0.5 * b[0]); f.hipR.position.x = 0.11 * (0.5 + 0.5 * b[0]);
-    f.num.scale.set(b[0], 1, b[1]);
+    f.num.scale.set(b[0], 1, b[1]); f.nameplate.scale.set(b[0], 1, b[1]);
     f.root.scale.setScalar(PSCALE * b[2]);
   }
   /* officials: white shirt with a striped panel, black trousers and cap; no pads or facemask */
@@ -154,6 +154,30 @@
     return m;
   }
 
+  /* the name across the shoulders: one small quad on the back, above the number */
+  function nameGeometry() {
+    const w = 0.19, y0 = 0.505, y1 = 0.6, z = 0.222, g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute([-w, y0, z, w, y0, z, w, y1, z, -w, y0, z, w, y1, z, -w, y1, z], 3));
+    g.setAttribute('uv', new T.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
+    return g;
+  }
+  const NO_NAME = new T.MeshBasicMaterial({ visible: false });
+  function nameMaterial(name, color) {
+    if (!name) return NO_NAME;
+    const key = 'n|' + color + '|' + name;
+    let m = numCache.get(key);
+    if (m) return m;
+    const c = document.createElement('canvas'); c.width = 160; c.height = 40;
+    const x = c.getContext('2d'), txt = String(name).toUpperCase();
+    x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = '800 26px Archivo, Arial, sans-serif';
+    x.fillText(txt, 80, 22, 152);                             // long names are squeezed to fit, as on a real jersey
+    const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
+    m = new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+    numCache.set(key, m);
+    return m;
+  }
+
   function stripeMaterial() {
     let m = numCache.get('ref');
     if (m) return m;
@@ -175,7 +199,8 @@
     for (const [hip, knee, side] of [[f.hipL, f.kneeL, -1], [f.hipR, f.kneeR, 1]]) { hip.position.set(side * 0.11, 0, 0); knee.position.y = -0.5; hip.add(knee); f.pelvis.add(hip); }
     f.root.scale.setScalar(PSCALE);
     f.num = new T.Mesh(numberGeometry(), numberMaterial(0, '#ffffff'));
-    f.chest.add(f.num);
+    f.nameplate = new T.Mesh(nameGeometry(), NO_NAME);
+    f.chest.add(f.num, f.nameplate);
     f.cur = new Float32Array(NPOSE); f.cur[PELY] = HIP;
     f.bodyS = new T.Vector3(1, 1, 1); f.limbS = new T.Vector3(1, 1, 1); f.hide = null;
     f.heading = 0; f.fall = 0; f.fallDir = 1; f.fallSide = 0; f.seed = Math.random() * 6.28; f.snap = true;
@@ -756,6 +781,7 @@
       f.root.position.set(x, 0, -y); f.root.rotation.y = home ? -Math.PI / 2 : Math.PI / 2; f.root.visible = true; f.snap = true;
       const c = teamColors(t, home, SKIN[Math.floor(Math.random() * SKIN.length)]);
       f.num.material = numberMaterial(Math.floor(Math.random() * 98) + 1, c.number);
+      f.nameplate.material = nameMaterial(PG.NAMES[Math.floor(Math.random() * PG.NAMES.length)], c.number);
       colorFigure(i, c);
     }
     for (const p of parts) p.mesh.instanceColor.needsUpdate = true;
@@ -806,7 +832,7 @@
       if (fresh) {
         setBuild(f, buildOf(p.role));
         const home = p.team === 0, c = teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
-        colorFigure(SIDELINE + i, c); f.num.material = numberMaterial(p.num, c.number);
+        colorFigure(SIDELINE + i, c); f.num.material = numberMaterial(p.num, c.number); f.nameplate.material = nameMaterial(p.name, c.number);
         f.fall = 0; f.fallDir = Math.random() < 0.75 ? 1 : -1; f.snap = true; f.root.visible = true;
         f.heading = (p.team === ps.offTeam ? st.dir : -st.dir) > 0 ? 0 : Math.PI;
       }

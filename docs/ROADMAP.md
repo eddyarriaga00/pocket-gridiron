@@ -295,6 +295,9 @@ what is next. Update it after every item.
   After: grades RB 5.4, WR 5.1, LB 2.8 to 3.6, CB 3.2 to 4.1; trust ends both above and below its start at every position;
   wins RB 8/21, WR 13/21, LB 10/21, CB 6/21. Samples are small and noisy. `H.fingerprint()` unchanged.
 
+- 08:16 Name plates (a quad above the number, text squeezed to fit) checked by a close-up of the quarterback. Vibration uses
+  `navigator.vibrate`, which iPhones do not offer to web pages and which no test here can feel; it waits for the first tap.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -324,7 +327,8 @@ what is next. Update it after every item.
       *person* wins about half is still unknown: the script only plays like the computer
 
 ### Round 5 (queued at 08:15; work through these in order)
-- [ ] Names on the backs of jerseys; a short vibration on big hits and scores where the device supports it
+- [x] Names on the backs of jerseys; a short vibration on tackles you are in, big hits, fumbles and your touchdowns
+      (Android browsers only; Settings has a switch where the device supports it)
 - [ ] Play of the game: the best play is kept and can be watched again from the final screen
 - [ ] Playbook: four more offensive plays (screen, quarterback sneak, counter, bootleg), two more defenses (Cover 4, goal line)
 - [ ] Live punt returns in Exhibition and Season

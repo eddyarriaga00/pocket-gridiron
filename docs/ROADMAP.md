@@ -302,6 +302,15 @@ what is next. Update it after every item.
   it and hands the final screen back. Scripted: a forced 51-yard run became the play of the game, the button showed it from the
   low camera, and both the natural end and a tap to skip returned to the final sheet. `H.fingerprint()` unchanged.
 
+- 08:23 Playbook and run game. Measuring yards per play by play name (16 seeded computer games) showed what the overall 4.5 yards
+  a carry had been hiding: Toss Sweep 12.1, Inside Zone 2.4, Off Tackle 1.6, QB Draw 1.6, and the new Counter at -1.6.
+  Changes: the toss is pitched at once so the defense reacts sooner; each run play has a `push` (how hard the line drives its
+  men back); Off Tackle and Counter aim at the B gap; a sneak is hard to stop for its first step. After, on three seeds:
+  overall 3.9 to 4.5; Inside Zone 3.8 to 4.5, Off Tackle 3.2 to 5.3, Counter 3.0 to 4.3, QB Draw 2.4 to 2.9, HB Draw 2.2 to 6.9,
+  Toss Sweep 5.4 to 7.0, QB Sneak 0.5 to 1.6 on short yardage. Points 29 to 36 a game. A longer hold on run blocks was tried
+  and rejected (it sent HB Draw to 16.8). All four new plays ran in a scripted user game. `H.fingerprint()` re-baselined.
+  The same measurement for passes: Smash 12.6 and Stick 11.5 yards a play are the strongest; not changed.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -335,7 +344,8 @@ what is next. Update it after every item.
       (Android browsers only; Settings has a switch where the device supports it)
 - [x] Play of the game: the best play (scores, takeaways, sacks, long gains; yours weigh a little more) is kept whole and
       can be watched again from the final screen in Exhibition, Season and Career
-- [ ] Playbook: four more offensive plays (screen, quarterback sneak, counter, bootleg), two more defenses (Cover 4, goal line)
+- [x] Playbook: HB Screen, QB Sneak, Counter and Bootleg (17 offensive plays), Cover 4 and Goal Line (8 defenses); the computer
+      calls goal line on short yardage and deep shells on long yardage. The run game was rebalanced play by play
 - [ ] Live punt returns in Exhibition and Season
 - [ ] Camera choice in Settings (standard, close, high)
 - [ ] Training camp: three guided drills (passing, running, tackling) with medals, offered on first launch

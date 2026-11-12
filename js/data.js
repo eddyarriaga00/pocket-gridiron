@@ -39,21 +39,28 @@
     go: { p: [[0, 45]] }, slant: { p: [[0, 2.5], [9, 11]] }, out: { p: [[0, 9], [-9, 9.6]] }, in: { p: [[0, 11], [16, 11.6]] },
     post: { p: [[0, 12], [9, 32]] }, corner: { p: [[0, 11], [-8, 26]] }, curl: { p: [[0, 12], [0.8, 10.5]], stop: 1 },
     hitch: { p: [[0, 6], [0.6, 5]], stop: 1 }, drag: { p: [[0, 2], [22, 4.5]] },
-    flatL: { p: [[-5, 1], [-12, 3]], abs: 1, stop: 1 }, flatR: { p: [[5, 1], [12, 3]], abs: 1, stop: 1 } };
-  const RNAME = { go: 'go', slant: 'slant', out: 'out', in: 'dig', post: 'post', corner: 'corner', curl: 'curl', hitch: 'hitch', drag: 'drag', flatL: 'flat', flatR: 'flat' };
+    flatL: { p: [[-5, 1], [-12, 3]], abs: 1, stop: 1 }, flatR: { p: [[5, 1], [12, 3]], abs: 1, stop: 1 },
+    screenL: { p: [[-3, -1.5], [-9, -0.5]], abs: 1, stop: 1 }, screenR: { p: [[3, -1.5], [9, -0.5]], abs: 1, stop: 1 } };
+  const RNAME = { go: 'go', slant: 'slant', out: 'out', in: 'dig', post: 'post', corner: 'corner', curl: 'curl', hitch: 'hitch', drag: 'drag', flatL: 'flat', flatR: 'flat', screenL: 'screen', screenR: 'screen' };
 
   /* The offensive playbook. cat groups plays on the call screen, f is the formation, r the routes by role,
-     run the ball carrier's path, pa a play-action fake, quick a play that resolves without a snap. */
+     run the ball carrier's path (fast: he goes at once; toss: the ball is pitched to him early; push: how hard the line drives its men
+     back, 0.9 when not given; short: the computer only calls it with two yards or less to go),
+     pa a play-action fake, roll how far the quarterback rolls out, quick a play that resolves without a snap. */
   const OFF = [
-    { n: 'Inside Zone', cat: 'run', f: 'single', run: { who: 'RB', path: [[0.8, -1], [1, 4]] } },
-    { n: 'Off Tackle', cat: 'run', f: 'iform', run: { who: 'RB', path: [[3, -3], [6, 3]] } },
-    { n: 'Toss Sweep', cat: 'run', f: 'iform', run: { who: 'RB', path: [[-7, -5.5], [-12, 2]] } },
+    { n: 'Inside Zone', cat: 'run', f: 'single', run: { who: 'RB', path: [[0.8, -1], [1, 4]], push: 1.95 } },
+    { n: 'Off Tackle', cat: 'run', f: 'iform', run: { who: 'RB', path: [[2.2, -3], [2.7, 3]], push: 2.1 } },
+    { n: 'Toss Sweep', cat: 'run', f: 'iform', run: { who: 'RB', path: [[-7, -5.5], [-12, 2]], toss: 1 } },
     { n: 'HB Draw', cat: 'run', f: 'gun', run: { who: 'RB', path: [[0, -3], [-1, 4]], delay: .6 }, r: { X: 'go', Z: 'go', S: 'go', S2: 'go' } },
-    { n: 'QB Draw', cat: 'run', f: 'gun', run: { who: 'QB', path: [[0, -6], [1, 4]] }, r: { X: 'go', Z: 'go' } },
+    { n: 'QB Draw', cat: 'run', f: 'gun', run: { who: 'QB', path: [[0, -6], [1, 4]], push: 2.0 }, r: { X: 'go', Z: 'go' } },
+    { n: 'Counter', cat: 'run', f: 'iform', run: { who: 'RB', path: [[1.2, -6], [-2.2, -3], [-2.7, 3]], push: 1.9 } },
+    { n: 'QB Sneak', cat: 'run', f: 'single', d: 'Short yardage', short: 1, run: { who: 'QB', path: [[0, 0.5], [0.4, 3]], fast: 1, push: 2.6 } },
     { n: 'Slants', cat: 'short', f: 'gun', r: { X: 'slant', Z: 'slant', S: 'out', S2: 'drag', RB: 'flatR' } },
     { n: 'Curl Flat', cat: 'short', f: 'single', r: { X: 'curl', Z: 'curl', S: 'in', TE: 'out', RB: 'flatL' } },
     { n: 'Mesh', cat: 'short', f: 'gun', r: { S: 'drag', S2: 'drag', X: 'post', Z: 'corner', RB: 'flatR' } },
     { n: 'Stick', cat: 'short', f: 'single', r: { TE: 'hitch', Z: 'go', X: 'slant', S: 'out', RB: 'flatR' } },
+    { n: 'HB Screen', cat: 'short', f: 'gun', d: 'Shotgun · screen', r: { RB: 'screenL', X: 'go', Z: 'go', S: 'go', S2: 'drag' } },
+    { n: 'Bootleg', cat: 'short', f: 'single', pa: 1, roll: 7, d: 'Singleback · roll out', r: { TE: 'out', Z: 'corner', X: 'drag', S: 'in' } },
     { n: 'Four Verticals', cat: 'deep', f: 'gun', r: { X: 'go', Z: 'go', S: 'go', S2: 'go', RB: 'flatL' } },
     { n: 'PA Post', cat: 'deep', f: 'iform', pa: 1, d: 'I-Form · PA', r: { X: 'post', Z: 'go', TE: 'in', FB: 'flatR' } },
     { n: 'Smash', cat: 'deep', f: 'gun', r: { X: 'hitch', S: 'corner', Z: 'hitch', S2: 'corner' } },
@@ -72,6 +79,8 @@
     { n: 'Cover 1 Man', d: 'Man · rush 4', a: { CB1: 'man', CB2: 'man', SS: 'man', OLB1: 'man', OLB2: 'man', MLB: Z(0, 7), FS: Z(0, 20, 1) } },
     { n: 'Man Blitz', d: 'Man · rush 6', a: { CB1: 'man', CB2: 'man', SS: 'man', OLB1: 'man', FS: 'man', OLB2: 'rush', MLB: 'rush' } },
     { n: 'Zone Blitz', d: 'Zone · rush 5', a: { OLB1: 'rush', MLB: Z(0, 8), OLB2: Z(10, 6), SS: Z(-10, 6), CB1: Z(-17, 19, 1), CB2: Z(17, 19, 1), FS: Z(0, 21, 1) } },
+    { n: 'Cover 4', d: 'Deep zone · rush 4', a: { CB1: Z(-17, 20, 1), CB2: Z(17, 20, 1), FS: Z(-6, 22, 1), SS: Z(6, 22, 1), OLB1: Z(-10, 7), MLB: Z(0, 8), OLB2: Z(10, 7) } },
+    { n: 'Goal Line', d: 'Run stop · rush 6', a: { OLB1: 'rush', OLB2: 'rush', MLB: Z(0, 3), SS: Z(5, 3), FS: Z(-5, 3), CB1: 'man', CB2: 'man' } },
     { n: 'Prevent', d: 'Deep zone · rush 4', a: { CB1: Z(-16, 25, 1), CB2: Z(16, 25, 1), FS: Z(-5, 28, 1), SS: Z(5, 28, 1), OLB1: Z(-10, 14), MLB: Z(0, 15), OLB2: Z(10, 14) } }];
 
   /* receiver button colors (no yellow, by request) and down names */

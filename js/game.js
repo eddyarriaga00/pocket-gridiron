@@ -234,7 +234,7 @@
     for (const r in f) o[r] = mk(off, r, f[r][0] * fl, f[r][1]);  // fl mirrors the formation when the play is flipped
     const kick = op.cat === 'special';
     ps = { t: 0, mode: kick ? 'kick' : op.cat === 'run' ? 'run' : 'pass', offTeam: off, qb: o.QB, carrier: o.QB, thrown: false, air: null, caught: false, handoff: false, open: false, turnover: false,
-      think: 0, scr: false, runner: null, recs: [], pa: !!op.pa, los, fd: G.fd, bx, drop: { x: bx, y: los - dir * (op.f === 'gun' ? 7.5 : 6.5) }, kick: null, passer: null, tgt: null, tackler: null };
+      think: 0, scr: false, runner: null, recs: [], pa: !!op.pa, los, fd: G.fd, bx, drop: { x: clamp(bx + (op.roll || 0) * fl, 4, FW - 4), y: los - dir * (op.f === 'gun' ? 7.5 : 6.5) }, kick: null, passer: null, tgt: null, tackler: null };
     if (kick) {
       o.QB.y = los - dir * (op.n === 'Punt' ? 13 : 7.5);
       o.RB.x = bx - 2.5;
@@ -253,7 +253,7 @@
     if (!kick) for (const r in f) {
       if (r === 'QB') continue;
       let nm = (op.r || {})[r];
-      if (G.flip && (nm === 'flatL' || nm === 'flatR')) nm = nm === 'flatL' ? 'flatR' : 'flatL';  // these two name a side, so they swap
+      if (G.flip && nm && ROUTES[nm] && ROUTES[nm].abs) nm = nm.replace(/[LR]$/, m => (m === 'L' ? 'R' : 'L'));  // routes that name a side swap sides
       if (nm && ROUTES[nm]) {
         o[r].route = mkRoute(o[r], nm, dir);
         o[r].rn = nm;
@@ -895,7 +895,8 @@
     const off = ps.offTeam;
     if (ps.mode === 'run' && !ps.handoff) {
       const rn = ps.runner, dl = G.op.run.delay || 0;
-      if (rn === ps.qb ? ps.t > 0.45 : ps.t > dl + 0.3 && (dist(rn, ps.qb) < 1.3 || ps.t > dl + 0.9)) {
+      if (rn === ps.qb ? ps.t > (G.op.run.fast ? 0.1 : 0.45) : ps.t > dl + 0.3 && (G.op.run.toss || dist(rn, ps.qb) < 1.3 || ps.t > dl + 0.9)) {
+        // a toss is pitched at once, so the defense sees it sooner
         ps.handoff = true;
         ps.carrier = rn;
         openField(0.24, 0.62);
@@ -999,8 +1000,10 @@
       ux /= l;
       uy /= l;
       const run = ps.open || ps.mode === 'run', bd = b.team === 0 ? 1 : -1, sp = run ? 0.5 : 1.0;
+      /* on a run the blocker drives his man downfield; each run play says how hard its line comes off the ball */
+      const push = !run ? 0 : ps.mode === 'run' && G.op.run && b.isOL ? G.op.run.push || 0.9 : 0.9;
       d.vx = ux * sp;
-      d.vy = uy * sp + (run ? bd * 0.9 : 0);
+      d.vy = uy * sp + bd * push;
       d.x += d.vx * dt;
       d.y += d.vy * dt;
       const k = Math.min(1, dt * 12);
@@ -1042,6 +1045,7 @@
         if (o.dive > 0) pr += 0.2;
         for (const q of P) if (q.team === o.team && q !== o && !q.down && q.stun <= 0 && dist(q, c2) < 2.2) pr += 0.15;
         if (c2.juke > 0) pr *= 0.22;
+        if (ps.mode === 'run' && G.op.run && G.op.run.fast && ps.t < 0.8) pr *= 0.3;  // a sneak goes in behind the wedge: hard to stop for the first step or two
         if (c2.hurdle > 0) {
           if (o.dive > 0 && o.hit <= 0) continue;  // sailed over the diving tackler
           pr += 0.18;  // met in the air
@@ -1865,7 +1869,7 @@
     const foe = G.lock && t === 1 && !AUTO ? G.lock : null;  // and the opponent tests a defender
     if (foe === 'MLB') pr = Math.min(0.75, pr + 0.15);
     else if (foe === 'CB1') pr *= 0.75;
-    if (rnd() < pr) return pick(OFF.filter(p => p.cat === 'run' && (star !== 'RB' || p.run.who === 'RB')));
+    if (rnd() < pr) return pick(OFF.filter(p => p.cat === 'run' && (star !== 'RB' || p.run.who === 'RB') && (!p.short || G.togo <= 2)));
     const pc = rnd() < (G.togo > 8 ? 0.5 : 0.3) ? 'deep' : 'short';
     let list = OFF.filter(p => p.cat === pc);
     if (star === 'RB') {
@@ -1875,7 +1879,16 @@
     return pick(list);
   }
 
-  const cpuDef = () => G.togo > 12 && rnd() < 0.35 ? DEF[5] : DEF[Math.floor(rnd(5))];
+  const DEFN = n => DEF.find(d => d.n === n);
+
+  /* the computer's coverage: goal line when a yard or the goal is at stake, deep shells on long yardage, otherwise one of the five base calls */
+  function cpuDef() {
+    const toGoal = G.poss === 0 ? 100 - G.los : G.los;
+    if ((G.togo <= 1.5 || toGoal <= 3) && rnd() < 0.55) return DEFN('Goal Line');
+    if (G.togo > 12 && rnd() < 0.35) return DEFN('Prevent');
+    if (G.togo > 10.5 && rnd() < 0.3) return DEFN('Cover 4');
+    return DEF[Math.floor(rnd(5))];
+  }
 
   function startCall() {
     P = [];

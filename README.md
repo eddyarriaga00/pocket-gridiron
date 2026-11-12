@@ -48,8 +48,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 | Time out | Time out, right after the whistle or on the play-call sheet | T |
 | Pause | The pause button under the scoreboard | P or Esc |
 
-Settings has the accent color, 2D or 3D graphics, sharpness, shadows, the glow pass, replays, sound, music, the
-announcer and the control tips.
+Settings has the accent color, 2D or 3D graphics, sharpness, the camera, shadows, the glow pass, close-up model detail,
+replays, penalties, the button side, sound, music, the announcer, vibration and the control tips.
 
 ## How it is built
 
@@ -59,7 +59,8 @@ css/game.css            all styles
 js/data.js              teams, formations, routes and both playbooks
 js/game.js              the engine: plays, AI, rules, controls, menus, the 2D overlay and 2D fallback renderer
 js/shaders.js           GLSL: turf, sky dome, crowd, rim light on players, glow and vignette pass
-js/render3d.js          three.js renderer: stadium, instanced player models, shadows, weather, cameras
+js/render3d.js          three.js renderer: stadium, instanced player models (a far and a near level of detail),
+                        shadows, weather, cameras
 js/audio.js             synthesized sound: effects, crowd, music, weather, and the announcer (speech synthesis)
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode

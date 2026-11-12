@@ -336,6 +336,19 @@ what is next. Update it after every item.
   tip box ran under the receiver buttons. Regression: `H.fingerprint()` unchanged; sims, exhibition, career (QB, LB, WR, with
   practice) and a season game finish with no errors.
 
+- 09:00 Models. `PG.r3d.info` now reports `nearModel` and `camDist`. The inside-out bug: three.js faces a lathe outward only
+  when its profile climbs, and the limb profiles ran top-down, so the signed volume of the upper arm, sleeve, forearm,
+  thigh, pants stripe and shin came out negative (measured in the page). You were looking at the far wall of each limb.
+  `lathe()` now turns such a profile round. Before and after close-ups: the pants stripes, never visible before, appear.
+  Near model: 45 figures at about 10,500 triangles each against 3,900 (478k triangles in a close-up, 194k in play; the
+  swap happens under 20 yards from camera to subject and back above 24). Measured over a scripted game: play, pre-snap and
+  dead-ball views sit at 25 to 55 yards (far model in every sample), replays at 14 (near model in every sample),
+  celebrations 8 to 38. Frame rate with the near model was not measured: the test pane was hidden, which throttles it.
+  Seams fixed after looking at close-ups: the name plate sank into the pads (a flat chord across a curved surface; it now
+  has three rows), ankles poked through the shoes of thick-legged players (shoes now scale with the leg), and the pants
+  grazed the jersey hem and the socks (the hem flares, the sock steps in under the knee).
+  Also: leaving a game in the middle of a replay left the replay badge on the menu. `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -381,10 +394,12 @@ what is next. Update it after every item.
 - [x] A hall-of-fame score and verdict on the retirement screen (titles, honors, career XP, overall, trophies; about 100 is first ballot)
 
 ### Round 6 (queued at 08:50; work through these in order)
-- [ ] Player models, pass 4: a detailed model for close views (replays, the flyover, celebrations, portraits) with shaped
-      thighs and calves, knees and elbows that meet cleanly, hands with fingers and a thumb, cleats, shoulder-pad caps and
-      a collar; soft contact shading baked into the vertices of both levels of detail. The far model stays for speed
-- [ ] Touchdown celebrations: more than one, picked per player, shown by the close camera
+- [x] Player models, pass 4. First a bug: every arm and leg had been drawn inside-out (see the log), which is fixed for
+      both models. Then a near model for close views (replays, celebrations, portraits): shaped thighs and calves, a knee
+      pad, hands with fingers and a thumb, cleats, caps on the shoulder pads, a collar; numbers and names now wrap over the
+      chest instead of floating as flat cards; soft contact shading is baked into the vertices of both models. The far
+      model still draws during play. Settings has "Close-up player models", and a replay that drags switches it off
+- [x] Touchdown celebrations: already there (three for the scorer, two for teammates); struck from this round
 - [ ] Career history: a season-by-season table (team, record, stat line, average grade, honors) on the hub and at retirement
 - [ ] Fair catches and muffed punts on live punt returns
 - [ ] Milestones outside Career: a short list across all modes, shown from the menu

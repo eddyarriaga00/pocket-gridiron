@@ -21,7 +21,7 @@
   let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
   let hemiLight, sunLight, fillLight, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
   const shadowSets = [], towerGlow = [], towerPanels = [], refs = [];
-  let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null, menuShot = -1;
+  let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null, menuShot = -1, nearModel = false, camDist = 0;
   const FLASHES = 48, flashLife = new Float32Array(FLASHES);
   const TOWERS = [[-70, -78], [FW + 70, -78], [-70, 178], [FW + 70, 178]];  // the four light towers, as field [x, y]
   const posts = [];
@@ -60,8 +60,77 @@
     const up = pts[0][1] <= pts[pts.length - 1][1] ? pts : pts.slice().reverse();
     return new T.LatheGeometry(up.map(([r, y]) => new T.Vector2(r, y)), seg || 12, phi0 || 0, phiLen || Math.PI * 2);
   };
+  const bell = t => Math.exp(-t * t);
+
+  /* A lathe whose points are then pushed about by f(v, front, back); front and back say how squarely the point faces
+     forward (-z) or backward (+z), from 0 to 1. Normals are rebuilt, and the two columns that meet at the seam are
+     given one normal between them so no line shows there. */
+  function sculpt(pts, seg, f) {
+    const g = lathe(pts, seg), p = g.attributes.position, v = new T.Vector3(), w = new T.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const r = Math.hypot(v.x, v.z) || 1;
+      f(v, Math.max(0, -v.z / r), Math.max(0, v.z / r));
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeVertexNormals();
+    const n = g.attributes.normal, rows = pts.length;
+    for (let j = 0; j < rows; j++) {
+      const k = seg * rows + j;
+      v.fromBufferAttribute(n, j).add(w.fromBufferAttribute(n, k)).normalize();
+      n.setXYZ(j, v.x, v.y, v.z);
+      n.setXYZ(k, v.x, v.y, v.z);
+    }
+    return g;
+  }
+
+  /* The chest: one recipe at two finenesses, so the number on the jersey (laid over this same surface) fits both models.
+     Wide at the shoulders, narrow at the waist, three quarters as deep as it is wide, with a little chest in front and
+     shoulder blade behind. The hem hangs just over the pants. */
+  const TORSO = [[0.01, -0.06], [0.15, -0.055], [0.18, -0.03], [0.186, 0.08], [0.198, 0.2], [0.218, 0.32], [0.234, 0.43], [0.238, 0.5], [0.215, 0.58], [0.15, 0.64], [0.1, 0.675], [0.085, 0.69]];
+  const chestOut = y => 0.014 * bell((y - 0.4) / 0.1), backOut = y => 0.008 * bell((y - 0.46) / 0.1);
+  const mkTorso = seg => sculpt(TORSO, seg, (v, front, back) => {
+    v.z = v.z * (v.y < 0.1 ? lerp(0.8, 0.74, clamp((v.y + 0.03) / 0.13, 0, 1)) : 0.74) - chestOut(v.y) * front + backOut(v.y) * back;  // the hem flares, to hang outside the pants
+  });
+
+  /* how far the jersey's surface is from the spine at (x, y), on the front or the back: the chest, or the shoulder pads
+     where they sit over it */
+  function jerseyZ(x, y, back) {
+    let i = 1;
+    while (i < TORSO.length - 1 && y > TORSO[i][1]) i++;
+    const [r0, y0] = TORSO[i - 1], [r1, y1] = TORSO[i], R = lerp(r0, r1, clamp((y - y0) / (y1 - y0), 0, 1));
+    const h = Math.sqrt(Math.max(0, R * R - x * x)), chest = h * 0.74 + (back ? backOut(y) : chestOut(y)) * (R ? h / R : 0);
+    const q = 1 - (x / 0.348) ** 2 - ((y - 0.565) / 0.132) ** 2;
+    return Math.max(chest, q > 0 ? 0.216 * Math.sqrt(q) : 0);
+  }
+
+  /* a jersey decal: a patch of nx by ny quads lying 6 mm off that surface, front (side -1), back (1) or both */
+  function decal(w, y0, y1, nx, ny, sides) {
+    const pos = [], uv = [];
+    for (const side of sides) {
+      const pt = (i, j) => {
+        const u = i / nx, v = j / ny, x = lerp(-w, w, u) * side, y = lerp(y0, y1, v);
+        pos.push(x, y, (jerseyZ(x, y, side > 0) + 0.006) * side);
+        uv.push(u, v);
+      };
+      for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+        pt(i, j);
+        pt(i + 1, j);
+        pt(i + 1, j + 1);
+        pt(i, j);
+        pt(i + 1, j + 1);
+        pt(i, j + 1);
+      }
+    }
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    return g;
+  }
+
+  /* the far model: what you see from the gameplay camera, kept light because 45 figures are drawn every frame */
   const GEO = {
-    torso: lathe([[0.01, -0.05], [0.178, -0.04], [0.188, 0.14], [0.215, 0.32], [0.235, 0.47], [0.2, 0.6], [0.09, 0.67]]).scale(1, 1, 0.74),  // the hem hangs just over the pants
+    torso: mkTorso(12),
     pads: new T.SphereGeometry(0.22, 14, 8).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
     neck: new T.CylinderGeometry(0.068, 0.08, 0.12, 10).translate(0, 0.69, 0),
     hips: lathe([[0.01, -0.24], [0.11, -0.215], [0.166, -0.11], [0.17, -0.02], [0.13, 0.04], [0.01, 0.06]]).scale(1, 1, 0.78),  // a rounded top that stays inside the jersey
@@ -86,10 +155,94 @@
     hand: new T.SphereGeometry(0.064, 8, 6).scale(1, 1.15, 0.85).translate(0, -0.3, 0),
     /* a stripe down both sides of the thigh, following its taper */
     pantStripe: merge([Math.PI / 2, Math.PI * 1.5].map(a => lathe([[0.112, -0.03], [0.108, -0.2], [0.09, -0.455]], 3, a - 0.2, 0.4))),
-    thigh: merge([lathe([[0.01, 0.05], [0.108, 0], [0.104, -0.2], [0.086, -0.46]], 12), new T.SphereGeometry(0.09, 12, 8).translate(0, -0.49, 0)]),
+    thigh: merge([lathe([[0.01, 0.05], [0.108, 0], [0.104, -0.2], [0.086, -0.46]], 12), new T.SphereGeometry(0.087, 12, 8).translate(0, -0.49, 0)]),
     shin: lathe([[0.01, 0.03], [0.07, 0], [0.084, -0.13], [0.062, -0.34], [0.052, -0.46], [0.01, -0.49]], 12),
     foot: new T.CapsuleGeometry(0.058, 0.15, 2, 8).rotateX(Math.PI / 2).scale(1.05, 0.72, 1).translate(0, -0.465, -0.07),
   };
+
+  /* ---------- the near model ----------
+     The same parts in the same joint spaces, with rounder outlines and real shapes where the far model has a plain tube:
+     thigh and calf muscle, a knee pad, hands with fingers and a thumb, cleats with a heel, caps on the shoulder pads and
+     a collar. render() swaps these in when the camera is close (replays, celebrations, the close view), and the
+     portraits always use them. A part missing here uses the far model's. */
+  const THIGH = [[0.108, 0], [0.114, -0.07], [0.11, -0.18], [0.099, -0.3], [0.089, -0.4], [0.085, -0.47]];
+
+  /* a cleat: toe box and heel as two flattened balls pressed onto one flat sole, and a collar where the sock goes in */
+  function cleat() {
+    const g = merge([new T.SphereGeometry(1, 12, 8).scale(0.056, 0.046, 0.092).translate(0, -0.466, -0.118), new T.SphereGeometry(1, 12, 8).scale(0.052, 0.05, 0.085).translate(0, -0.462, -0.02),
+      new T.CylinderGeometry(0.052, 0.054, 0.05, 12).translate(0, -0.43, 0.002)]), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) if (p.getY(i) < -0.507) p.setY(i, -0.507);
+    return g;
+  }
+
+  /* A hand seen with the arm hanging: the palm faces the thigh, so it is thin from side to side, the fingers hang in a
+     row from front to back and the thumb sits in front. That is the same for a left and a right hand, which share this. */
+  function hand() {
+    return merge([new T.SphereGeometry(1, 10, 6).scale(0.03, 0.058, 0.05).translate(0, -0.3, 0.002),
+      ...[-0.032, -0.011, 0.01, 0.031].map((z, i) => new T.CapsuleGeometry(0.013, 0.04 - Math.abs(i - 1.5) * 0.005, 2, 6).rotateX(0.22).translate(0, -0.366, z)),
+      new T.CapsuleGeometry(0.015, 0.03, 2, 6).rotateX(0.75).translate(0, -0.322, -0.056)]);
+  }
+
+  const GEO_HI = {
+    torso: mkTorso(24),
+    pads: merge([new T.SphereGeometry(0.22, 24, 14).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
+      ...[-1, 1].map(side => new T.SphereGeometry(0.13, 14, 8).scale(1, 0.64, 1.12).translate(side * 0.29, 0.566, 0)),  // a cap over each shoulder
+      new T.TorusGeometry(0.1, 0.02, 6, 18).rotateX(Math.PI / 2).translate(0, 0.676, 0)]),  // the collar
+    neck: new T.CylinderGeometry(0.068, 0.08, 0.12, 16).translate(0, 0.69, 0),
+    hips: sculpt([[0.01, -0.245], [0.07, -0.24], [0.125, -0.205], [0.166, -0.11], [0.168, -0.02], [0.15, 0.03], [0.01, 0.06]], 20, (v, front, back) => {
+      v.z = v.z * 0.76 + 0.012 * bell((v.y + 0.13) / 0.06) * back;  // the seat, kept below the hem of the jersey
+    }),
+    helmet: new T.SphereGeometry(0.17, 24, 16).scale(1, 1.02, 1.12),
+    stripe: new T.TorusGeometry(0.177, 0.016, 6, 22, Math.PI).rotateY(Math.PI / 2).scale(2.2, 1.02, 1.12),
+    logo: merge([-1, 1].map(side => new T.CylinderGeometry(0.058, 0.058, 0.012, 18).rotateZ(Math.PI / 2).translate(side * 0.168, 0.01, 0.01))),
+    visor: new T.SphereGeometry(0.128, 16, 10).scale(1, 0.6, 0.6).translate(0, -0.035, -0.125),
+    mask: merge([new T.TorusGeometry(0.162, 0.011, 6, 18, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.05, -0.02), new T.TorusGeometry(0.158, 0.011, 6, 18, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.1, -0.02),
+      new T.TorusGeometry(0.15, 0.011, 6, 18, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.145, -0.01), new T.CylinderGeometry(0.011, 0.011, 0.11, 6).translate(0, -0.095, -0.178),
+      new T.CylinderGeometry(0.011, 0.011, 0.11, 6).translate(-0.07, -0.095, -0.158), new T.CylinderGeometry(0.011, 0.011, 0.11, 6).translate(0.07, -0.095, -0.158)]),
+    upperArm: merge([sculpt([[0.01, 0.05], [0.06, 0.036], [0.072, 0], [0.074, -0.08], [0.068, -0.18], [0.06, -0.275]], 14, (v, front, back) => {
+      v.z += -0.008 * bell((v.y + 0.12) / 0.07) * front + 0.006 * bell((v.y + 0.14) / 0.08) * back;  // biceps in front, triceps behind
+    }), new T.SphereGeometry(0.06, 14, 8).translate(0, -0.3, 0)]),
+    sleeveCap: lathe([[0.01, 0.062], [0.07, 0.046], [0.088, 0.012], [0.087, -0.1], [0.083, -0.138], [0.075, -0.141]], 16),
+    sleeve: new T.TorusGeometry(0.082, 0.012, 6, 18).rotateX(Math.PI / 2).translate(0, -0.136, 0),
+    foreArm: sculpt([[0.01, 0.04], [0.046, 0.03], [0.058, 0], [0.06, -0.06], [0.052, -0.15], [0.043, -0.23], [0.04, -0.262], [0.01, -0.275]], 14, (v, front, back) => {
+      v.z += 0.006 * bell((v.y + 0.07) / 0.06) * back;
+    }),
+    wrist: new T.CylinderGeometry(0.053, 0.049, 0.055, 14).translate(0, -0.215, 0),
+    hand: hand(),
+    pantStripe: merge([Math.PI / 2, Math.PI * 1.5].map(a => lathe(THIGH.map(([r, y]) => [r + 0.0035, y]), 5, a - 0.17, 0.34))),
+    thigh: merge([sculpt([[0.01, 0.056], [0.076, 0.04], ...THIGH], 18, (v, front, back) => {
+      v.z += -0.014 * bell((v.y + 0.16) / 0.13) * front + 0.009 * bell((v.y + 0.2) / 0.15) * back;  // quadriceps and hamstring
+    }), new T.SphereGeometry(0.088, 16, 8).translate(0, -0.5, 0), new T.SphereGeometry(0.05, 10, 6).scale(1, 1.15, 0.5).translate(0, -0.49, -0.07)]),  // the knee, and the pad over it
+    shin: sculpt([[0.01, 0.046], [0.058, 0.036], [0.074, 0], [0.078, -0.06], [0.082, -0.13], [0.074, -0.22], [0.06, -0.32], [0.05, -0.42], [0.047, -0.47], [0.01, -0.49]], 18, (v, front, back) => {
+      v.z += 0.02 * bell((v.y + 0.14) / 0.09) * back - 0.004 * bell((v.y + 0.2) / 0.12) * front;  // the calf
+    }),
+    foot: cleat(),
+  };
+
+  /* Soft contact shading, baked into the vertices of both models (the part's color is multiplied by it): darker where
+     another part sits over the surface, so the jersey reads as tucked under the pads and the legs as coming out of the
+     pants. Each rule gets a point (x, y, z) and its normal's y, in the space of the joint the part hangs from. */
+  const ease = (a, b, x) => {
+    const t = clamp((x - a) / (b - a), 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  const SHADE = {
+    torso: (x, y) => lerp(0.6, 1, ease(0.57, 0.4, y)) * lerp(0.7, 1, ease(-0.06, 0.03, y)) * (y > 0.2 ? lerp(0.78, 1, ease(0.21, 0.15, Math.abs(x))) : 1),  // under the pads, at the hem, under the arms
+    pads: (x, y, z, ny) => lerp(0.66, 1, ease(-0.55, 0.1, ny)),  // the underside
+    neck: () => 0.68,
+    hips: (x, y) => lerp(0.66, 1, ease(0.04, -0.07, y)),  // under the hem of the jersey
+    helmet: (x, y, z, ny) => lerp(0.7, 1, ease(-0.8, -0.25, ny)),  // the rim
+    upperArm: (x, y) => lerp(0.68, 1, ease(-0.02, -0.17, y)),  // in the sleeve
+    foreArm: (x, y) => lerp(0.84, 1, ease(0.03, -0.06, y)),
+    thigh: (x, y) => lerp(0.68, 1, ease(0.04, -0.11, y)),  // where the leg leaves the hips
+    shin: (x, y) => lerp(0.8, 1, ease(0.04, -0.05, y)),
+    foot: (x, y, z, ny) => lerp(0.55, 1, ease(-0.9, -0.2, ny)),  // the sole
+  };
+  for (const table of [GEO, GEO_HI]) for (const name in table) {
+    const g = table[name], p = g.attributes.position, n = g.attributes.normal, f = SHADE[name], c = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = f ? f(p.getX(i), p.getY(i), p.getZ(i), n.getY(i)) : 1;
+    g.setAttribute('color', new T.BufferAttribute(c, 3));
+  }
 
   /* Low-polygon stand-ins, used only to cast shadows: a flattened silhouette does not need the detail, and at night
      every one of these is drawn four times. Open tubes are fine, the ends never show. */
@@ -113,7 +266,7 @@
     ['upperArm', ['shL', 'shR'], 'skin', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
     ['foreArm', ['elL', 'elR'], 'skin', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
     ['thigh', ['hipL', 'hipR'], 'pants', 'limb', 1], ['pantStripe', ['hipL', 'hipR'], 'stripe', 'limb'],
-    ['shin', ['kneeL', 'kneeR'], 'sock', 'limb', 1], ['foot', ['kneeL', 'kneeR'], 'shoe', '', 1],
+    ['shin', ['kneeL', 'kneeR'], 'sock', 'limb', 1], ['foot', ['kneeL', 'kneeR'], 'shoe', 'limb', 1],  // the shoe widens with the leg, or a thick ankle pokes through it
   ];
 
   /* Body types: [shoulder and hip width, depth, height, limb thickness]. Linemen are wide and deep, receivers and
@@ -151,16 +304,8 @@
   const REF_HIDE = new Set(['pads', 'mask', 'stripe', 'logo', 'sleeve', 'pantStripe', 'wrist']);
   const SKIN = ['#f0c8a4', '#d7a078', '#b3764c', '#8a583a', '#66402e'];
 
-  function numberGeometry() {
-    const w = 0.15, y0 = 0.2, y1 = 0.5, zf = -0.17, zb = 0.17;
-    const pos = [w, y0, zf, -w, y0, zf, -w, y1, zf, w, y0, zf, -w, y1, zf, w, y1, zf,
-      -w, y0, zb, w, y0, zb, w, y1, zb, -w, y0, zb, w, y1, zb, -w, y1, zb];
-    const uv = [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1];
-    const g = new T.BufferGeometry();
-    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-    g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
-    return g;
-  }
+  /* the number, front and back, wrapped over the chest */
+  const numberGeometry = () => decal(0.15, 0.2, 0.5, 6, 4, [-1, 1]);
 
   const numCache = new Map();
 
@@ -184,12 +329,7 @@
   }
 
   /* the name across the shoulders: one small quad on the back, above the number */
-  function nameGeometry() {
-    const w = 0.19, y0 = 0.505, y1 = 0.6, z = 0.222, g = new T.BufferGeometry();
-    g.setAttribute('position', new T.Float32BufferAttribute([-w, y0, z, w, y0, z, w, y1, z, -w, y0, z, w, y1, z, -w, y1, z], 3));
-    g.setAttribute('uv', new T.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
-    return g;
-  }
+  const nameGeometry = () => decal(0.19, 0.505, 0.6, 6, 3, [1]);  // three rows, to follow the curve of the pads
 
   const NO_NAME = new T.MeshBasicMaterial({ visible: false });
 
@@ -1209,7 +1349,7 @@
     scene.add(contact);
     /* body parts */
     parts = PART_DEFS.map(([name, joints, color, fit, shadow]) => {
-      const mat = SH.rim(name === 'helmet' ? new T.MeshPhongMaterial({ color: 0xffffff, shininess: 120, specular: 0x9aa0aa }) : new T.MeshLambertMaterial({ color: 0xffffff }));
+      const mat = SH.rim(name === 'helmet' ? new T.MeshPhongMaterial({ color: 0xffffff, shininess: 120, specular: 0x9aa0aa, vertexColors: true }) : new T.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }));
       const mesh = new T.InstancedMesh(GEO[name], mat, CAP * joints.length);
       mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
       mesh.frustumCulled = false;
@@ -1734,6 +1874,13 @@
       camLook.set(...debugCam.look);
     }
     camera.lookAt(camLook);
+    /* the near model when the camera is within about 20 yards of what it is looking at; the two limits keep it from flickering */
+    camDist = camera.position.distanceTo(camLook);
+    const near = s.detail !== false && camDist < (nearModel ? 24 : 20);
+    if (near !== nearModel) {
+      nearModel = near;
+      for (const p of parts) p.mesh.geometry = (near && GEO_HI[p.name]) || GEO[p.name];
+    }
     skyDome.position.copy(camera.position);
     for (const g of posts) g.visible = Math.abs(-camera.position.z - g.userData.y) > 14;  // not the one the camera sits beside
     if (rainPts.visible) updateWeather(rainPts, 36, 6);
@@ -1769,7 +1916,7 @@
       const meshes = {};
       for (const [name, joints, color] of PART_DEFS) {
         meshes[name] = joints.map(j => {
-          const m = new T.Mesh(GEO[name], name === 'helmet' ? new T.MeshPhongMaterial({ shininess: 120, specular: 0x9aa0aa }) : new T.MeshLambertMaterial());
+          const m = new T.Mesh(GEO_HI[name] || GEO[name], name === 'helmet' ? new T.MeshPhongMaterial({ shininess: 120, specular: 0x9aa0aa, vertexColors: true }) : new T.MeshLambertMaterial({ vertexColors: true }));
           m.userData.color = color;
           f[j].add(m);
           return m;
@@ -1821,7 +1968,7 @@
       cheer = Math.max(cheer, v);
     },
     get info() {
-      return renderer ? renderer.info.render : null;
+      return renderer ? Object.assign({ nearModel, camDist: Math.round(camDist) }, renderer.info.render) : null;
     },
     get scene() {
       return scene;

@@ -2800,6 +2800,7 @@
     setBrief('');
     $('#banner').classList.remove('on');
     $('#meter').hidden = true;
+    $('#rp').hidden = true;  // leaving in the middle of a replay used to leave its badge on the menu
     CONF.length = 0;
   }
 
@@ -3007,7 +3008,7 @@
   <h2>Look</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
   ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
-  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scv','Camera',SET.camv==='close'?'Close':SET.camv==='high'?'High':'Standard')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off'):''}
+  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scv','Camera',SET.camv==='close'?'Close':SET.camv==='high'?'High':'Standard')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off')+chip('sdt','Close-up player models',SET.detail!==false?'Detailed':'Simple'):''}
   ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
   ${chip('slh','Buttons',SET.left?'Left side':'Right side')}
   <h2>Sound</h2>
@@ -3057,6 +3058,9 @@
       });
       on('sfx', () => {
         SET.fx = SET.fx === false;
+      });
+      on('sdt', () => {
+        SET.detail = SET.detail === false;
       });
       on('srp', () => {
         SET.replay = SET.replay === false;
@@ -3558,7 +3562,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (R3) {
       ctx.clearRect(0, 0, W, H);
-      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, camv: SET.camv }, FDT);
+      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, camv: SET.camv, detail: SET.detail !== false }, FDT);
       if (shake > 0) shake -= FDT;
     } else {
       if (shake > 0) {
@@ -3778,14 +3782,18 @@
 
   /* Nobody can test every phone, so the game watches its own frame rate. If play stays under about 40 frames a
      second for a few seconds it gives up the most expensive effect that is still on: first the glow pass, then
-     the sharpness, then the shadows. Each step is saved, and Settings can turn any of them back on. */
+     the sharpness, then the shadows; a replay that drags gives up the detailed close-up models first. Each step is
+     saved, and Settings can turn any of them back on. */
   function watchSpeed(raw) {
-    if (!R3 || AUTO || window.PG_TEST || G.paused || document.hidden || raw > 0.25 || (G.state !== 'live' && G.state !== 'pre')) return;
+    if (!R3 || AUTO || window.PG_TEST || G.paused || document.hidden || raw > 0.25 || (G.state !== 'live' && G.state !== 'pre' && G.state !== 'replay')) return;
     slow = raw > 1 / 40 ? slow + 1 : Math.max(0, slow - 2);
     if (slow < 150) return;
     slow = 0;
     let what = '';
-    if (SET.fx !== false) {
+    if (G.state === 'replay' && SET.detail !== false) {
+      SET.detail = false;
+      what = 'simpler close-ups';
+    } else if (SET.fx !== false) {
       SET.fx = false;
       what = 'glow pass off';
     } else if (SET.px !== 'bal') {

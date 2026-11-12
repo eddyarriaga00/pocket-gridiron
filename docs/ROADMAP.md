@@ -427,6 +427,12 @@ what is next. Update it after every item.
   player's own "read" did not match the engine's lane check, so a well-read option is not measured.
   `H.fingerprint()` unchanged: the computer never calls an option, and the only dice are rolled when one is called.
 
+- 14:09 Football sounds. Measured the same way (dB peak, and the peak a phone speaker would reach): cadence -6, "Hut!"
+  about -8, line crash -4 (it plays on every snap, so it was pulled down from six hits to five quieter ones), audible -8,
+  cannon -4 (phone -14), band pieces -3 to -4 with the snares brought up and the bass drums down after the first
+  render came out 91% below 200 Hz. A live run played every one of them without an error; with the horn, the fanfare,
+  the cannon and a full cheer at once the output peaked at -3 dB. The band rests at least 16 seconds between pieces.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -531,7 +537,12 @@ what is next. Update it after every item.
       quarterback and the back share the ball: throw to a lettered receiver in that time, or do nothing and the back takes
       it. Linebackers in underneath zones either step up at the fake or sit; one who sits in the throwing lane bats the
       ball down more often than not. The computer never calls them, but your coach does now and then in Career
-- [ ] Sound that is unmistakably football
+- [x] Sound that is more unmistakably football (the owner's verdict on the rebuild was "decent, but need it to sound like
+      football"): the quarterback's cadence before every snap ("Ready ... set", then "Hut!" with the snap), the two lines
+      crashing together, a shout on audibles, shouts on a loose ball, a crowd "ohhh" that swells with the drum roll into
+      every kickoff, a band in the stands between plays (a drum cadence, the "Charge!" bugle call with the crowd's
+      answer, a phrase of the fight song), a "LET'S GO!" chant with its claps, and a cannon with fireworks on home
+      touchdowns. Still to be judged by ear
 - [ ] Bug test every screen and mode; research interface guidelines; fix what turns up
 - [ ] The automatic loop back on, briefed with "major improvements, otherwise the interface"
 

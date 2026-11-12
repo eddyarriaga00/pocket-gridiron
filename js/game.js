@@ -226,6 +226,7 @@
   function setupPlay(shift) {
     const was = shift ? Object.fromEntries(P.map(p => [p.team + p.role, [p.x, p.y]])) : null, selRole = shift && G.sel ? G.sel.role : null;
     if (!shift) {
+      G.cadence = false;  // the quarterback has not called it out yet
       G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc'
       if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false };  // a new possession
       G.drive.plays++;
@@ -1206,6 +1207,7 @@
             if (!AUTO && !QUIET) {
               buzz(45);
               toast('Fumble! Get on it');
+              snd('shout', { x: c2.x });
               say('Fumble!', true);
               if (PG.audio) PG.audio.crowd.ooh(0.9);
             }
@@ -1552,6 +1554,7 @@
         buzz([40, 60, 40, 60, 90]);
         snd('horn');
         snd('fanfare');
+        snd('boom');  // the cannon behind the end zone
       }
       react(t, 1.4, 5.5);
     } else if (kind === 'fumble') {
@@ -2022,6 +2025,7 @@
     G.state = 'call';
     updHud();
     setBrief('');
+    if (!AUTO && !QUIET && !G.drill && PG.audio && Math.random() < 0.3) PG.audio.band();  // the band fills some of the gaps between plays
     if (G.pendKO != null) {
       const t = G.pendKO, k = 1 - t;  // t receives, k kicks
       if (!G.drill && lateAndBehind(k)) return k === 0 && !AUTO && !G.lock ? showOnside(k) : onside(k);  // your call, or the computer's (it always tries)
@@ -2115,11 +2119,14 @@
     if (!AUTO && PG.audio && ps.mode !== 'kick' && !G.drill) {
       const a = PG.audio, redZone = (G.poss === 0 ? 100 - G.los : G.los) < 20;
       if (G.poss === 1 && G.down >= 3) Math.random() < 0.5 ? a.crowd.chant(3) : a.crowd.clapBuild(2.4);
-      else if (G.poss === 0 && (G.down === 3 || redZone) && Math.random() < 0.35) {
-        a.play('organ');
-        setTimeout(() => {
-          if (G.state === 'pre') a.crowd.cheer(0.45, 0.9);  // the crowd answers the riff
-        }, 1250);
+      else if (G.poss === 0 && (G.down === 3 || redZone) && Math.random() < 0.45) {
+        if (Math.random() < 0.5) a.crowd.letsgo(2);  // "LET'S GO!" and the claps
+        else {
+          a.play('organ');
+          setTimeout(() => {
+            if (G.state === 'pre') a.crowd.cheer(0.45, 0.9);  // the crowd answers the riff
+          }, 1250);
+        }
       }
       if (G.down === 3 && Math.random() < 0.5) say(`Third down and ${Math.max(1, Math.round(G.togo))}.`);
       else if (G.down === 4) say('Fourth down.');
@@ -2129,6 +2136,7 @@
   function snap() {
     G.chg = G.pwShow = null;
     setBrief('');
+    snd('crash', { x: ps.bx });  // the two lines meet
     if (PG.audio) PG.audio.crowd.stopClaps();
     REC.length = 0;
     for (const p of P) if (p.jog) {
@@ -2305,6 +2313,7 @@
     camUpd(0, true);
     toast('Kickoff');
     snd('roll', { dur: 1.42 });  // the drum line builds to the kick, which comes a second and a half after the teams line up
+    if (PG.audio && !AUTO && !QUIET) PG.audio.crowd.kickoff();  // and the crowd's long "ohhh" with it
     updHud();
   }
 
@@ -2314,6 +2323,7 @@
     ps.air = { x0: FW / 2, y0: ps.los, x1: k.x, y1: k.y, t: 0, T: 2.6 + d * 0.016, h: 15, kick: true, x: FW / 2, y: ps.los, z: 0 };
     G.state = 'kicka';
     snd('kick');
+    if (PG.audio && !AUTO && !QUIET) PG.audio.crowd.cheer(0.45, 1.6);
   }
 
   /* Career: play the snaps the user's unit is not on the field for, headless, until their unit is back on. */
@@ -2481,6 +2491,7 @@
       setupPlay(true);
       setBrief(briefTxt());
       toast(flipIt ? 'Flipped: ' + G.op.n : 'Audible: ' + G.op.n);
+      snd('audible');
     } else if (!G.lock && G.poss === 1 && !flipIt) {
       G.dp = DEF[(DEF.indexOf(G.dp) + 1) % DEF.length];
       setupPlay(true);
@@ -3946,6 +3957,11 @@
     } else if (st === 'pre') {
       G.preT += dt;
       jogIn(dt);
+      if (!G.cadence && ps.mode !== 'ko' && G.preT > 0.5 && !P.some(p => p.jog)) {
+        // everyone is set: the quarterback calls it out ("Ready ... set"), and the "Hut!" comes with the snap
+        G.cadence = true;
+        snd('cadence', { x: ps.bx });
+      }
       if (ps.mode === 'ko') {
         if (G.preT > 1.5) kickNow();
       } else {

@@ -153,6 +153,8 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .potg small{display:block;color:var(--acc);font-family:var(--display);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .potg b{display:block;font-family:var(--display);font-size:13.5px;font-weight:800;margin-top:2px}
 .potg span{display:block;color:var(--mute);font-size:11.5px;margin-top:1px}
+.coach{margin:10px 0 0;padding:9px 11px;border-left:3px solid var(--acc);border-radius:0 9px 9px 0;background:var(--panel2);font-size:12.5px;line-height:1.45;color:var(--ink)}
+.coach small{display:block;margin-bottom:2px;color:var(--acc);font-family:var(--display);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .trust{margin:8px 2px 0;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-family:var(--display);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
 .trust b{color:var(--ink);font-size:13px}
 .trust .bar{grid-column:1/3;height:5px;border-radius:3px;background:var(--panel3);overflow:hidden}

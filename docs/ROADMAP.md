@@ -264,6 +264,10 @@ what is next. Update it after every item.
   carrier). Motion itself cannot be judged from stills. In `H.fingerprint()` only the position trace changed (downed players
   now slide a little after the whistle); scores, stats and step counts are identical. Re-baselined.
 
+- 08:01 Coach and rival. `coachSays()` builds the note; `C.rival` is the man to beat. A scripted RB season ended ahead of the
+  rival (657 yards to 604) and earned the trophy; the hub shows the coach's card. Word choices use `Math.random`, so
+  `H.fingerprint()` is unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -279,7 +283,9 @@ what is next. Update it after every item.
 - [x] Run cycle: stride length follows speed so feet no longer skate, the thigh drives forward further than back, arms pump
       from hip to chin, shoulders counter-rotate, the body leans into cuts. Tackles: the ball carrier falls away from the hit
       (back, front or side), the tackler lands on him with his arms wrapped, and the pair slides to a stop
-- [ ] Career: a coach who reacts to your last game in the hub, and a rival player at your position to chase on the leaders board
+- [x] Career: the coach says something after every game (the performance, a weakness to fix, the next opponent, role changes),
+      and a rival at your position on the best other team: marked on the leaders board, +300 XP for beating his team,
+      a trophy for finishing a season ahead of him
 - [ ] Season mode: roster screen with names and ratings, and stat leaders
 - [ ] Holding and pass interference, with a Settings switch for penalties
 - [ ] Menu: a slow camera path around the stadium and a 3D preview of your team's uniform on the team picker

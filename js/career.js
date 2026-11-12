@@ -36,6 +36,7 @@
   let C = load(KEY, null);
   if (C && (C.v !== 1 || !POS[C.pos])) C = null;
   if (C && C.trust === undefined) C.trust = 70;  // careers from before coach trust existed stay starters
+  if (C && !C.pre && !C.rival) setRival();  // and get a rival
 
   /* Coach trust (0 to 100) decides how much you play: [trust needed, role, share of your unit's drives] */
   const ROLES = [[60, 'Starter', 1], [35, 'Rotation', 0.6], [0, 'Backup', 0.36]];
@@ -107,7 +108,17 @@
     LG.start(C);
     C.stats = ZERO();
     C.log = [];
+    setRival();
     pickGoals();
+  }
+
+  /* Your rival plays your position for the best team that is not yours. He is always near the top of the leaders,
+     beating his team is worth a bonus, and finishing a season ahead of him is a trophy. The name is cosmetic, so it
+     comes from Math.random and leaves seeded test runs alone. */
+  function setRival() {
+    if (C.rival && C.rival.team !== C.team) return;
+    const team = TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => TEAMS[b].ovr - TEAMS[a].ovr)[0];
+    C.rival = { team, name: PG.NAMES[Math.floor(Math.random() * PG.NAMES.length)] };
   }
 
   const recTxt = i => LG.recTxt(C, i), nextOpp = () => LG.nextOpp(C);
@@ -124,6 +135,12 @@
       aw.push('League MVP');
       bonus += 1200;
     }
+    const L = leaders(), mine = L.rows.find(r => r.me), his = L.rows.find(r => r.riv);  // the season-long race with your rival
+    if (mine && his && mine.v > his.v) {
+      C.beatRival = 1;
+      bonus += 500;
+      C.po.rival = `You finished ahead of ${his.name}.`;
+    } else if (his) C.po.rival = `${his.name} finished ahead of you.`;
     C.po.awards = aw;
     C.awards = (C.awards || []).concat(aw.map(n => ({ season: C.season, name: n })));
     C.po.bonus = bonus;
@@ -246,8 +263,8 @@
         h = (h * 1664525 + 1013904223) >>> 0;
         return h / 4294967296;
       };
-      const per = base * k * (1 + (C.ovrs[i] - 83) * 0.02) * (0.8 + r() * 0.45);
-      return { name: PG.NAMES[Math.floor(r() * PG.NAMES.length)], ab: t.ab, v: Math.round(per * g * (0.92 + r() * 0.16)), me: false };
+      const riv = !!C.rival && C.rival.team === i, per = base * k * (1 + (C.ovrs[i] - 83) * 0.02) * (riv ? 1.2 : 0.8 + r() * 0.45), other = PG.NAMES[Math.floor(r() * PG.NAMES.length)];
+      return { name: riv ? C.rival.name : other, ab: t.ab, v: Math.round(per * g * (0.92 + r() * 0.16)), me: false, riv };
     });
     return { label, rows: rows.sort((a, b) => b.v - a.v) };
   }
@@ -266,7 +283,8 @@
     ['po', 'Postseason', 'Make the playoffs', () => !!C.madePO],
     ['honor', 'All-League', 'Earn a season honor', () => (C.awards || []).length > 0],
     ['ring', 'Champion', 'Win the title', () => C.rings > 0],
-    ['dyn', 'Dynasty', 'Win three titles', () => C.rings >= 3]];
+    ['dyn', 'Dynasty', 'Win three titles', () => C.rings >= 3],
+    ['riv', 'Settled', 'Finish a season ahead of your rival', () => !!C.beatRival]];
 
   function checkTrophies() {
     C.troph = C.troph || {};
@@ -333,6 +351,7 @@
           return showCombine();
         }
         initSeason();
+        C.coach = 'Nobody drafted you, so nobody owes you anything. Show me something in practice.';
         persist();
         showHub('up');
         PG.banner('Signed', `${esc(C.name)} walks on with the ${full(C.team)}`, 2600);
@@ -430,6 +449,7 @@
     delete C.pre;
     Object.assign(C, { team: tm, trust: PICK_TRUST[pick - 1], pick, xp: C.xp + bonus, xpTotal: C.xpTotal + bonus });
     initSeason();
+    C.coach = { Starter: 'Welcome. You start from day one, so do not make me regret the pick.', Rotation: 'Welcome. You will play, but the starting job is not yours yet. Earn it.', Backup: 'Welcome. You are behind some good players here. Practice hard and take your chances.' }[roleOf()[1]];
     checkTrophies();
     persist();
     const others = ['QB', 'RB', 'WR', 'LB', 'CB', 'OT', 'DE', 'S'], any = a => a[Math.floor(Math.random() * a.length)];
@@ -450,11 +470,11 @@
     if (C.phase === 'done') {
       const po = C.po;
       return `<div class="nx"><small>Season ${C.season} complete</small><h4>${po.finish}</h4>
-  <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
+  <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.rival?` ${esc(po.rival)}`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
   <button class="go sm" id="nxs">Start season ${C.season+1}</button><button class="btn2" id="fa" style="margin-top:8px">Free agency · change teams</button></div>`;
     }
     const o = nextOpp(), lab = LG.label(C);
-    return `<div class="nx"><small>${lab}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}</p>
+    return `<div class="nx"><small>${lab}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.`:''}</p>
   <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
   ${C.prac!==pracKey()?'<button class="btn2" id="prac" style="margin-top:8px">Practice first · bonus XP</button>':'<p class="note" style="margin-top:8px">Practice is done for this week.</p>'}</div>
   ${C.news?`<p class="news">${esc(C.news)}</p>`:''}`;
@@ -462,9 +482,35 @@
 
   const pracKey = () => C.season + '-' + C.week + '-' + C.phase;
 
+  /* What the coach says after a game: one line on the performance, one on what comes next. Cosmetic, so Math.random. */
+  function coachSays(m, grade, pts, won, met, role0, role1) {
+    const any = a => a[Math.floor(Math.random() * a.length)], up = ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0);
+    let weak = '';
+    if (C.pos === 'QB') weak = m.pint > 0 ? 'the interceptions' : m.att >= 6 && m.comp / m.att < 0.5 ? 'the misses' : '';
+    if (C.pos === 'RB') weak = m.car >= 5 && m.ryd / m.car < 3 ? 'your reads at the line' : '';
+    if (C.pos === 'WR') weak = m.tgt >= 3 && m.rec / m.tgt < 0.5 ? 'the drops' : '';
+    if (C.pos === 'LB') weak = m.tkl < 2 ? 'getting off blocks' : '';
+    if (C.pos === 'CB') weak = m.pbu + m.int === 0 ? 'your eyes in coverage' : '';
+    let a;
+    if (role1 !== role0) a = up ? any(['You have earned it.', 'I have seen enough.']) + ` You are ${role1 === 'Starter' ? 'my starter' : 'in the rotation'} from now on.`
+      : `I am moving you down to ${role1 === 'Backup' ? 'the bench' : 'the rotation'} until I see more.`;
+    else if (pts >= 8) a = any(['That is the player we brought here.', 'Best game I have seen from you.', 'Keep stacking games like that one.']);
+    else if (pts >= 6) a = won ? any(['Good work. That is winning football.', 'I will take that every week.']) : 'You did your part. The rest of us owe you one.';
+    else if (pts >= 4) a = weak ? `Solid. Clean up ${weak} and you are a problem for this league.` : any(['Solid day. There is more in you.', 'Fine. Now do it again.']);
+    else a = weak ? `Not good enough. We are working on ${weak} this week.` : any(['Not good enough. See me at practice.', 'I expect more from you than that.']);
+    if (met === 3 && role1 === role0) a += ' Three for three on your goals: that is how trust is built.';
+    if (C.phase === 'done') return a + ' Enjoy the break. We go again next season.';
+    const o = nextOpp(), strong = C.ovrs[o] >= C.ovrs[C.team] + 3, soft = C.ovrs[o] <= C.ovrs[C.team] - 3;
+    const b = C.rival && C.rival.team === o ? `${C.rival.name} and the ${TEAMS[o].name} are next. You know what that game means.`
+      : C.phase !== 'reg' ? `It is win or go home against the ${TEAMS[o].name} now.`
+      : strong ? `The ${TEAMS[o].name} are next, and they are better than us on paper. Prove the paper wrong.`
+      : soft ? `The ${TEAMS[o].name} are next. No letting up.` : `The ${TEAMS[o].name} are next.`;
+    return a + ' ' + b;
+  }
+
   function trustHtml() {
     const [, role, sh] = roleOf(), up = ROLES[ROLES.findIndex(r => r[1] === role) - 1];
-    return `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
+    return (C.coach ? `<p class="coach"><small>Coach</small>${esc(C.coach)}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
       + (up ? `<p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.${C.phase==='reg'&&C.tradeSeason!==C.season?' <button class="lnk" id="trade">Ask for a trade</button>':''}</p>` : '');
   }
 
@@ -502,7 +548,7 @@
   function leadersHtml() {
     if (!C.stats.g) return '';
     const L = leaders();
-    return `<h2>League leaders · ${L.label}</h2><table class="lg">${L.rows.slice(0,5).map((r,i)=>`<tr class="${r.me?'me':''}"><td>${i+1}. ${esc(r.name)} <span style="color:var(--mute)">${r.ab}</span></td><td>${r.v}</td></tr>`).join('')}
+    return `<h2>League leaders · ${L.label}</h2><table class="lg">${L.rows.slice(0,5).map((r,i)=>`<tr class="${r.me?'me':''}"><td>${i+1}. ${esc(r.name)} <span style="color:var(--mute)">${r.ab}${r.riv?' · your rival':''}</span></td><td>${r.v}</td></tr>`).join('')}
   ${L.rows.findIndex(r=>r.me)>4?`<tr class="me"><td>${L.rows.findIndex(r=>r.me)+1}. ${esc(C.name)}</td><td>${L.rows.find(r=>r.me).v}</td></tr>`:''}</table>`;
   }
 
@@ -612,7 +658,8 @@
       if (tr) tr.onclick = () => {
         // the weakest team in the league always has room for a starter
         const to = TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => C.ovrs[a] - C.ovrs[b])[0];
-        Object.assign(C, { team: to, trust: 66, tradeSeason: C.season });
+        Object.assign(C, { team: to, trust: 66, tradeSeason: C.season, coach: 'New team, clean slate. You are starting for us: show me why we made the call.' });
+        setRival();
         pickGoals();
         persist();
         showHub('up');
@@ -672,7 +719,8 @@
     }  // a playoff game cannot end level
     const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', gl = goals().map(g => ({ d: g.d, ok: !!g.t(m) }));
     const star = r.potg && r.potg.team === 0 && r.potg.role === POS[C.pos].role;  // you were the player of the game
-    const items = xpFor(m, won).concat(star ? [['Player of the game', 300]] : []), met = gl.filter(g => g.ok).length, xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP, [pts, grade] = gradeOf(m, won, met);
+    const beatRival = won && !!C.rival && C.rival.team === opp;
+    const items = xpFor(m, won).concat(star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP, [pts, grade] = gradeOf(m, won, met);
     for (const k in m) {
       C.stats[k] = (C.stats[k] || 0) + m[k];
       C.career[k] = (C.career[k] || 0) + m[k];
@@ -695,6 +743,7 @@
       if (fin === 'Champion') C.rings++;
       closeSeason(fin);
     } else pickGoals();
+    C.coach = coachSays(m, grade, pts, won, met, role0, role1);
     const trophies = checkTrophies();
     persist();
     scr.innerHTML = `<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>

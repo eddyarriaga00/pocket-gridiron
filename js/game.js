@@ -731,6 +731,7 @@
       T = d / 20;
     }
     ps.air = { x0: q.x, y0: q.y, x1: tx, y1: ty, t: 0, T, h: (1.2 + d * 0.11) * hf, target: r, x: q.x, y: q.y, z: 1.8, dist: d };
+    if (!AUTO && !QUIET && PG.audio && d >= 24 && T >= 0.95) PG.audio.crowd.swell(T, q.team === 0 ? 0.6 : 0.42);  // a long ball: the stadium draws breath until it comes down
     if (option && r) {
       /* The read. An underneath defender who did not step up at the run fake and is standing in the throwing lane
          can get a hand on the ball (see resolvePass): throw when he bites, hand off when he sits. */
@@ -1507,7 +1508,7 @@
       const who = ps.carrier, o = ps.offTeam, d = o === 0 ? 1 : -1;
       if (who && who.team === o && (who.y - ps.los) * d >= 4 && rnd() < 0.02) {
         const room = o === 0 ? ps.los : 100 - ps.los, yd = Math.min(10, Math.max(1, Math.floor(room / 2)));
-        return flagAfter('Holding', o, ps.los - d * yd, ps.bx, false, `${yd} yards, replay the down`);
+        return flagAfter('Holding', o, ps.los - d * yd, ps.bx, false, `${yd} yard${yd === 1 ? '' : 's'}, replay the down`);
       }
     }
     const off = ps.offTeam, dir = G.dir, c = ps.carrier, los = ps.los, me = QUIET ? null : G.me;
@@ -1615,6 +1616,7 @@
         else if (gi >= 15) react(off, 0.6 + Math.min(0.6, gi / 50), 2.6);
         else if (gi < 0) react(1 - off, 0.4, 1.5);
         if ((y - ps.fd) * dir >= 0) {
+          const dn = G.down;
           setBall(off, y, x);
           big = 'First down';
           G.sig = 'fd';
@@ -1622,6 +1624,8 @@
           if (off === 0) {
             snd('chime');
             if (gi < 15) react(0, 0.45, 1.8);
+            /* the ones that matter (a third or fourth down made, or a good gain) get the stadium announcer, and the crowd finishing his sentence */
+            if (!AUTO && !QUIET && !G.drill && PG.audio && (dn >= 3 || gi >= 8)) PG.audio.firstDown(TEAMS[G.tm[0]].name);
           }
         } else {
           G.down++;
@@ -1737,6 +1741,25 @@
   /* flags can be switched off in Settings; there are none in practice or on a two-point try */
   const flagsOn = () => SET.pen !== false && !G.drill && G.try2 == null;
 
+  /* The referee gives his call to the stadium over the speakers, and the home crowd answers when it has heard which way
+     it went: a boo when the flag is on its own team, a cheer when it is on the visitors. The words are spelled out
+     ("ten yard penalty"), because the speakers' voice works from spelling. */
+  const NUMS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+
+  function refCall(text, team, size) {
+    if (AUTO || QUIET || !PG.audio) return;
+    const a = PG.audio, len = a.pa(text.replace(/\d+/g, n => NUMS[+n] || n));
+    a.crowd.ooh(0.35);  // a flag is down, and nobody knows on whom yet
+    setTimeout(() => {
+      if (!G.ros || G.state === 'menu' || G.state === 'over') return;
+      if (team === 0) a.crowd.boo(size);
+      else {
+        a.crowd.cheer(size, 2);
+        if (R3) R3.cheer(size);
+      }
+    }, len ? Math.max(500, len * 1000 - 450) : 350);
+  }
+
   /* A flag thrown during the play. The play does not count: the ball goes where the foul puts it, and the down is
      replayed, or it is a first down when the foul gives one. */
   function flagAfter(name, team, y, x, first, text) {
@@ -1759,7 +1782,7 @@
     G.deadT = 2.1;
     banner('Flag', `${name}, ${tname(team)} · ${text}`, 1900);
     snd('whistle');
-    react(1 - team, 0.6, 2);
+    refCall(`${name}, ${team === off ? 'offense' : 'defense'}. ${first ? 'Automatic first down' : text.replace(',', ' penalty.').replace('yards', 'yard')}.`, team, 0.7);
     say(`Flag on the play. ${name}, ${tname(team)}. ${text}.`, true);
     hudKey = '';
     updHud();
@@ -1780,7 +1803,7 @@
     G.deadT = 1.9;
     banner('Flag', `${name}, ${tname(team)} · ${yd} yard${yd === 1 ? '' : 's'}`, 1700);
     snd('whistle');
-    react(1 - team, 0.4, 1.5);
+    refCall(`${name}, ${onOff ? 'offense' : 'defense'}. ${yd} yard penalty. ${G.down === 1 && G.togo === 10 ? 'First down' : 'Replay the down'}.`, team, 0.55);
     say(`Flag on the play. ${name}, ${tname(team)}. ${yd} yards.`, true);
     updHud();
   }
@@ -2033,6 +2056,7 @@
     G.state = 'call';
     updHud();
     setBrief('');
+    if (PG.audio && PG.audio.half) PG.audio.halftime(false);  // the teams are back: the band leaves the field
     if (!AUTO && !QUIET && !G.drill && PG.audio && Math.random() < 0.3) PG.audio.band();  // the band fills some of the gaps between plays
     if (G.pendKO != null) {
       const t = G.pendKO, k = 1 - t;  // t receives, k kicks
@@ -2126,8 +2150,10 @@
     setBrief(briefTxt());
     if (!AUTO && PG.audio && ps.mode !== 'kick' && !G.drill) {
       const a = PG.audio, redZone = (G.poss === 0 ? 100 - G.los : G.los) < 20;
-      if (G.poss === 1 && G.down >= 3) Math.random() < 0.5 ? a.crowd.chant(3) : a.crowd.clapBuild(2.4);
-      else if (G.poss === 0 && (G.down === 3 || redZone) && Math.random() < 0.45) {
+      if (G.poss === 1 && G.down >= 3) {
+        a.crowd.rise(2.2);  // the home crowd makes all the noise it can until the ball is snapped
+        Math.random() < 0.5 ? a.crowd.chant(3) : a.crowd.clapBuild(2.4);
+      } else if (G.poss === 0 && (G.down === 3 || redZone) && Math.random() < 0.45) {
         if (Math.random() < 0.5) a.crowd.letsgo(2);  // "LET'S GO!" and the claps
         else {
           a.play('organ');
@@ -2145,7 +2171,10 @@
     G.chg = G.pwShow = null;
     setBrief('');
     snd('crash', { x: ps.bx });  // the two lines meet
-    if (PG.audio) PG.audio.crowd.stopClaps();
+    if (PG.audio) {
+      PG.audio.crowd.stopClaps();
+      PG.audio.crowd.settle();  // and the third-down noise falls away as the play starts
+    }
     REC.length = 0;
     for (const p of P) if (p.jog) {
       p.x = p.sx;
@@ -3437,6 +3466,7 @@
     ps = null;
     setBrief('');
     snd('whistle', { long: true });
+    if (!AUTO && !QUIET && PG.audio) PG.audio.halftime(true);  // the band takes the field
     say(`That is the half. ${tname(0)} ${G.score[0]}, ${tname(1)} ${G.score[1]}.`, true);
     scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>Halftime</b><span>${tname(G.poss)} get the ball</span></div><div class="sc">${G.score[0]} – ${G.score[1]}</div>
   ${statTable()}${G.lineFn?`<p class="note">You: ${G.lineFn(G.my)}</p>`:''}<button class="go" id="h2">Second half</button></div>`;

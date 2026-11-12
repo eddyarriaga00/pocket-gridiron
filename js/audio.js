@@ -373,6 +373,27 @@
       chain(noise(c, 'white', 0.68, 0.24), filter(c, 'highpass', 4500), env(c, 0.68, 0.04, 0.05, 0.2), out);  // the hiss on the end of "fense"
     }
     },
+    /* the call went against the home team: a long, low "booo" from everybody who saw it differently */
+    boo: { len: 2.7, tail: 0, rms: 0.14, build(c, out) {
+      const ms = [0, 1, 2, 3, 4, 5].map(k => mouth(c, out, [[0, 'u'], [1.7, 'u'], [2.6, 'o']], k % 2 ? 1.08 : 0.97, rnd(-1, 1)));
+      for (let v = 0; v < 76; v++) {
+        const base = v % 4 === 0 ? rnd(190, 260) : rnd(92, 165), t = rnd(0, 0.55), dur = rnd(1.4, 2.05);
+        syllable(c, ms[v % 6], t, dur, base * 1.04, base, base * rnd(0.86, 0.94), rnd(0.5, 1), rnd(0.16, 0.32), rnd(0.5, 0.8));
+      }
+    }
+    },
+    /* "FIRST DOWN!": the crowd finishing the stadium announcer's sentence, two syllables with the weight on the second */
+    firstdown: { len: 1.2, tail: 0, rms: 0.17, build(c, out) {
+      const first = [0, 1, 2].map(k => mouth(c, out, [[0, 'uh']], k ? 1.12 : 1, rnd(-0.8, 0.8))), down = [0, 1, 2].map(k => mouth(c, out, [[0, 'a'], [0.62, 'a'], [0.74, 'o'], [0.92, 'u']], k ? 1.12 : 1, rnd(-0.8, 0.8)));
+      for (let v = 0; v < 64; v++) {
+        const base = v % 3 === 0 ? rnd(230, 340) : rnd(120, 210), late = rnd(0, 0.05), loud = rnd(0.5, 1);
+        syllable(c, first[v % 3], 0.07 + late, rnd(0.2, 0.26), base, base * 1.02, base, loud * 1.5, 0.03, 0.06);
+        syllable(c, down[v % 3], 0.5 + late, rnd(0.42, 0.55), base * 1.05, base, base * 0.86, loud * 1.7, 0.03, 0.17);
+      }
+      chain(noise(c, 'white', 0, 0.1), filter(c, 'highpass', 5000), env(c, 0, 0.03, 0.03, 0.07), out);  // the "f"
+      chain(noise(c, 'white', 0.31, 0.12), filter(c, 'highpass', 4500), env(c, 0.31, 0.03, 0.05, 0.08), out);  // the "st"
+    }
+    },
   };
 
   /* Applause is not voices: it is thousands of single claps, each a few milliseconds of noise ringing at its own pitch.
@@ -735,6 +756,13 @@
       DRUM.kick(c, out, t + dur, 0.6);
       cymbal(c, out, t + dur, 0.12, 1.1);
     },
+    /* the referee switches his microphone on: the click, a thump in the speakers, the open channel and a ring of feedback */
+    mic(c, out, t) {
+      chain(noise(c, 'white', t, 0.03), filter(c, 'bandpass', 1800, 1.2), env(c, t, 0.001, 0.9, 0.02), out);
+      chain(osc(c, 'sine', 210, t, 0.1), env(c, t, 0.002, 0.5, 0.08), out);
+      chain(noise(c, 'pink', t + 0.03, 0.5), filter(c, 'bandpass', 900, 0.8), envHold(c, t + 0.03, 0.05, 0.09, 0.3, 0.15), out);
+      chain(osc(c, 'sine', 2350, t + 0.05, 0.36), env(c, t + 0.05, 0.08, 0.05, 0.28), out);
+    },
     /* far-off thunder, for a wet night */
     thunder(c, out, t) {
       chain(noise(c, 'brown', t, 3.4), filter(c, 'lowpass', 170, 0.7), envHold(c, t, 0.18, 0.045, 0.5, 2.6), out);
@@ -744,10 +772,80 @@
   };
 
   /* where each effect is heard: most on the field, the interface up close and dry, the horn and organ over the speakers */
-  const ROUTE = { tick: 'ui', ok: 'ui', buy: 'ui', chime: 'ui', horn: 'pa', organ: 'pa', roll: 'stands' };
+  const ROUTE = { tick: 'ui', ok: 'ui', buy: 'ui', chime: 'ui', horn: 'pa', organ: 'pa', mic: 'pa', roll: 'stands' };
 
   function clamp01(v) {
     return v < 0 ? 0 : v > 1.5 ? 1.5 : v;
+  }
+
+  /* ---------- a voice on the stadium speakers ----------
+     Not a recording, and not the phone's speech voice (that one cannot be given an echo). The words are turned, roughly,
+     into the vowels and consonants they are spelled with and spoken through one mouth, then sent down the speakers'
+     route: a band of mid-range, a slap of echo off the far stand, the stadium's reverb. From the seats you never quite
+     catch a referee's words either. You get their rhythm and their tune, the banner on screen says what was called, and
+     the commentator repeats it. */
+  const SPELL = [[/^(ou|ow)/, ['a', 'u']], [/^(ai|ay|ey|ei)/, ['e', 'i']], [/^(ee|ea|ie)/, ['i']], [/^(oo|ue|ew)/, ['u']], [/^(oa|oe)/, ['o']], [/^igh/, ['a', 'i']],
+    [/^a/, ['ae']], [/^e/, ['e']], [/^i/, ['i']], [/^o/, ['o']], [/^u/, ['uh']], [/^y/, ['i']]];
+  const HISS = /^(sh|ch|th|s|f|z|x|h)/, STOP = /^[ptkcqbdgj]/;
+
+  /* text to syllables: [{ v: the vowels the mouth moves through, on: the consonant before ('hiss', 'stop' or ''),
+     coda: the one after the word's last vowel, stress: first syllable of its word, gap: the pause that follows }] */
+  function paWords(text) {
+    const out = [];
+    for (const raw of String(text).toLowerCase().split(/\s+/)) {
+      const word = raw.replace(/[^a-z]/g, ''), gap = /[.!?]$/.test(raw) ? 0.34 : /[,;:]$/.test(raw) ? 0.17 : 0.04, n0 = out.length;
+      let i = 0, onset = '';
+      while (i < word.length) {
+        const rest = word.slice(i);
+        if (rest === 'e' && out.length > n0) break;  // a silent e
+        const m = /^[aeiouy]/.test(rest) && !(rest[0] === 'y' && i === 0) && SPELL.find(x => x[0].test(rest));
+        if (m) {
+          out.push({ v: m[1], on: onset, coda: '', stress: out.length === n0, gap: 0 });
+          onset = '';
+          i += m[0].exec(rest)[0].length;
+        } else {
+          const h = HISS.exec(rest);
+          onset = h ? 'hiss' : STOP.test(rest) ? 'stop' : onset;
+          i += h ? h[0].length : 1;
+        }
+      }
+      if (out.length > n0) {
+        out[out.length - 1].gap = gap;
+        out[out.length - 1].coda = onset;
+      }
+    }
+    return out;
+  }
+
+  /* speak `text` into `out` from time t; returns how long it takes */
+  function paVoice(c, out, t, text) {
+    const syl = paWords(text), path = [], voiced = [], noises = [];
+    if (!syl.length) return 0;
+    let at = 0.02, f = 128;
+    for (const s of syl) {
+      if (s.on) {
+        noises.push([s.on, at]);
+        at += s.on === 'hiss' ? 0.06 : 0.025;
+      }
+      const dur = (s.stress ? 0.17 : 0.12) + (s.v.length > 1 ? 0.07 : 0), last = s.gap > 0.3;
+      path.push([t + at, s.v[0]], [t + at + dur * (s.v.length > 1 ? 0.4 : 0.8), s.v[0]]);
+      if (s.v.length > 1) path.push([t + at + dur * 0.9, s.v[1]]);
+      voiced.push([at, dur, f * (s.stress ? 1.07 : 1), last]);
+      at += dur;
+      if (s.coda) {
+        noises.push([s.coda, at + 0.005]);
+        at += s.coda === 'hiss' ? 0.075 : 0.03;
+      }
+      at += s.gap;
+      f = last ? 128 : Math.max(98, f - 3.5);  // each sentence starts high and sinks, as speech does
+    }
+    const m = mouth(c, out, path, 1, 0);
+    for (const [a, dur, hz0, last] of voiced) syllable(c, m, t + a, dur, hz0 * 1.02, hz0, hz0 * (last ? 0.8 : 0.96), 1.05, 0.025, 0.05);
+    for (const [kind, a] of noises) {
+      if (kind === 'hiss') chain(noise(c, 'white', t + a, 0.08), filter(c, 'bandpass', 3000, 0.9), env(c, t + a, 0.015, 0.11, 0.06), out);
+      else chain(noise(c, 'white', t + a, 0.03), filter(c, 'bandpass', 1700, 1.2), env(c, t + a, 0.001, 0.2, 0.015), out);
+    }
+    return at;
   }
 
   /* ---------- the crowd, live ---------- */
@@ -803,8 +901,15 @@
   /* gains for an excitement level from 0 (a quiet stadium between plays) to 1 (everyone on their feet) */
   const crowdMix = lv => ({ bed: 0.27 + 0.4 * lv, air: 0.09 + 0.11 * lv, floor: Math.max(0, lv - 0.5) * 0.35 });
 
+  /* what the game asked for, newest last: tests read it (it fills whether or not sound is switched on) */
+  const asked = [];
+  const note = what => {
+    asked.push(what);
+    if (asked.length > 60) asked.shift();
+  };
+
   const crowd = {
-    nodes: null, level: 0.3, timer: null, clapTimer: null,
+    nodes: null, level: 0.3, timer: null, clapTimer: null, rising: false,
     start() {
       if (!ctx || !S.snd || this.nodes) return;
       wantStems();
@@ -874,6 +979,43 @@
     ooh(amount) {
       this.react('ooh', amount);
     },
+    /* a call against the home team; a groan stands in until the rendered crowd is ready */
+    boo(amount) {
+      note('boo');
+      const a = amount === undefined ? 1 : amount;
+      if (!this.stem('boo', Math.min(1, 0.35 + 0.55 * a))) this.groan(a);
+    },
+    /* The visitors come to the line on a big down: the whole stadium makes all the noise it can, building until the
+       ball is snapped. settle() lets it fall away again. */
+    rise(seconds) {
+      note('rise');
+      const n = this.nodes;
+      if (!n || !S.snd) return;
+      const t = ctx.currentTime, tc = (seconds || 2.2) / 3;
+      for (const [p, v] of [[n.roar.gain, 0.44], [n.hiss.gain, 0.38]]) {
+        p.cancelScheduledValues(t);
+        p.setTargetAtTime(v, t, tc);
+      }
+      this.busyUntil = t + 9;  // set() leaves the roar alone until the snap
+      this.rising = true;
+    },
+    settle() {
+      if (!this.rising) return;
+      this.rising = false;
+      const n = this.nodes;
+      if (!n) return;
+      const t = ctx.currentTime, floor = crowdMix(this.level).floor;
+      n.roar.gain.cancelScheduledValues(t);
+      n.roar.gain.setTargetAtTime(floor, t, 0.45);
+      n.hiss.gain.cancelScheduledValues(t);
+      n.hiss.gain.setTargetAtTime(floor * 0.8, t, 0.45);
+      this.busyUntil = 0;
+    },
+    /* a long ball is in the air: one rising "ohhh", timed to top out as it comes down */
+    swell(seconds, lvl) {
+      note('swell');
+      this.stem('kickoh', lvl || 0.5, 0, Math.max(0.75, Math.min(1.5, 1.72 / Math.max(0.5, seconds || 1.7))));
+    },
     /* claps that speed up toward the snap */
     clapBuild(seconds) {
       this.stopClaps();
@@ -892,10 +1034,11 @@
       this.clapTimer = null;
     },
     /* one rendered stem through the crowd bus at a time and level; false while the render is not ready */
-    stem(name, lvl, at) {
+    stem(name, lvl, at, rate) {
       if (!ctx || !S.snd || ctx.state !== 'running' || !stems || !stems[name]) return false;
       const s = ctx.createBufferSource();
       s.buffer = stems[name];
+      if (rate) s.playbackRate.value = rate;
       chain(s, gain(ctx, lvl), bus.crowd);
       s.start(at || 0);
       return true;
@@ -940,6 +1083,7 @@
       clearInterval(this.timer);
       this.timer = null;
       this.busyUntil = 0;
+      this.rising = false;
       const n = this.nodes;
       this.nodes = null;
       if (n && ctx) {
@@ -1020,6 +1164,7 @@
   /* The band in the stands, between plays: a drum cadence, the "Charge!" bugle call, or a phrase of the fight song (the
      menu theme, as a marching band would play it). Returns how long the piece lasts. */
   function bandPiece(c, out, t, which) {
+    if (which === 3) return halftimeShow(c, out, t);
     if (which === 0) {
       const s16 = 0.118;
       [...'x.xxx.x.xxx.xxxxx.xxx.x.xxxxxx..'].forEach((ch, i) => {
@@ -1047,6 +1192,43 @@
       else DRUM.snare(c, out, t + i * STEP, 0.6);
     }
     return 64 * STEP;
+  }
+
+  /* Halftime: the band takes the field. Two bars from the drum line, then the fight song at a march (the tune in the
+     brass with bells on top, tubas and bass drum on the beat, horns and snares off it), and a last chord that says
+     "applaud now". About sixteen seconds. */
+  function halftimeShow(c, out, t) {
+    const st = 60 / 116 / 4, intro = 32;
+    [...'x..xx.x.x.xxx.xxx..xx.x.xxxxxxxx'].forEach((ch, i) => {
+      if (ch === 'x') DRUM.snare(c, out, t + i * st, i % 8 === 0 ? 0.9 : i >= 24 ? 0.35 + (i - 24) * 0.07 : 0.5);
+    });
+    [...'x.......x.......x...x...x.x.x.x.'].forEach((ch, i) => {
+      if (ch === 'x') DRUM.kick(c, out, t + i * st, 0.36);
+    });
+    [[20, 190], [22, 160], [28, 190], [29, 160], [30, 130], [31, 105]].forEach(([i, f]) => DRUM.tom(c, out, t + i * st, 0.5, f));
+    [0, 1, 7].forEach((ph, k) => {
+      const t0 = t + (intro + k * 32) * st, [root, notes] = CHORDS[ph];
+      cymbal(c, out, t0, 0.12, 1.2);
+      for (const [s, semi, len] of TUNE[ph]) {
+        brass(c, out, t0 + s * st, hz(semi), st * len * 0.9, 0.15);
+        brass(c, out, t0 + s * st, hz(semi - 12), st * len * 0.9, 0.08);
+        bell(c, out, t0 + s * st, hz(semi + 12), Math.min(0.5, st * len), 0.05);
+      }
+      for (let i = 0; i < 32; i++) {
+        const at = t0 + i * st;
+        if (i % 8 === 0) {
+          brass(c, out, at, hz(root - 12 + (i % 16 ? -5 : 0)), st * 3, 0.1);  // the tubas: root, then the fifth below it
+          DRUM.kick(c, out, at, 0.34);
+        } else if (i % 8 === 4) for (const n of notes) brass(c, out, at, hz(n - 12), st * 1.6, 0.05);  // the horns answer
+        if ('x.xxx.xxx.xxx.xx'[i % 16] === 'x') DRUM.snare(c, out, at, i % 8 === 4 ? 0.75 : 0.36);
+      }
+    });
+    const end = t + (intro + 96) * st;
+    for (const semi of [-19, -7, -4, 0, 5]) brass(c, out, end, hz(semi), 0.75, semi < -10 ? 0.12 : 0.1);
+    timpani(c, out, end, hz(-19), 0.3);
+    DRUM.kick(c, out, end, 0.5);
+    cymbal(c, out, end, 0.16, 1.6);
+    return (intro + 96) * st + 0.9;
   }
 
   const music = {
@@ -1337,11 +1519,61 @@
         crowd.stop();
         music.start();
         ann.hush();
+        this.halftime(false);
       } else {
         music.stop();
         crowd.start();
       }
       weatherBed.apply();
+    },
+    /* The stadium speakers: the referee giving a call (his microphone clicks on first), or the stadium announcer
+       (opts.announcer: his channel is always open). Returns how long it will take, 0 when nothing can be heard. */
+    pa(text, opts) {
+      note('pa: ' + text);
+      if (!ctx || !S.snd || ctx.state !== 'running' || wantMusic) return 0;
+      const t = ctx.currentTime + 0.05, lead = opts && opts.announcer ? 0 : 0.3;
+      if (lead) SFX.mic(ctx, bus.pa, t);
+      return lead + paVoice(ctx, bus.pa, t + lead, text) + 0.05;
+    },
+    /* a home first down, the way a stadium does it: the announcer starts the sentence and the crowd finishes it */
+    firstDown(team) {
+      const live = !!ctx && ctx.state === 'running', t = live ? ctx.currentTime : 0;
+      if (live && t - (this.fdAt || -99) < 20) return false;  // not every time: it is a treat, not a tic
+      this.fdAt = t;
+      note('firstdown');
+      const len = this.pa('And that is another ' + team, { announcer: true });
+      if (len) crowd.stem('firstdown', 0.9, t + len + 0.12);
+      return true;
+    },
+    /* the band's halftime show starts, or stops because the teams are back */
+    halftime(on) {
+      if (this.half) {
+        const g = this.half;
+        this.half = null;
+        clearTimeout(this.halfT);
+        g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.12);
+        setTimeout(() => {
+          try {
+            g.disconnect();
+          } catch (_) {}
+        }, 20000);
+      }
+      if (!on) return false;
+      note('halftime');
+      if (!ctx || !S.snd || ctx.state !== 'running' || wantMusic) return false;
+      const t = ctx.currentTime, g = gain(ctx, 1);
+      g.connect(bus.stands);
+      this.half = g;
+      const len = bandPiece(ctx, g, t + 0.7, 3);
+      this.bandAt = t + len;  // no other piece over the top of it
+      this.halfT = setTimeout(() => {
+        if (this.half === g) crowd.cheer(0.5, 3);  // the crowd shows what it thought
+      }, (len + 0.6) * 1000);
+      return true;
+    },
+    /* test hook: what the game has asked the stadium for */
+    get asked() {
+      return asked;
     },
     say(text, urgent) {
       return ann.say(text, urgent);
@@ -1403,7 +1635,10 @@
         s.connect(g.crowd);
         s.start(0);
       } else if (name.startsWith('band:')) bandPiece(c, g.stands, 0.02, +name.slice(5));
-      else SFX[name](c, g[ROUTE[name] || 'sfx'], 0.02, opts);
+      else if (name.startsWith('pa:')) {
+        SFX.mic(c, g.pa, 0.02);
+        paVoice(c, g.pa, 0.32, name.slice(3));
+      } else SFX[name](c, g[ROUTE[name] || 'sfx'], 0.02, opts);
       return stats(await rendered(c));
     },
     /* every effect, the stems, the crowd at three moods and the music: one table of levels */
@@ -1412,7 +1647,8 @@
       for (const n of Object.keys(SFX)) out[n] = await this.measure(n, n === 'hit' ? { power: 1 } : undefined, n === 'thunder' ? 4 : 2.2);
       for (const n of Object.keys(STEMS)) out['stem ' + n] = await this.measure('stem:' + n, null, STEMS[n].len);
       out['stem clap'] = await this.measure('stem:clap', null, 5);
-      for (const w of [0, 1, 2]) out['band ' + w] = await this.measure('band:' + w, null, w === 2 ? 9.5 : 4);
+      for (const w of [0, 1, 2, 3]) out['band ' + w] = await this.measure('band:' + w, null, w === 3 ? 17.5 : w === 2 ? 9.5 : 4);
+      out['pa call'] = await this.measure('pa:Holding, offense. Ten yard penalty. Replay the down.', null, 5);
       out['crowd quiet'] = await this.measure('crowd', { level: 0.3 }, 6);
       out['crowd tense'] = await this.measure('crowd', { level: 1 }, 6);
       out['crowd cheering'] = await this.measure('crowd', { level: 0.6, cheer: 1 }, 6);

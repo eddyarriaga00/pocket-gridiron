@@ -34,6 +34,9 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
 - Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
+- A stadium you can hear, all of it made in code: the quarterback's cadence, pads that crack harder the faster the hit,
+  a crowd that chants, boos a flag on the home team and builds a wall of noise on third down, the referee's call
+  echoing over the speakers, the crowd finishing the announcer's "first down", a band in the stands and a halftime show.
 - Every control has a touch area of at least 44 by 44 pixels, however small it is drawn, and the layout is checked from
   320-pixel phones up to a desktop window. A phone held sideways is asked to turn upright.
 
@@ -67,8 +70,8 @@ js/game.js              the engine: plays, AI, rules, controls, menus, the 2D ov
 js/shaders.js           GLSL: turf, sky dome, crowd, rim light on players, glow and vignette pass
 js/render3d.js          three.js renderer: stadium, instanced player models (a far and a near level of detail),
                         shadows, weather, cameras
-js/audio.js             synthesized sound: effects, a crowd built from rendered voices, music, weather, and the
-                        announcer (speech synthesis)
+js/audio.js             synthesized sound: effects, a crowd built from rendered voices, a voice on the stadium
+                        speakers, a marching band, music, weather, and the announcer (speech synthesis)
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode
 js/season.js            Season mode
@@ -104,7 +107,8 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 - `H.fingerprint()` is a seeded run. After a change that should not alter behaviour it must return the same string.
 - `PG.dbg.seed(n)` makes any run repeatable; `PG.audio.spoken` lists what the announcer has said.
 - `await PG.audio.report()` renders every sound off line and gives its peak, loudness and spectrum;
-  `PG.audio.meter` reads the level of what is playing now.
+  `PG.audio.meter` reads the level of what is playing now, and `PG.audio.asked` lists what the game has asked the
+  stadium for (a referee's call, a boo, the halftime show), so the hooks can be checked without sound.
 
 `tools/audit.js` is the interface audit. Load it the same way after the harness, then run
 `await A.menus(); A.play('exh'); A.play('career'); A.play('camp'); A.report()` at a phone size such as 320 by 568.

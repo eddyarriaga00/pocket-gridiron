@@ -458,6 +458,22 @@ what is next. Update it after every item.
   errors. One trap for later runs: the seeded run used to read the weather from Settings, so a test that leaves snow
   switched on made it look like a regression. It pins the weather itself now.
 
+- 15:12 Stadium sound (automatic run 1). `paVoice()` speaks any text down the speakers' route: the spelling becomes
+  vowels and consonants through one formant mouth, with the echo and reverb the horn already had. A referee's call
+  measures -6.6 dB peak and -23.5 RMS, 61% of it between 500 Hz and 1 kHz, so it sits under the commentator; his
+  microphone click is -11.6. New crowd stems: `boo` (-3.4 peak, -15.5 RMS, 81% between 200 and 500 Hz, which is where
+  a "booo" lives) and `firstdown` (-3.3, -16.5). `crowd.rise()` holds about -14.6 dB RMS against -17 for a tense crowd
+  and -13.8 for a full cheer, and `settle()` drops it at the snap. `crowd.swell()` is the kickoff "ohhh" played at the
+  speed that makes it top out as a long pass comes down. The halftime piece is 16.5 seconds, -2.8 peak, -18.8 RMS; its
+  first render had 38% of its energy under 200 Hz, so the tubas went up an octave and the bass drum down (28%).
+  In ten scripted games the game asked for the halftime show 10 times, the third-down noise 22, the deep-ball swell 5,
+  and referee's calls for a false start, an offside and a hold. A 15-second live run at low volume played every one
+  with no error. `H.fingerprint()` unchanged (every hook is outside simulations and rolls no dice); exhibition, both
+  careers and the three drills clean; the interface audit empty at 320x568 and 390x844.
+  Not built: the crowd counting down the play clock. The computer snaps about two seconds after it lines up, so there
+  is nothing to count; the third-down noise does that job. Hits already grew with closing speed (`pw` in the tackle).
+  `PG.audio.asked` lists what the game has asked the stadium for, so a test can check the hooks without sound.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -580,11 +596,19 @@ what is next. Update it after every item.
       with a second tap to confirm; a phone held sideways gets a "turn your phone upright" notice and the game pauses
 - [x] The automatic loop back on, briefed with "major improvements, otherwise the interface"
 
+### Automatic runs (from 15:01 on 2026-11-12; one item a run)
+- [x] Run 1, stadium sound. The referee gives every penalty to the stadium over the speakers (a microphone click, then
+      his call with the echo of a big bowl) and the home crowd answers: a boo when the flag is on its own team, a cheer
+      when it is on the visitors. A home first down that matters (third or fourth down made, or eight yards and more)
+      gets the stadium announcer starting the sentence and the crowd finishing it: "FIRST DOWN!". With the visitors on
+      third or fourth down the whole stadium builds a wall of noise until the snap. A long pass draws a rising "ohhh"
+      that tops out as the ball comes down. At halftime the band plays a sixteen-second show (drum line, the fight song
+      at a march with bells and tubas, a last chord) and the crowd applauds it. Still to be judged by ear
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
-- Sound that says football even more: the referee announcing penalties and first downs over the stadium speakers, a
-  crowd that counts down the play clock and gets loud on third down when the visitors have the ball, pads popping
-  louder with the speed of the hit, a marching-band break at halftime. Nobody has listened yet: keep measuring.
+- More stadium sound, once somebody has listened to run 1: the stadium announcer on scores and at the end of each
+  quarter, the defense calling out the play at the line, a goal-post "doink" (the kick model would have to allow one).
 - Motion: a run cycle with planted feet, tackles that involve both players (wrap and drive), a quarterback throwing
   motion that follows the power bar, touchdown celebrations.
 - A real loose-ball scramble instead of an instant recovery; a pile.

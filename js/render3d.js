@@ -143,7 +143,7 @@
     let hx = null, hy = 0, snap = false;
     tg[PELY] = HIP; tg[EL] = 0.25; tg[ER] = 0.25; tg[CHRX] = -0.05;
 
-    if (p.down) {                                             // on the turf
+    if (p.down || p.fell) {                                   // on the turf
       f.fall = Math.min(1, f.fall + dt / 0.28);
       const e = f.fall * f.fall * (3 - 2 * f.fall);
       tg[PELY] = lerp(HIP, 0.24, e); tg[PELRX] = -1.5 * e * f.fallDir;
@@ -176,6 +176,11 @@
       else { const a = (u - 0.45) / 0.55; tg[SRX] = lerp(3.5, 1.0, a); tg[ER] = lerp(1.5, 0.15, a); tg[CHRY] = lerp(0.5, -0.4, a); }
       tg[SLX] = 0.8; tg[EL] = 1.0; tg[HL] = 0.4; tg[KL] = -0.3; tg[HR] = -0.3; tg[KR] = -0.2; tg[CHRX] = -0.1;
       snap = true;
+    } else if (ps.mode === 'kick' && p === ps.qb && ps.air && ps.air.t < 0.45) {   // the kicker swings through the ball
+      const u = ps.air.t / 0.45;
+      tg[HR] = lerp(-0.7, 1.7, Math.min(1, u * 2.2)); tg[KR] = u < 0.2 ? -0.9 : -0.05; tg[HL] = -0.15; tg[KL] = -0.1;
+      tg[CHRX] = 0.12; tg[SLX] = 0.9; tg[SLZ] = -0.6; tg[SRX] = -0.5; tg[SRZ] = 0.5; tg[PELY] = HIP + 0.04;
+      snap = true;
     } else if (s.pre && sp < 0.4) {                           // set before the snap
       const st = stanceOf(p, s);
       if (st === 'line') { tg[PELY] = 0.56; tg[CHRX] = -1.2; tg[HEADRX] = 0.85; tg[HL] = 1.3; tg[KL] = -1.85; tg[HR] = 1.15; tg[KR] = -1.7; tg[SRX] = 1.2; tg[ER] = 0.05; tg[SLX] = 0.7; tg[EL] = 1.1; }
@@ -196,7 +201,10 @@
       tg[SLX] = -sn * 0.75 * run * dirn; tg[SRX] = sn * 0.75 * run * dirn; tg[EL] = 0.3 + 1.2 * run; tg[ER] = 0.3 + 1.2 * run;
       tg[CHRX] = facing < 0 ? 0.04 : -(0.08 + 0.26 * run); tg[HEADRX] = -tg[CHRX] * 0.6;
       tg[PELY] = HIP - 0.04 * run + Math.abs(cs) * 0.05 * run;
-      if (sp < 0.5) tg[CHRX] += Math.sin(time * 2 + f.seed) * 0.012;
+      if (sp < 0.5) {                                          // standing: breathe, and some rest hands on hips
+        tg[CHRX] += Math.sin(time * 2 + f.seed) * 0.012;
+        if (!s.live && f.seed > 3.6) { tg[SLZ] = -0.45; tg[SRZ] = 0.45; tg[EL] = 1.6; tg[ER] = 1.6; tg[SLX] = 0.15; tg[SRX] = 0.15; }
+      }
       if (inPocket) { tg[SLX] = 0.8; tg[SRX] = 0.8; tg[SLZ] = 0.25; tg[SRZ] = -0.25; tg[EL] = 1.75; tg[ER] = 1.75; tg[CHRX] = -0.06; }   // ball in both hands at the chest
       else if (carrier) { tg[SRX] = 0.5; tg[SRZ] = -0.15; tg[ER] = 2.0; }                                       // ball tucked away
       if (ps.air && ps.air.target === p && ps.air.T - ps.air.t < 0.45) { tg[SLX] = 2.7; tg[SRX] = 2.7; tg[SLZ] = -0.15; tg[SRZ] = 0.15; tg[EL] = 0.35; tg[ER] = 0.35; tg[HEADRX] = 0.35; }
@@ -310,7 +318,7 @@
     ribbonTex = new T.CanvasTexture(ribbonCanvas); ribbonTex.colorSpace = T.SRGBColorSpace; ribbonTex.wrapS = T.RepeatWrapping;
     const ribbonMat = new T.MeshBasicMaterial({ map: ribbonTex, side: T.DoubleSide });
     crowdCanvas = document.createElement('canvas'); crowdCanvas.width = 256; crowdCanvas.height = 128;
-    crowdTex = new T.CanvasTexture(crowdCanvas); crowdTex.colorSpace = T.SRGBColorSpace; crowdTex.wrapS = crowdTex.wrapT = T.RepeatWrapping;
+    crowdTex = new T.CanvasTexture(crowdCanvas); crowdTex.colorSpace = T.SRGBColorSpace; crowdTex.wrapS = crowdTex.wrapT = T.RepeatWrapping; crowdTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     crowdMat = new T.MeshBasicMaterial({ map: crowdTex, side: T.DoubleSide });
     const ring4 = (x0, x1, ya, yb, h0, grow, rise, mat, ru, rv) => {     // inner rectangle, how far it steps out, how high it climbs
       const X0 = x0 - grow, X1 = x1 + grow, YA = ya - grow, YB = yb + grow, h1 = h0 + rise, side = ru || 9, end = ru ? ru * 0.55 : 5, v = rv || 2;
@@ -470,6 +478,7 @@
           const pocket = c === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open && !c.down;
           if (pocket) v3.set(0.06, 0.4, -0.27).applyMatrix4(f.chest.matrixWorld); else v3.set(0.03, -0.24, -0.1).applyMatrix4(f.elR.matrixWorld);
           bx = v3.x; by = -v3.z; bz = v3.y;
+          if (pocket && G.state === 'live' && ps.t < 0.16) { const u = ps.t / 0.16; bx = lerp(ps.bx, bx, u); by = lerp(ps.los, by, u); bz = lerp(0.18, bz, u) + Math.sin(u * Math.PI) * 0.25; }
           ball.rotation.set(0.35, f.heading, 0);
         }
       } else if (ps.mode !== 'ko' || G.state === 'pre') { bx = ps.bx; by = ps.los; bz = 0.18; ball.rotation.set(0, 0, 0); }
@@ -497,11 +506,19 @@
     if (menu) {
       const a = time * 0.06;
       v3.set(FW / 2 + Math.sin(a) * 58, 30 + Math.sin(a * 0.7) * 6, -50 + Math.cos(a) * 95); v3b.set(FW / 2, 2, -50);
+    } else if (G.celeb && G.state === 'dead' && G.celeb.who) {          // touchdown: circle the scorer
+      const w = G.celeb.who, a = time * 0.55;
+      v3.set(w.x + Math.sin(a) * 7.5, 2.9, -w.y + Math.cos(a) * 7.5); v3b.set(w.x, 2.1, -w.y);
     } else {
       const up = cm.up, back = up ? 40 : 46, ahead = up ? 10 : 3, tx = lerp(FW / 2, cm.fx, 0.75);
       v3.set(tx, 24, -(cm.fy - back)); v3b.set(tx, 0, -(cm.fy + ahead));
+      if (G.state === 'pre' && ps && ps.mode !== 'ko' && !s.plain) {     // start close behind the formation, then pull out
+        let e = clamp((G.preT - 0.1) / 1.15, 0, 1); e = e * e * (3 - 2 * e);
+        v3.x = lerp(cm.fx + 2.5, v3.x, e); v3.y = lerp(7.5, v3.y, e); v3.z = lerp(-(cm.fy - (up ? 15 : 24)), v3.z, e);
+        v3b.y = lerp(1.2, 0, e);
+      }
     }
-    const k = cm.snap || s.fresh ? 1 : 1 - Math.exp(-dt * 4.2);
+    const pre = G.state === 'pre', k = cm.snap ? 1 : pre ? 1 - Math.exp(-dt * 12) : 1 - Math.exp(-dt * 4.2);
     cm.snap = false;
     camPos.lerp(v3, k); camLook.lerp(v3b, k);
     camera.position.copy(camPos);

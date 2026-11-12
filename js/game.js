@@ -309,7 +309,7 @@ function tick(dt){
   p.x+=p.vx*dt;p.y+=p.vy*dt;p.anim+=hyp(p.vx,p.vy)*dt;
   if(p!==ps.carrier){p.x=clamp(p.x,-2,FW+2);p.y=clamp(p.y,-11,111)}}
  for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++){const a=P[i],b=P[j];if(a.down||b.down||a.eng===b||b.eng===a)continue;
-  const dx=b.x-a.x,dy=b.y-a.y,d=hyp(dx,dy);if(d<0.75&&d>0.001){const q=(0.75-d)/2/d;a.x-=dx*q;a.y-=dy*q;b.x+=dx*q;b.y+=dy*q}}
+  const dx=b.x-a.x,dy=b.y-a.y,d=hyp(dx,dy);if(d<0.9&&d>0.001){const q=(0.9-d)/2/d;a.x-=dx*q;a.y-=dy*q;b.x+=dx*q;b.y+=dy*q}}
  // ball
  if(ps.air){const a=ps.air;a.t+=dt;const s=Math.min(1,a.t/a.T);a.x=lerp(a.x0,a.x1,s);a.y=lerp(a.y0,a.y1,s);a.z=1.8*(1-s)+1.2*s+a.h*4*s*(1-s);if(s>=1)resolvePass()}
  // tackles
@@ -320,7 +320,7 @@ function tick(dt){
    let pr=0.76+((o.tkl??o.rt)-75)*0.006-((c2.brk??c2.rt)-75)*0.005;if(o.eng)pr*=0.5;if(o.dive>0)pr+=0.2;
    for(const q of P)if(q.team===o.team&&q!==o&&!q.down&&q.stun<=0&&dist(q,c2)<2.2)pr+=0.15;
    if(c2.juke>0)pr*=0.22;if(c2===ps.qb&&ps.mode==='pass'&&!ps.thrown&&!ps.open)pr=0.93;if(o===G.sel&&uod)pr+=0.1;
-   if(rnd()<clamp(pr,0.08,0.97)){const pw=clamp(0.45+hyp(o.vx-c2.vx,o.vy-c2.vy)/14,0.5,1.3);c2.down=true;ps.tackler=o;snd('hit',{power:pw});if(pw>1.05&&!QUIET&&!AUTO&&PG.audio)PG.audio.crowd.ooh(0.6);hitFx(c2.x,c2.y);finish('tackle');return}
+   if(rnd()<clamp(pr,0.08,0.97)){const pw=clamp(0.45+hyp(o.vx-c2.vx,o.vy-c2.vy)/14,0.5,1.3);c2.down=true;o.fell=1;o.vx=o.vy=0;ps.tackler=o;snd('hit',{power:pw});if(pw>1.05&&!QUIET&&!AUTO&&PG.audio)PG.audio.crowd.ooh(0.6);hitFx(c2.x,c2.y);finish('tackle');return}
    release(o);o.stun=0.9;o.dive=0;c2.vx*=0.7;c2.vy*=0.7;snd('hit',{power:0.45});if(userP(c2))toast('Broken tackle!')}
   if(c2.team===0?c2.y>=100:c2.y<=0)finish('td');
   else if(c2.x<0||c2.x>FW)finish('oob');
@@ -715,7 +715,7 @@ function step(dt){if(G.paused)return;readInput();
  camUpd(dt);if(G.ros){updHud();setPad(padKind());const s=pad.querySelector('.spr');if(s)s.style.setProperty('--st',G.stam)}}
 /* after the whistle players ease to a stop instead of freezing mid-stride */
 function coast(dt){if(!ps)return;const k=Math.pow(0.03,dt);
- for(const p of P){if(p.down)continue;p.vx*=k;p.vy*=k;p.x+=p.vx*dt;p.y+=p.vy*dt;p.anim+=hyp(p.vx,p.vy)*dt;p.thrT-=dt;p.stun-=dt;p.dive-=dt;p.juke-=dt;p.spinT-=dt}}
+ for(const p of P){if(p.down||p.fell)continue;p.vx*=k;p.vy*=k;p.x+=p.vx*dt;p.y+=p.vy*dt;p.anim+=hyp(p.vx,p.vy)*dt;p.thrT-=dt;p.stun-=dt;p.dive-=dt;p.juke-=dt;p.spinT-=dt}}
 /* 3D when the library and WebGL are available, the 2D canvas otherwise */
 function setGfx(on){const gl=$('#gl');
  if(on&&PG.r3d){try{if(!gl.dataset.ok){PG.r3d.init(gl);gl.dataset.ok='1'}R3=PG.r3d;gl.hidden=false;resize()}catch(e){console.warn('3D renderer unavailable, using 2D',e);R3=null;gl.hidden=true}}

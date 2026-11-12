@@ -1,24 +1,37 @@
-/* Pocket Gridiron: sound engine.
-   Every sound is synthesized with the Web Audio API; there are no audio files.
+/* Pocket Gridiron: sound engine (second version, 2026-11-12).
+   Every sound is made in code with the Web Audio API; there are still no audio files.
    
-   PG.audio.play(name, opts)   one-shot effects (whistle, hit, catch, horn, ...)
-   PG.audio.crowd.*            the stadium: a bed that follows the game, cheers, groans, clap builds
-   PG.audio.music.*            the menu loop: a synthesized drumline with brass
+   PG.audio.play(name, opts)   one-shot effects (whistle, hit, catch, horn, ...); opts.x pans by field position
+   PG.audio.crowd.*            the stadium: murmur, roar and applause loops that follow the game, oohs, groans, chants
+   PG.audio.music.*            the menu theme: drums, bass, pad and a brass section, sixteen bars
    PG.audio.say(text, urgent)  the announcer: the device's own speech synthesizer, with the crowd dipped under it
-   PG.audio.weather(kind)      a bed of rain or wind under the crowd
+   PG.audio.weather(kind)      a bed of rain (with thunder) or wind under the crowd
    PG.audio.muffle(on)         everything goes dull and distant while the game is paused
    
-   Each voice is a function (ctx, out, t, opts) so it can also be rendered in an OfflineAudioContext,
-   which is how levels are checked (PG.audio.measure). */
+   What changed from the first version, and why:
+   - The crowd was filtered noise at about -35 dB. It is now made of voices: a few hundred synthesized syllables (a buzzy
+   tone through vowel formants) rendered once, off the main thread, into loops of murmur and roar, plus applause built
+   from single claps. Reactions (ooh, aww, "DE-FENSE") are rendered the same way.
+   - Effects were thin and 10 to 25 dB too quiet. Each is rebuilt in layers and levelled against the others.
+   - The mix now ends in a bus compressor and a limiter, so it can be loud without clipping.
+   
+   Each voice is a function (ctx, out, t, opts), so it can be rendered in an OfflineAudioContext as well as played.
+   That is how levels are checked without ears: PG.audio.measure and PG.audio.report. */
 (() => {
   'use strict';
   const S = PG.SET;
   if (S.mus === undefined) S.mus = true;
   if (S.ann === undefined) S.ann = true;
+  if (S.vol === undefined) S.vol = 2;
+  const VOL = [0.45, 0.7, 1], TRIM = 0.8;  // Settings: low, medium, high; and the headroom left above the limiter
 
   let ctx = null;  // the live AudioContext, created on the first tap
-  let bus = null;  // { master, sfx, crowd, music } gain nodes of the live graph
-  const noiseCache = new WeakMap();
+  let bus = null;  // the gain nodes of the live graph: master, sfx, crowd, music, ui, pa
+  let stems = null;  // the crowd's rendered loops and reactions, once they are ready
+  let stemsBusy = false;
+  const noiseCache = new WeakMap(), curves = {};
+  const rnd = (a, b) => a + Math.random() * (b - a), pickOf = a => a[Math.floor(Math.random() * a.length)];
+  const lerp = (a, b, t) => a + (b - a) * t;
 
   /* ---------- building blocks ---------- */
 
@@ -45,6 +58,14 @@
           d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.22;
         }
       }),
+      brown: make(4, d => {
+        // a leaky integrator: rumble
+        let v = 0;
+        for (let i = 0; i < d.length; i++) {
+          v = (v + (Math.random() * 2 - 1) * 0.02) * 0.998;
+          d[i] = v * 6;
+        }
+      }),
     };
     noiseCache.set(c, b);
     return b;
@@ -61,6 +82,26 @@
     n.frequency.value = f;
     if (q !== undefined) n.Q.value = q;
     return n;
+  };
+
+  /* left to right, -1 to 1; a plain pass-through where the browser has no panner */
+  const pan = (c, v) => {
+    if (!c.createStereoPanner) return gain(c, 1);
+    const p = c.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, v || 0));
+    return p;
+  };
+
+  /* soft saturation: rounds off the peaks and adds a little grit, for hits, barks and brass */
+  const drive = (c, amount) => {
+    const w = c.createWaveShaper(), k = amount || 2;
+    if (!curves[k]) {
+      const n = 1024, curve = new Float32Array(n);
+      for (let i = 0; i < n; i++) curve[i] = Math.tanh((i / (n - 1) * 2 - 1) * k) / Math.tanh(k);
+      curves[k] = curve;
+    }
+    w.curve = curves[k];
+    return w;
   };
 
   function osc(c, type, f, t, dur) {
@@ -107,269 +148,658 @@
   };
   const hz = semis => 440 * Math.pow(2, semis / 12);  // semitones from A4
 
-  /* master chain with a little stadium reverb on a send */
-  function buildGraph(c) {
-    const master = gain(c, 0.9), tone = filter(c, 'lowpass', 20000, 0.5);
-    const comp = c.createDynamicsCompressor();
-    comp.threshold.value = -16;
-    comp.knee.value = 14;
-    comp.ratio.value = 4;
-    comp.attack.value = 0.004;
-    comp.release.value = 0.22;
-    chain(master, tone, comp, c.destination);
-    const verb = c.createConvolver();
-    const len = Math.floor(c.sampleRate * 1.9), ir = c.createBuffer(2, len, c.sampleRate);
+  /* ---------- the mix ---------- */
+
+  /* A stadium's echo: a few early slaps off the stands, then a tail that gets darker as it dies. */
+  function impulse(c, seconds) {
+    const sr = c.sampleRate, n = Math.floor(sr * seconds), buf = c.createBuffer(2, n, sr);
     for (let ch = 0; ch < 2; ch++) {
-      const d = ir.getChannelData(ch);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2);
+      const d = buf.getChannelData(ch);
+      let lp = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        lp += ((Math.random() * 2 - 1) - lp) * (0.18 + 0.75 * Math.exp(-t * 3.2));  // the low-pass closes with time
+        d[i] = lp * Math.pow(1 - i / n, 2) * Math.exp(-t * 1.9);
+      }
+      for (const [ms, g] of [[21, 0.5], [34, 0.42], [53, 0.34], [79, 0.27], [113, 0.2]]) {
+        const k = Math.floor(sr * (ms + ch * 5) / 1000);
+        if (k < n) d[k] += g * (ch ? -1 : 1);
+      }
     }
-    verb.buffer = ir;
-    const wet = gain(c, 0.5);
-    chain(verb, wet, master);
+    return buf;
+  }
+
+  function compressor(c, threshold, knee, ratio, attack, release) {
+    const k = c.createDynamicsCompressor();
+    k.threshold.value = threshold;
+    k.knee.value = knee;
+    k.ratio.value = ratio;
+    k.attack.value = attack;
+    k.release.value = release;
+    return k;
+  }
+
+  /* Buses into a master, a compressor that glues them, a limiter that catches what is left, and the volume setting.
+     Each bus also feeds the stadium reverb by its own amount. `pa` is the public-address system: band-limited, with a
+     slap coming back off the far stand, for the horn and the organ. */
+  function buildGraph(c) {
+    const master = gain(c, 1), tone = filter(c, 'lowpass', 20000, 0.5), out = gain(c, TRIM * (VOL[S.vol] === undefined ? 1 : VOL[S.vol]));
+    /* Web Audio's compressor adds its own make-up gain (about 5 dB for the first of these, 3 for the second), so
+       quiet passages come up and loud ones are held: the second, at 20 to 1, is the ceiling, and TRIM leaves a
+       little room above it for the instant it takes to react. */
+    chain(master, tone, compressor(c, -18, 12, 2, 0.015, 0.3), compressor(c, -6, 0, 20, 0.003, 0.1), out, c.destination);
+    const verb = c.createConvolver();
+    verb.buffer = impulse(c, 2.6);
+    chain(verb, gain(c, 0.4), master);
     const mk = (level, send) => {
       const g = gain(c, level);
       g.connect(master);
-      const s = gain(c, send);
-      chain(g, s, verb);
+      chain(g, gain(c, send), verb);
       return g;
     };
-    return { master, tone, sfx: mk(1, 0.3), crowd: mk(1, 0.12), music: mk(0.8, 0.14) };
+    const pa = gain(c, 1), band = filter(c, 'bandpass', 1150, 0.45), slap = c.createDelay(0.6), back = gain(c, 0.26);
+    slap.delayTime.value = 0.21;
+    chain(pa, band, master);
+    chain(band, slap, back, slap);
+    chain(slap, gain(c, 0.45), master);
+    chain(band, gain(c, 0.45), verb);
+    return { master, tone, out, sfx: mk(1, 0.2), crowd: mk(1, 0.14), music: mk(0.9, 0.09), ui: mk(1, 0.03), pa };
+  }
+
+  /* ---------- voices ---------- */
+
+  /* The first three formants of each vowel, in hertz, for an adult man speaking. Shouting, and women's and children's
+     voices, push them up; callers pass a scale for that. */
+  const VOWEL = { a: [730, 1090, 2440], ae: [660, 1720, 2410], e: [530, 1840, 2480], i: [280, 2250, 2900], o: [570, 840, 2410], u: [320, 870, 2240], uh: [640, 1190, 2390] };
+
+  /* A mouth: three band-pass filters on a vowel's formants. Any number of throats can sound through one mouth, and it
+     can move from vowel to vowel over time (path: [[seconds, vowel], ...]), which is what makes it sound like speech
+     instead of a held note. Returns the node the throats connect to. */
+  function mouth(c, dest, path, scale, where) {
+    const input = gain(c, 1), mix = gain(c, 1);
+    [0, 1, 2].forEach(k => {
+      const bp = filter(c, 'bandpass', VOWEL[path[0][1]][k] * scale, [7, 10, 11][k]);
+      bp.frequency.setValueAtTime(VOWEL[path[0][1]][k] * scale, 0);
+      for (let i = 1; i < path.length; i++) bp.frequency.linearRampToValueAtTime(VOWEL[path[i][1]][k] * scale, path[i][0]);
+      chain(input, bp, gain(c, [1, 0.9, 0.6][k]), mix);
+    });
+    chain(mix, filter(c, 'highpass', 190, 0.7), filter(c, 'lowpass', 4200, 0.5), pan(c, where), dest);  // a voice's weight is above its fundamental
+    return input;
+  }
+
+  /* One syllable from one throat: a buzzy tone that swells, moves in pitch (f0, then f1 a third of the way in, then f2)
+     and dies away. */
+  function consonant(c, out, t, amp) {
+    const hard = Math.random() < 0.5, len = hard ? rnd(0.015, 0.03) : rnd(0.05, 0.11);  // a "t" or "k", or an "s" or "sh"
+    chain(noise(c, 'white', t, len), filter(c, 'bandpass', hard ? rnd(2200, 4200) : rnd(3200, 6200), hard ? 1.2 : 2.2), env(c, t, hard ? 0.002 : 0.02, amp, len), pan(c, rnd(-0.9, 0.9)), out);
+  }
+
+  function syllable(c, into, t, dur, f0, f1, f2, amp, attack, release) {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.linearRampToValueAtTime(f1, t + dur * 0.35);
+    o.frequency.linearRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(amp, t + Math.min(attack, dur * 0.5));
+    g.gain.setValueAtTime(amp, t + Math.max(Math.min(attack, dur * 0.5), dur - release));
+    g.gain.linearRampToValueAtTime(0, t + dur);
+    chain(o, g, into);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  /* one man's shout or grunt, played live: the same idea with its own mouth and some breath in it */
+  function bark(c, out, t, o) {
+    const g = env(c, t, 0.012, o.amp, o.dur), src = osc(c, 'sawtooth', o.f0, t, o.dur + 0.05), air = gain(c, o.breath === undefined ? 0.2 : o.breath);
+    src.frequency.exponentialRampToValueAtTime(o.f1, t + o.dur);
+    chain(noise(c, 'white', t, o.dur + 0.05), air);
+    VOWEL[o.vowel].forEach((f, k) => {
+      const bp = filter(c, 'bandpass', f * (o.scale || 1), [6, 8, 9][k]);
+      src.connect(bp);
+      air.connect(bp);
+      chain(bp, gain(c, [1, 0.6, 0.3][k]), g);
+    });
+    chain(g, drive(c, 2.5), out);
+  }
+
+  /* ---------- the crowd, rendered ----------
+     Each stem is built in an OfflineAudioContext (the browser renders it on its own thread) and kept as a buffer.
+     Loops are made seamless by rendering a tail past the end and folding it back onto the start: a syllable that
+     begins near the end simply finishes at the beginning. */
+  const STEMS = {
+    /* a crowd between plays: several dozen people talking, none of them to you */
+    walla: { len: 7, tail: 2, rms: 0.085, build(c, out, len) {
+      const mouths = [];
+      for (let m = 0; m < 12; m++) {
+        const path = [];
+        for (let t = 0; t < len + 2; t += rnd(0.12, 0.34)) path.push([t, pickOf(['a', 'ae', 'e', 'i', 'o', 'u', 'uh'])]);
+        mouths.push(mouth(c, out, path, m % 3 === 0 ? 1.17 : 1, rnd(-0.9, 0.9)));
+      }
+      for (let v = 0; v < 46; v++) {
+        const m = mouths[v % mouths.length], base = v % 3 === 0 ? rnd(170, 250) : rnd(88, 150), loud = rnd(0.35, 1);
+        let t = rnd(0, 0.6);
+        while (t < len) {
+          const n = 2 + Math.floor(rnd(0, 7));  // a phrase, falling in pitch as speech does
+          for (let k = 0; k < n && t < len; k++) {
+            const dur = rnd(0.09, 0.26), f = base * lerp(1.12, 0.86, k / n) * rnd(0.96, 1.04);
+            if (Math.random() < 0.45) consonant(c, out, Math.max(0, t - 0.03), loud * 0.05);
+            syllable(c, m, t, dur, f, f * rnd(0.97, 1.05), f * rnd(0.9, 1), loud * rnd(0.6, 1), 0.025, 0.06);
+            t += dur + rnd(0.01, 0.09);
+          }
+          t += rnd(0.25, 1.5);
+        }
+      }
+    }
+    },
+    /* the same crowd on its feet: long open vowels, pitches climbing, a few high whoops */
+    roar: { len: 6, tail: 3, rms: 0.13, build(c, out, len) {
+      const mouths = [];
+      for (let m = 0; m < 10; m++) {
+        const path = [];
+        for (let t = 0; t < len + 3; t += rnd(0.5, 1.3)) path.push([t, pickOf(m < 8 ? ['a', 'ae', 'a', 'o', 'e'] : ['u', 'o'])]);
+        mouths.push(mouth(c, out, path, m % 2 ? 1.2 : 1.08, rnd(-1, 1)));
+      }
+      for (let v = 0; v < 84; v++) {
+        const woo = v % 8 >= 6, m = mouths[woo ? 8 + v % 2 : v % 8], base = woo ? rnd(420, 700) : v % 3 === 0 ? rnd(300, 460) : rnd(150, 290), loud = rnd(0.5, 1);
+        let t = rnd(0, 2.4);  // spread out: with the tail folded back over the start, the level then stays even round the loop
+        while (t < len) {
+          const dur = rnd(0.7, 2.1), up = rnd(1.04, 1.16);
+          syllable(c, m, t, dur, base * rnd(0.95, 1.02), base * up, base * up * rnd(0.88, 0.98), loud, rnd(0.07, 0.2), rnd(0.25, 0.5));
+          t += dur + rnd(0.12, 0.5);
+        }
+      }
+    }
+    },
+    /* a big hit, a near miss: everybody at once, up and then down */
+    ooh: { len: 1.5, tail: 0, rms: 0.15, build(c, out) {
+      const ms = [0, 1, 2, 3, 4, 5].map(k => mouth(c, out, [[0, 'o'], [0.35, 'o'], [1.1, 'u']], k % 2 ? 1.18 : 1.05, rnd(-1, 1)));
+      for (let v = 0; v < 72; v++) {
+        const base = v % 3 === 0 ? rnd(300, 440) : rnd(140, 260), dur = rnd(0.6, 1.05);
+        syllable(c, ms[v % 6], rnd(0, 0.2), dur, base, base * rnd(1.08, 1.2), base * rnd(0.8, 0.92), rnd(0.5, 1), rnd(0.06, 0.14), rnd(0.3, 0.5));
+      }
+    }
+    },
+    /* it went against the home team: a long "aww", sinking */
+    groan: { len: 2.2, tail: 0, rms: 0.13, build(c, out) {
+      const ms = [0, 1, 2, 3, 4, 5].map(k => mouth(c, out, [[0, 'a'], [0.3, 'o'], [1.2, 'o'], [2, 'uh']], k % 2 ? 1.12 : 1, rnd(-1, 1)));
+      for (let v = 0; v < 72; v++) {
+        const base = v % 3 === 0 ? rnd(230, 330) : rnd(105, 210), dur = rnd(1, 1.7);
+        syllable(c, ms[v % 6], rnd(0, 0.3), dur, base, base * rnd(0.9, 0.96), base * rnd(0.7, 0.8), rnd(0.5, 1), rnd(0.12, 0.25), rnd(0.4, 0.7));
+      }
+    }
+    },
+    /* "DE-FENSE": two syllables shouted more or less together, each voice on its own note */
+    chant: { len: 1.1, tail: 0, rms: 0.17, build(c, out) {
+      const dee = [0, 1, 2].map(k => mouth(c, out, [[0, 'i']], k ? 1.12 : 1, rnd(-0.8, 0.8))), fense = [0, 1, 2].map(k => mouth(c, out, [[0, 'e']], k ? 1.12 : 1, rnd(-0.8, 0.8)));
+      for (let v = 0; v < 64; v++) {
+        const base = v % 3 === 0 ? rnd(230, 340) : rnd(120, 210), late = rnd(0, 0.05), loud = rnd(0.5, 1);
+        syllable(c, dee[v % 3], 0.02 + late, rnd(0.22, 0.28), base, base * 1.03, base, loud, 0.03, 0.07);
+        syllable(c, fense[v % 3], 0.4 + late, rnd(0.3, 0.38), base * 0.95, base * 0.96, base * 0.88, loud * 2.3, 0.035, 0.1);
+      }
+      chain(noise(c, 'white', 0.68, 0.24), filter(c, 'highpass', 4500), env(c, 0.68, 0.04, 0.05, 0.2), out);  // the hiss on the end of "fense"
+    }
+    },
+  };
+
+  /* Applause is not voices: it is thousands of single claps, each a few milliseconds of noise ringing at its own pitch.
+     Written straight into the buffer, wrapping at the end, so it loops without a seam. */
+  function applause(sr, seconds, perSecond) {
+    const n = Math.floor(sr * seconds), L = new Float32Array(n), R = new Float32Array(n);
+    for (let k = 0; k < perSecond * seconds; k++) {
+      const at = Math.floor(Math.random() * n), len = Math.floor(sr * rnd(0.01, 0.028)), amp = rnd(0.3, 1), where = Math.random();
+      const r = 0.93, w = 2 * Math.PI * rnd(900, 2700) / sr, a1 = 2 * r * Math.cos(w), a2 = -r * r;
+      let y1 = 0, y2 = 0;
+      for (let i = 0; i < len * 4; i++) {
+        const y = (Math.random() * 2 - 1) * Math.exp(-i / len) + a1 * y1 + a2 * y2;
+        y2 = y1;
+        y1 = y;
+        const s = y * amp * 0.1, j = (at + i) % n;
+        L[j] += s * (1 - where);
+        R[j] += s * where;
+      }
+    }
+    return [L, R];
+  }
+
+  const rmsOf = chans => {
+    let sum = 0, n = 0;
+    for (const d of chans) for (let i = 0; i < d.length; i++, n++) sum += d[i] * d[i];
+    return Math.sqrt(sum / Math.max(1, n));
+  };
+
+  /* bring a pair of channels to the wanted loudness, never past full scale */
+  function level(chans, rms) {
+    let peak = 0;
+    for (const d of chans) for (let i = 0; i < d.length; i++) if (Math.abs(d[i]) > peak) peak = Math.abs(d[i]);
+    const k = Math.min(rms / Math.max(1e-6, rmsOf(chans)), 0.95 / Math.max(1e-6, peak));
+    for (const d of chans) for (let i = 0; i < d.length; i++) d[i] *= k;
+    return chans;
+  }
+
+  const rendered = c => {
+    const p = c.startRendering();
+    return p && p.then ? p : new Promise(done => {
+      c.oncomplete = e => done(e.renderedBuffer);
+    });
+  };
+
+  /* render every stem at sample rate sr; resolves to { walla, roar, clap, ooh, groan, chant } as [left, right] pairs */
+  async function renderStems(sr) {
+    const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext, out = {};
+    for (const name in STEMS) {
+      const s = STEMS[name], n = Math.floor(sr * s.len), c = new Off(2, Math.floor(sr * (s.len + s.tail)) + 1, sr);
+      s.build(c, c.destination, s.len);
+      const buf = await rendered(c), chans = [0, 1].map(ch => {
+        const d = buf.getChannelData(ch), keep = new Float32Array(n);
+        keep.set(d.subarray(0, n));
+        for (let i = n; i < d.length && i - n < n; i++) keep[i - n] += d[i];  // fold the tail back onto the start
+        return keep;
+      });
+      out[name] = level(chans, s.rms);
+    }
+    out.clap = level(applause(sr, 5, 240), 0.09);
+    return out;
+  }
+
+  const toBuffer = (c, chans) => {
+    const b = c.createBuffer(2, chans[0].length, c.sampleRate);
+    b.getChannelData(0).set(chans[0]);
+    b.getChannelData(1).set(chans[1]);
+    return b;
+  };
+
+  /* start rendering the crowd for the live context; when it lands, a crowd that is already playing switches over to it */
+  function wantStems() {
+    if (stems || stemsBusy || !ctx || !(window.OfflineAudioContext || window.webkitOfflineAudioContext)) return;
+    stemsBusy = true;
+    renderStems(ctx.sampleRate).then(raw => {
+      stems = {};
+      for (const k in raw) stems[k] = toBuffer(ctx, raw[k]);
+      stemsBusy = false;
+      if (crowd.nodes) {
+        crowd.stop(0.5);
+        crowd.start();
+      }
+    }).catch(() => {
+      stemsBusy = false;  // the noise crowd stays
+    });
   }
 
   /* ---------- one-shot effects ---------- */
 
   function brass(c, out, t, f, dur, peak) {
-    const lp = filter(c, 'lowpass', 500, 1.2);
-    lp.frequency.setValueAtTime(500, t);
-    lp.frequency.exponentialRampToValueAtTime(2600, t + 0.05);
-    lp.frequency.exponentialRampToValueAtTime(1300, t + dur);
-    const g = envHold(c, t, 0.025, peak, Math.max(0.01, dur - 0.1), 0.12);
+    const lp = filter(c, 'lowpass', 600, 1.5);
+    lp.frequency.setValueAtTime(600, t);
+    lp.frequency.exponentialRampToValueAtTime(3400, t + 0.045);
+    lp.frequency.exponentialRampToValueAtTime(1500, t + Math.max(0.08, dur));
+    const g = envHold(c, t, 0.022, peak, Math.max(0.01, dur - 0.1), 0.13);
     chain(lp, g, out);
-    for (const cents of [-7, 6]) {
+    /* vibrato arrives late, on notes that are held */
+    const vib = osc(c, 'sine', 5.6, t, dur + 0.2), depth = gain(c, 0);
+    depth.gain.setValueAtTime(0, t + 0.12);
+    depth.gain.linearRampToValueAtTime(f * 0.006, t + 0.4);
+    vib.connect(depth);
+    for (const cents of [-9, 0, 8]) {
       const o = osc(c, 'sawtooth', f, t, dur + 0.15);
       o.detune.value = cents;
-      o.connect(lp);
+      depth.connect(o.frequency);
+      chain(o, gain(c, 0.5), lp);
     }
-    const sub = osc(c, 'square', f / 2, t, dur + 0.15), sg = gain(c, 0.25);
-    chain(sub, sg, lp);
+    chain(osc(c, 'square', f / 2, t, dur + 0.15), gain(c, 0.2), lp);
   }
 
+  /* a struck bar: the note and three partials that die faster the higher they are */
   function bell(c, out, t, f, dur, peak) {
-    const g = env(c, t, 0.005, peak, dur);
-    g.connect(out);
-    osc(c, 'sine', f, t, dur).connect(g);
-    const o2 = osc(c, 'triangle', f * 2, t, dur), g2 = gain(c, 0.25);
-    chain(o2, g2, g);
+    for (const [mult, a, d] of [[1, 1, 1], [2, 0.4, 0.55], [3.01, 0.18, 0.35], [4.2, 0.09, 0.22]]) chain(osc(c, 'sine', f * mult, t, dur * d), env(c, t, 0.004, peak * a, dur * d), out);
   }
+
+  function timpani(c, out, t, f, peak) {
+    const o = osc(c, 'sine', f * 1.12, t, 0.9);
+    o.frequency.exponentialRampToValueAtTime(f, t + 0.06);
+    chain(o, env(c, t, 0.004, peak, 0.8), out);
+    chain(osc(c, 'sine', f * 1.5, t, 0.5), env(c, t, 0.004, peak * 0.3, 0.4), out);
+    chain(noise(c, 'pink', t, 0.08), filter(c, 'lowpass', 300), env(c, t, 0.002, peak * 0.5, 0.06), out);
+  }
+
+  function cymbal(c, out, t, peak, decay) {
+    chain(noise(c, 'white', t, decay + 0.1), filter(c, 'highpass', 5200), env(c, t, 0.004, peak, decay), out);
+    chain(noise(c, 'white', t, decay * 0.5), filter(c, 'bandpass', 3400, 2.5), env(c, t, 0.004, peak * 0.5, decay * 0.5), out);
+  }
+
+  const DRUM = {
+    kick(c, out, t, v) {
+      const o = osc(c, 'sine', 165, t, 0.3);
+      o.frequency.exponentialRampToValueAtTime(46, t + 0.11);
+      chain(o, env(c, t, 0.002, 0.85 * v, 0.27), out);
+      chain(noise(c, 'white', t, 0.02), filter(c, 'highpass', 2500), env(c, t, 0.001, 0.16 * v, 0.012), out);
+    },
+    snare(c, out, t, v) {
+      chain(noise(c, 'white', t, 0.18), filter(c, 'bandpass', 2400, 0.6), env(c, t, 0.001, 0.48 * v, 0.14), out);
+      chain(noise(c, 'white', t, 0.1), filter(c, 'highpass', 6000), env(c, t, 0.001, 0.14 * v, 0.07), out);
+      const o = osc(c, 'triangle', 215, t, 0.1);
+      o.frequency.exponentialRampToValueAtTime(160, t + 0.07);
+      chain(o, env(c, t, 0.001, 0.34 * v, 0.09), out);
+    },
+    hat(c, out, t, v, open) {
+      chain(noise(c, 'white', t, open ? 0.3 : 0.05), filter(c, 'highpass', 7200), env(c, t, 0.001, 0.13 * v, open ? 0.24 : 0.035), out);
+    },
+    tom(c, out, t, v, f) {
+      const o = osc(c, 'sine', f * 1.3, t, 0.3);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.08);
+      chain(o, env(c, t, 0.002, 0.55 * v, 0.24), out);
+      chain(noise(c, 'pink', t, 0.04), filter(c, 'lowpass', 900), env(c, t, 0.001, 0.2 * v, 0.03), out);
+    },
+  };
+
+  const power = (o, d) => clamp01(o && o.power !== undefined ? o.power : d);
 
   const SFX = {
-    /* pea whistle: two close sines with a fast trill, plus breath */
+    /* the referee's pea whistle: two close tones, a fast trill in pitch and loudness, breath through it */
     whistle(c, out, t, o) {
-      const dur = o && o.long ? 0.95 : 0.36;
-      const g = envHold(c, t, 0.012, 0.07, dur, 0.07);
-      g.connect(out);
-      const lfo = osc(c, 'sine', 30, t, dur + 0.1), depth = gain(c, 140);
-      lfo.connect(depth);
-      for (const f of [2740, 2905]) {
-        const s = osc(c, 'sine', f, t, dur + 0.1);
-        depth.connect(s.frequency);
-        s.connect(g);
+      const dur = o && o.long ? 1 : 0.34, body = gain(c, 0.7);
+      const trill = osc(c, 'sine', 37, t, dur + 0.1), fm = gain(c, 85), am = gain(c, 0.3);
+      trill.connect(fm);
+      chain(trill, am, body.gain);
+      for (const [f, a] of [[2830, 1], [2975, 0.8], [5700, 0.12]]) {
+        const s = osc(c, 'sine', f * 0.985, t, dur + 0.1);
+        s.frequency.linearRampToValueAtTime(f, t + 0.05);  // the pitch settles as the pea gets going
+        fm.connect(s.frequency);
+        chain(s, gain(c, a), body);
       }
-      const breath = gain(c, 0.35);
-      chain(noise(c, 'white', t, dur + 0.1), filter(c, 'bandpass', 3000, 1.5), breath, g);
+      chain(noise(c, 'white', t, dur + 0.1), filter(c, 'bandpass', 3100, 2), gain(c, 0.4), body);
+      chain(body, envHold(c, t, 0.014, 0.12, dur, 0.06), out);
     },
-    /* pads: a low thump, a plastic crack and a short body of noise */
+    /* pads: a low thump, the body of two men, a plastic crack, shells clacking, and on the big ones a grunt */
     hit(c, out, t, o) {
-      const p = clamp01(o && o.power !== undefined ? o.power : 0.8);
-      const th = osc(c, 'sine', 125, t, 0.2);
-      th.frequency.exponentialRampToValueAtTime(42, t + 0.16);
-      chain(th, env(c, t, 0.004, 0.8 * p, 0.2), out);
-      chain(noise(c, 'white', t, 0.08), filter(c, 'bandpass', 1900, 0.9), env(c, t, 0.002, 0.4 * p, 0.06), out);
-      chain(noise(c, 'pink', t, 0.18), filter(c, 'lowpass', 420), env(c, t, 0.004, 0.9 * p, 0.15), out);
+      const p = power(o, 0.8), k = rnd(0.9, 1.12), mix = gain(c, 1), th = osc(c, 'sine', 150 * k, t, 0.22);
+      th.frequency.exponentialRampToValueAtTime(46 * k, t + 0.15);
+      chain(th, env(c, t, 0.003, 0.6 * p, 0.2), mix);
+      chain(noise(c, 'pink', t, 0.2), filter(c, 'lowpass', 520), env(c, t, 0.003, 0.5 * p, 0.14), mix);
+      chain(noise(c, 'white', t, 0.14), filter(c, 'bandpass', 760 * k, 0.9), env(c, t, 0.002, 1.5 * p, 0.09), mix);  // the smack: the part a phone speaker can play
+      chain(noise(c, 'white', t, 0.07), filter(c, 'bandpass', 2300 * k, 1.1), env(c, t, 0.001, 0.9 * p, 0.04), mix);
+      if (p > 0.55) for (const f of [1180, 1730, 2610]) chain(osc(c, 'sine', f * k, t, 0.05), env(c, t, 0.001, 0.09 * p, 0.03), mix);
+      if (p > 0.85) bark(c, mix, t + 0.02, { f0: 125 * k, f1: 88 * k, dur: 0.13, vowel: 'uh', amp: 0.2 * p });
+      chain(mix, drive(c, 1.8), gain(c, 0.75), out);
     },
+    /* leather into gloves */
     catch (c, out, t) {
-      chain(noise(c, 'white', t, 0.07), filter(c, 'bandpass', 950, 0.8), env(c, t, 0.002, 0.5, 0.055), out);
-      const o = osc(c, 'sine', 270, t, 0.07);
-      o.frequency.exponentialRampToValueAtTime(175, t + 0.06);
-      chain(o, env(c, t, 0.002, 0.22, 0.06), out);
+      chain(noise(c, 'white', t, 0.07), filter(c, 'bandpass', 1400, 1.2), env(c, t, 0.001, 1.1, 0.045), out);
+      chain(noise(c, 'white', t, 0.08), filter(c, 'bandpass', 620, 1), env(c, t, 0.002, 0.9, 0.055), out);
+      const o = osc(c, 'sine', 215, t, 0.08);
+      o.frequency.exponentialRampToValueAtTime(140, t + 0.06);
+      chain(o, env(c, t, 0.002, 0.25, 0.07), out);
     },
+    /* the ball leaving the hand */
     throw (c, out, t) {
-      const bp = filter(c, 'bandpass', 700, 1.3);
-      bp.frequency.setValueAtTime(700, t);
-      bp.frequency.exponentialRampToValueAtTime(2600, t + 0.18);
-      chain(noise(c, 'white', t, 0.24), bp, env(c, t, 0.035, 0.28, 0.17), out);
+      const bp = filter(c, 'bandpass', 520, 1.2);
+      bp.frequency.setValueAtTime(520, t);
+      bp.frequency.exponentialRampToValueAtTime(2500, t + 0.2);
+      chain(noise(c, 'white', t, 0.26), bp, env(c, t, 0.04, 0.5, 0.18), out);
     },
-    /* the quarterback's bark: a saw through two vowel formants, then the ball hitting hands */
+    /* "Hut!": the quarterback's bark, a hard stop on the end of it, then the ball hitting his hands */
     snap(c, out, t) {
-      const g = env(c, t, 0.008, 0.8, 0.13);
-      g.connect(out);
-      const src = osc(c, 'sawtooth', 158, t, 0.16);
-      src.frequency.exponentialRampToValueAtTime(118, t + 0.13);
-      const air = gain(c, 0.25);
-      chain(noise(c, 'white', t, 0.16), air);
-      for (const [f, q, lvl] of [[640, 5, 1], [1180, 6, 0.6]]) {
-        const bp = filter(c, 'bandpass', f, q), l = gain(c, lvl);
-        src.connect(bp);
-        air.connect(bp);
-        chain(bp, l, g);
-      }
-      chain(noise(c, 'white', t + 0.09, 0.05), filter(c, 'bandpass', 1000, 0.8), env(c, t + 0.09, 0.002, 0.14, 0.04), out);
+      bark(c, out, t, { f0: 168, f1: 122, dur: 0.14, vowel: 'uh', amp: 0.6, breath: 0.3 });
+      chain(noise(c, 'white', t + 0.13, 0.03), filter(c, 'highpass', 3500), env(c, t + 0.13, 0.001, 0.14, 0.018), out);
+      chain(noise(c, 'white', t + 0.1, 0.05), filter(c, 'bandpass', 1000, 0.8), env(c, t + 0.1, 0.002, 0.3, 0.04), out);
     },
+    /* a boot through the ball */
     kick(c, out, t) {
-      const o = osc(c, 'sine', 165, t, 0.2);
-      o.frequency.exponentialRampToValueAtTime(46, t + 0.14);
-      chain(o, env(c, t, 0.003, 0.9, 0.2), out);
-      chain(noise(c, 'white', t, 0.03), filter(c, 'highpass', 2200), env(c, t, 0.001, 0.2, 0.025), out);
+      const o = osc(c, 'sine', 190, t, 0.2);
+      o.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+      chain(o, env(c, t, 0.002, 0.6, 0.2), out);
+      chain(noise(c, 'white', t, 0.1), filter(c, 'bandpass', 620, 1.4), env(c, t, 0.001, 1.6, 0.07), out);  // the "pock" of the ball
+      chain(noise(c, 'white', t, 0.06), filter(c, 'bandpass', 1150, 1.6), env(c, t, 0.001, 0.9, 0.04), out);
+      chain(noise(c, 'white', t, 0.02), filter(c, 'highpass', 3000), env(c, t, 0.001, 0.25, 0.012), out);
     },
+    /* cleats cutting in the turf: two short scrapes */
     juke(c, out, t) {
-      chain(noise(c, 'white', t, 0.09), filter(c, 'highpass', 3200), env(c, t, 0.004, 0.15, 0.07), out);
+      for (const at of [0, 0.07]) chain(noise(c, 'white', t + at, 0.06), filter(c, 'bandpass', 4300, 0.8), env(c, t + at, 0.006, 0.28, 0.045), out);
     },
     /* interface */
     tick(c, out, t) {
-      chain(osc(c, 'triangle', 1250, t, 0.04), env(c, t, 0.002, 0.1, 0.03), out);
+      chain(osc(c, 'sine', 1900, t, 0.04), env(c, t, 0.001, 0.2, 0.03), out);
+      chain(noise(c, 'white', t, 0.01), filter(c, 'highpass', 4000), env(c, t, 0.0005, 0.08, 0.004), out);
     },
     ok(c, out, t) {
-      bell(c, out, t, hz(7), 0.12, 0.09);
-      bell(c, out, t + 0.07, hz(14), 0.18, 0.09);
+      bell(c, out, t, hz(7), 0.16, 0.13);
+      bell(c, out, t + 0.075, hz(14), 0.26, 0.13);
     },
     buy(c, out, t) {
-      [0, 4, 7, 12].forEach((s, i) => bell(c, out, t + i * 0.07, hz(3 + s), 0.22, 0.09));
+      [0, 4, 7, 12].forEach((s, i) => bell(c, out, t + i * 0.07, hz(3 + s), 0.3, 0.11));
     },
     chime(c, out, t) {
-      bell(c, out, t, hz(10), 0.3, 0.1);
-      bell(c, out, t + 0.11, hz(17), 0.45, 0.1);
+      bell(c, out, t, hz(10), 0.35, 0.16);
+      bell(c, out, t + 0.11, hz(17), 0.55, 0.16);
     },
-    /* touchdown: air horn under a short rising brass figure */
+    /* the touchdown horn: two notes a minor third apart that scoop up to pitch, through the stadium speakers */
     horn(c, out, t) {
-      const lp = filter(c, 'lowpass', 1700, 0.7), g = envHold(c, t, 0.04, 0.085, 1.0, 0.3);
-      chain(lp, g, out);
-      for (const [f, cents] of [[233.08, -9], [233.08, 8], [311.13, -6], [311.13, 7]]) {
-        const o = osc(c, 'sawtooth', f, t, 1.5);
+      const lp = filter(c, 'lowpass', 2400, 2);
+      chain(lp, envHold(c, t, 0.05, 0.22, 1.15, 0.35), out);
+      for (const [f, cents, type, a] of [[311, -8, 'sawtooth', 1], [311, 9, 'square', 0.5], [370, -6, 'sawtooth', 1], [370, 7, 'square', 0.5], [155.5, 0, 'sawtooth', 0.5]]) {
+        const o = osc(c, type, f * 0.975, t, 1.7);
+        o.frequency.exponentialRampToValueAtTime(f, t + 0.07);
         o.detune.value = cents;
-        o.connect(lp);
+        chain(o, gain(c, a * 0.4), lp);
       }
     },
+    /* a brass section: six notes up, the last one held in harmony over a drum and a cymbal */
     fanfare(c, out, t) {
-      const n = [[-7, 0, 0.15], [-4, 0.15, 0.15], [0, 0.3, 0.15], [5, 0.45, 0.2], [3, 0.68, 0.2], [5, 0.92, 0.8]];
-      for (const [s, at, d] of n) brass(c, out, t + at, hz(s), d, 0.075);
-      for (const s of [-4, 0]) brass(c, out, t + 0.92, hz(s), 0.8, 0.045);  // harmony under the last note
+      const n = [[-7, 0, 0.15], [-4, 0.15, 0.15], [0, 0.3, 0.15], [5, 0.45, 0.2], [3, 0.68, 0.2], [5, 0.92, 0.9]];
+      for (const [s, at, d] of n) {
+        brass(c, out, t + at, hz(s), d, 0.13);
+        brass(c, out, t + at, hz(s - 12), d, 0.07);
+      }
+      for (const s of [-4, 0]) brass(c, out, t + 0.92, hz(s), 0.9, 0.075);
+      timpani(c, out, t + 0.92, hz(-31), 0.35);
+      cymbal(c, out, t + 0.92, 0.12, 1.3);
     },
+    /* the sad trombone: four steps down, the last one sagging */
     lose(c, out, t) {
-      [[0, 0], [-2, 0.26], [-5, 0.52]].forEach(([s, at]) => brass(c, out, t + at, hz(s - 12), 0.3 + (at > 0.5 ? 0.5 : 0), 0.06));
+      [[1, 0], [0, 0.3], [-1, 0.6], [-2, 0.9]].forEach(([s, at], i) => {
+        const last = i === 3, dur = last ? 0.95 : 0.26, f = hz(s - 12), lp = filter(c, 'lowpass', 1500, 2), o = osc(c, 'sawtooth', f, t + at, dur + 0.1);
+        lp.frequency.setValueAtTime(1500, t + at);
+        lp.frequency.exponentialRampToValueAtTime(last ? 320 : 700, t + at + dur);
+        if (last) o.frequency.exponentialRampToValueAtTime(f * 0.86, t + at + dur);
+        chain(o, lp, envHold(c, t + at, 0.03, 0.2, dur - 0.08, 0.1), out);
+      });
     },
-    /* crowd one-shots (the bed lives in `crowd` below) */
+    /* crowd one-shots, used only until the rendered crowd is ready */
     groan(c, out, t, o) {
-      const a = o && o.amount !== undefined ? o.amount : 1;
-      const bp = filter(c, 'bandpass', 540, 1.3);
+      const a = o && o.amount !== undefined ? o.amount : 1, bp = filter(c, 'bandpass', 540, 1.3);
       bp.frequency.setValueAtTime(540, t);
       bp.frequency.exponentialRampToValueAtTime(250, t + 1.1);
-      chain(noise(c, 'pink', t, 1.5, 0.8), bp, env(c, t, 0.14, 0.5 * a, 1.25), out);
+      chain(noise(c, 'pink', t, 1.5, 0.8), bp, env(c, t, 0.14, 0.9 * a, 1.25), out);
     },
     ooh(c, out, t, o) {
-      const a = o && o.amount !== undefined ? o.amount : 1;
-      const bp = filter(c, 'bandpass', 460, 1.5);
+      const a = o && o.amount !== undefined ? o.amount : 1, bp = filter(c, 'bandpass', 460, 1.5);
       bp.frequency.setValueAtTime(460, t);
       bp.frequency.linearRampToValueAtTime(640, t + 0.18);
       bp.frequency.linearRampToValueAtTime(400, t + 0.7);
-      chain(noise(c, 'pink', t, 0.9), bp, env(c, t, 0.08, 0.45 * a, 0.7), out);
+      chain(noise(c, 'pink', t, 0.9), bp, env(c, t, 0.08, 0.9 * a, 0.7), out);
     },
     /* a stadium organ riff: a rising run that stops on a held note, leaving room for the crowd to answer */
     organ(c, out, t) {
-      const notes = [[-7, 0, 0.13], [-3, 0.14, 0.13], [0, 0.28, 0.13], [5, 0.42, 0.13], [0, 0.56, 0.1], [5, 0.68, 0.5]];  // D4 F#4 A4 D5 A4 D5
+      const notes = [[-7, 0, 0.13], [-3, 0.14, 0.13], [0, 0.28, 0.13], [5, 0.42, 0.13], [0, 0.56, 0.1], [5, 0.68, 0.55]];  // D4 F#4 A4 D5 A4 D5
+      const trem = osc(c, 'sine', 6.3, t, 1.5), wob = gain(c, 0.12), all = gain(c, 0.88);
+      chain(trem, wob, all.gain);  // the spinning speaker
+      all.connect(out);
       for (const [semi, at, dur] of notes) {
-        const g = envHold(c, t + at, 0.012, 0.085, dur, 0.06);
-        g.connect(out);
-        [[1, 1], [2, 0.5], [3, 0.3], [4, 0.16], [6, 0.08]].forEach(([h, a]) => {
-          // drawbars
-          const o = osc(c, 'sine', hz(semi) * h, t + at, dur + 0.08), og = gain(c, a);
-          o.detune.value = Math.sin(h * 3.1) * 4;
-          chain(o, og, g);
+        const g = envHold(c, t + at, 0.01, 0.22, dur, 0.06);
+        g.connect(all);
+        [[0.5, 0.5], [1, 1], [2, 0.6], [3, 0.35], [4, 0.2], [6, 0.1]].forEach(([h, a]) => {
+          const o = osc(c, 'sine', hz(semi) * h, t + at, dur + 0.08);
+          o.detune.value = Math.sin(h * 3.1) * 5;
+          chain(o, gain(c, a * 0.5), g);
         });
       }
     },
     /* one stomp of a few thousand feet on aluminum */
     stomp(c, out, t, o) {
-      const lvl = o && o.level !== undefined ? o.level : 0.2, sw = osc(c, 'sine', 95, t, 0.2);
-      sw.frequency.exponentialRampToValueAtTime(46, t + 0.14);
-      chain(sw, env(c, t, 0.004, lvl, 0.2), out);
-      chain(noise(c, 'pink', t, 0.12), filter(c, 'lowpass', 420, 0.6), env(c, t, 0.004, lvl * 0.9, 0.11), out);
+      const lvl = o && o.level !== undefined ? o.level : 0.5, sw = osc(c, 'sine', 92, t, 0.22);
+      sw.frequency.exponentialRampToValueAtTime(44, t + 0.14);
+      chain(sw, env(c, t, 0.004, lvl * 0.7, 0.2), out);
+      chain(noise(c, 'pink', t, 0.14), filter(c, 'lowpass', 380, 0.6), env(c, t, 0.004, lvl * 0.6, 0.12), out);
+      chain(noise(c, 'white', t, 0.12), filter(c, 'bandpass', 560, 1), env(c, t, 0.003, lvl * 1.8, 0.1), out);  // the boards
+      chain(noise(c, 'white', t, 0.09), filter(c, 'bandpass', 950, 3), env(c, t, 0.002, lvl * 1.2, 0.07), out);  // the stand rattling
     },
+    /* a few hundred pairs of hands, nearly together */
     clap(c, out, t, o) {
-      const lvl = o && o.level !== undefined ? o.level * 1.5 : 0.15;
-      for (let i = 0; i < 4; i++) {
-        // a handful of hands, slightly apart
-        const at = t + Math.random() * 0.03;
-        chain(noise(c, 'white', at, 0.05), filter(c, 'bandpass', 1300 + Math.random() * 700, 0.9), env(c, at, 0.002, lvl, 0.04), out);
+      const lvl = o && o.level !== undefined ? o.level : 0.3;
+      for (let i = 0; i < 14; i++) {
+        const at = t + Math.random() * 0.045;
+        chain(noise(c, 'white', at, 0.05), filter(c, 'bandpass', rnd(1100, 2500), 1.2), env(c, at, 0.001, lvl * rnd(0.4, 1), 0.035), pan(c, rnd(-0.8, 0.8)), out);
       }
     },
+    /* the drum line before a kickoff: a snare roll that grows, a boom and a cymbal as the ball is struck */
+    roll(c, out, t, o) {
+      const dur = o && o.dur || 1.1;
+      for (let at = 0; at < dur;) {
+        const k = at / dur;
+        DRUM.snare(c, out, t + at, 0.14 + 0.4 * k * k);
+        at += lerp(0.078, 0.042, k);
+      }
+      DRUM.kick(c, out, t + dur, 0.8);
+      cymbal(c, out, t + dur, 0.1, 1.1);
+    },
+    /* far-off thunder, for a wet night */
+    thunder(c, out, t) {
+      chain(noise(c, 'brown', t, 3.4), filter(c, 'lowpass', 170, 0.7), envHold(c, t, 0.18, 0.045, 0.5, 2.6), out);
+      chain(noise(c, 'pink', t, 2.4), filter(c, 'bandpass', 320, 0.6), envHold(c, t, 0.15, 0.3, 0.3, 1.8), out);  // the part of it a small speaker can play
+      chain(noise(c, 'pink', t + 0.05, 0.4), filter(c, 'bandpass', 700, 0.8), env(c, t + 0.05, 0.03, 0.06, 0.3), out);
+    },
   };
+
+  /* where each effect is heard: most on the field, the interface up close and dry, the horn and organ over the speakers */
+  const ROUTE = { tick: 'ui', ok: 'ui', buy: 'ui', chime: 'ui', horn: 'pa', organ: 'pa' };
 
   function clamp01(v) {
     return v < 0 ? 0 : v > 1.5 ? 1.5 : v;
   }
 
-  /* ---------- crowd ---------- */
+  /* ---------- the crowd, live ---------- */
 
-  /* the bed is two bands of pink noise plus air; the roar is a second, brighter pair that cheers open up */
-  function buildCrowd(c, t, seconds) {
-    const out = gain(c, 0.0001), bed = gain(c, 0.0), roar = gain(c, 0.0);
-    chain(noise(c, 'pink', t, seconds), filter(c, 'bandpass', 430, 0.5), gain(c, 1.0), bed);
-    chain(noise(c, 'pink', t, seconds, 0.71), filter(c, 'bandpass', 1150, 0.7), gain(c, 0.55), bed);
-    chain(noise(c, 'white', t, seconds), filter(c, 'highpass', 3600), gain(c, 0.035), bed);
-    bed.connect(out);
-    const roarF = filter(c, 'bandpass', 800, 0.9), roarF2 = filter(c, 'bandpass', 1450, 1.2), rs = noise(c, 'pink', t, seconds, 0.9);
-    rs.connect(roarF);
-    rs.connect(roarF2);
-    roarF.connect(roar);
-    chain(roarF2, gain(c, 0.5), roar);
-    roar.connect(out);
-    return { out, bed, roar, roarF };
+  /* Everything the crowd is made of, wired to gains the game can move: bed (murmur), roar and hiss (cheering),
+     clap (applause), air (the room). With no rendered stems yet, bed and roar fall back to bands of noise. */
+  function buildCrowd(c, t, seconds, st) {
+    const out = gain(c, 0.0001), n = { out, srcs: [], bed: gain(c, 0), roar: gain(c, 0), hiss: gain(c, 0), clap: gain(c, 0), air: gain(c, 0) };
+    /* the voices get some presence: a crowd heard in the open is brighter than one man in a room */
+    const presence = filter(c, 'highshelf', 1500);
+    presence.gain.value = 7;
+    presence.connect(out);
+    for (const g of [n.bed, n.roar]) g.connect(presence);
+    for (const g of [n.hiss, n.clap, n.air]) g.connect(out);
+    const src = (color, rate) => {
+      const s = noise(c, color, t, seconds, rate);
+      n.srcs.push(s);
+      return s;
+    };
+    const loop = (buf, rate, offset, lvl, into) => {
+      const s = c.createBufferSource();
+      s.buffer = buf;
+      s.loop = true;
+      s.playbackRate.value = rate;
+      chain(s, gain(c, lvl), into);
+      s.start(t, offset % buf.duration);
+      s.stop(t + seconds);
+      n.srcs.push(s);
+    };
+    chain(src('pink'), filter(c, 'bandpass', 480, 0.4), gain(c, 1), n.air);
+    chain(src('white'), filter(c, 'highpass', 3400), gain(c, 0.05), n.air);
+    const far = src('pink', 0.9);  // the thousands too far away to be voices
+    chain(far, filter(c, 'bandpass', 850, 0.5), gain(c, 0.9), n.hiss);
+    chain(far, filter(c, 'bandpass', 2100, 0.7), gain(c, 0.5), n.hiss);
+    if (st) {
+      /* each loop twice, at slightly different speeds and out of step, so it never lines up with itself */
+      loop(st.walla, 1, 0, 0.75, n.bed);
+      loop(st.walla, 0.93, 3.3, 0.65, n.bed);
+      loop(st.roar, 1, 0, 0.75, n.roar);
+      loop(st.roar, 1.07, 2.2, 0.65, n.roar);
+      loop(st.clap, 1, 0, 1, n.clap);
+    } else {
+      chain(src('pink'), filter(c, 'bandpass', 430, 0.5), gain(c, 0.5), n.bed);
+      chain(src('pink', 0.71), filter(c, 'bandpass', 1150, 0.7), gain(c, 0.3), n.bed);
+      far.connect(filter(c, 'bandpass', 1300, 0.9)).connect(n.roar);
+    }
+    return n;
   }
+
+  /* how loud a cheer of size a (0 to about 1.4) makes the roar, the far-off hiss and the applause */
+  const CHEER = { roar: a => 0.22 + 0.5 * a, hiss: a => 0.18 + 0.5 * a, clap: a => 0.6 * Math.min(1, a) };
+
+  /* gains for an excitement level from 0 (a quiet stadium between plays) to 1 (everyone on their feet) */
+  const crowdMix = lv => ({ bed: 0.27 + 0.4 * lv, air: 0.09 + 0.11 * lv, floor: Math.max(0, lv - 0.5) * 0.35 });
 
   const crowd = {
     nodes: null, level: 0.3, timer: null, clapTimer: null,
     start() {
       if (!ctx || !S.snd || this.nodes) return;
+      wantStems();
       const c = ctx, t = c.currentTime;
-      this.nodes = buildCrowd(c, t, 86400);
+      this.nodes = buildCrowd(c, t, 86400, stems);
       this.nodes.out.connect(bus.crowd);
-      this.nodes.out.gain.setTargetAtTime(1, t, 0.6);
+      this.nodes.out.gain.setTargetAtTime(1, t, 0.5);
       this.set(this.level, 0.5);
-      /* small random swells and the odd distant whoop keep the bed from sounding like a loop */
+      /* small swells and the odd lone voice keep it from sounding like a loop */
       this.timer = setInterval(() => {
         if (!this.nodes || ctx.state !== 'running') return;
-        const now = ctx.currentTime, base = this.bedGain();
-        this.nodes.bed.gain.setTargetAtTime(base * (0.85 + Math.random() * 0.3), now, 0.35);
-        if (Math.random() < 0.07) {
-          const o = osc(ctx, 'sine', 620 + Math.random() * 300, now, 0.3);
-          o.frequency.exponentialRampToValueAtTime(900 + Math.random() * 400, now + 0.22);
-          chain(o, env(ctx, now, 0.05, 0.012, 0.25), bus.crowd);
-        }
+        const now = ctx.currentTime, m = crowdMix(this.level);
+        this.nodes.bed.gain.setTargetAtTime(m.bed * rnd(0.85, 1.15), now, 0.4);
+        const r = Math.random();
+        if (r < 0.05) bark(ctx, bus.crowd, now, { f0: rnd(380, 520), f1: rnd(620, 900), dur: 0.3, vowel: 'u', amp: 0.035, breath: 0.1, scale: 1.2 });  // a whoop
+        else if (r < 0.08) {
+          // a fan's whistle: two rising chirps
+          for (const at of [0, 0.16]) {
+            const o = osc(ctx, 'sine', 2100, now + at, 0.14);
+            o.frequency.exponentialRampToValueAtTime(3200, now + at + 0.1);
+            chain(o, env(ctx, now + at, 0.02, 0.02, 0.1), pan(ctx, rnd(-0.9, 0.9)), bus.crowd);
+          }
+        } else if (r < 0.1) bark(ctx, bus.crowd, now, { f0: rnd(150, 240), f1: rnd(130, 200), dur: 0.22, vowel: pickOf(['e', 'a', 'o']), amp: 0.03, scale: 1.1 });  // somebody shouting something
       }, 650);
-    },
-    bedGain() {
-      return 0.04 + 0.08 * this.level;
     },
     /* 0 = a quiet stadium between plays, 1 = everyone on their feet */
     set(level, time) {
       this.level = Math.max(0, Math.min(1, level));
-      if (this.nodes) this.nodes.bed.gain.setTargetAtTime(this.bedGain(), ctx.currentTime, (time || 1.2) / 3);
+      const n = this.nodes;
+      if (!n) return;
+      const t = ctx.currentTime, m = crowdMix(this.level), tc = (time || 1.2) / 3;
+      n.bed.gain.setTargetAtTime(m.bed, t, tc);
+      n.air.gain.setTargetAtTime(m.air, t, tc);
+      if (!(this.busyUntil > t)) {
+        n.roar.gain.setTargetAtTime(m.floor, t, tc);
+        n.hiss.gain.setTargetAtTime(m.floor * 0.8, t, tc);
+      }
     },
+    /* the crowd gets up: a roar that swells at once and sinks back, applause arriving a beat later and lasting longer */
     cheer(amount, dur) {
-      if (!this.nodes || !S.snd) return;
-      const a = amount === undefined ? 1 : amount, d = dur || 3, t = ctx.currentTime, n = this.nodes;
-      n.roar.gain.cancelScheduledValues(t);
-      n.roar.gain.setTargetAtTime(0.3 * a, t, 0.1);
-      n.roar.gain.setTargetAtTime(0.0, t + d * 0.45, d * 0.3);
-      n.roarF.frequency.cancelScheduledValues(t);
-      n.roarF.frequency.setTargetAtTime(1050, t, 0.15);
-      n.roarF.frequency.setTargetAtTime(800, t + d * 0.5, 0.6);
+      const n = this.nodes;
+      if (!n || !S.snd) return;
+      const a = Math.min(1.4, amount === undefined ? 1 : amount), d = dur || 3, t = ctx.currentTime, floor = crowdMix(this.level).floor;
+      const swell = (p, peak, rest, delay, hold) => {
+        p.cancelScheduledValues(t);
+        p.setTargetAtTime(peak, t + delay, 0.09);
+        p.setTargetAtTime(rest, t + delay + d * hold, d * 0.28);
+      };
+      swell(n.roar.gain, CHEER.roar(a), floor, 0, 0.45);
+      swell(n.hiss.gain, CHEER.hiss(a), floor * 0.8, 0, 0.45);
+      swell(n.clap.gain, CHEER.clap(a), 0, 0.25, 0.7);
+      this.busyUntil = t + d;
+    },
+    /* a rendered reaction, or the noise version while the render is not ready */
+    react(name, amount) {
+      if (!ctx || !S.snd || ctx.state !== 'running') return;
+      const a = amount === undefined ? 1 : amount;
+      if (!stems) return play(name, { amount: a });
+      const s = ctx.createBufferSource();
+      s.buffer = stems[name];
+      chain(s, gain(ctx, Math.min(1, 0.3 + 0.55 * a)), bus.crowd);
+      s.start();
     },
     groan(amount) {
-      play('groan', { amount });
+      this.react('groan', amount);
     },
     ooh(amount) {
-      play('ooh', { amount });
+      this.react('ooh', amount);
     },
     /* claps that speed up toward the snap */
     clapBuild(seconds) {
@@ -379,7 +809,7 @@
       const next = () => {
         if (!this.nodes) return;
         const k = Math.min(1, (ctx.currentTime - t0) / total);
-        play('clap', { level: 0.05 + 0.08 * k });
+        SFX.clap(ctx, bus.crowd, ctx.currentTime + 0.001, { level: 0.16 + 0.22 * k });
         if (k < 1) this.clapTimer = setTimeout(next, 560 - 380 * k);
       };
       next();
@@ -388,77 +818,107 @@
       clearTimeout(this.clapTimer);
       this.clapTimer = null;
     },
-    /* stomp, stomp, clap: the home crowd getting behind its defense */
+    /* the home crowd getting behind its defense: "DE-FENSE", stomp, stomp */
     chant(bars) {
       if (!this.nodes || !S.snd) return;
-      const t = ctx.currentTime + 0.05, beat = 0.36;
-      for (let i = 0; i < (bars || 3); i++) {
-        const b = t + i * beat * 4, lvl = 0.14 + i * 0.03;
-        SFX.stomp(ctx, bus.crowd, b, { level: lvl });
-        SFX.stomp(ctx, bus.crowd, b + beat, { level: lvl });
-        SFX.clap(ctx, bus.crowd, b + beat * 2, { level: lvl * 0.55 });
+      const t = ctx.currentTime + 0.05, n = bars || 3;
+      for (let i = 0; i < n; i++) {
+        const b = t + i * 1.72, lvl = 0.5 + i * 0.12;
+        if (stems) {
+          const s = ctx.createBufferSource();
+          s.buffer = stems.chant;
+          chain(s, gain(ctx, lvl), bus.crowd);
+          s.start(b);
+        } else {
+          SFX.stomp(ctx, bus.crowd, b, { level: 0.4 });
+          SFX.stomp(ctx, bus.crowd, b + 0.4, { level: 0.4 });
+        }
+        SFX.stomp(ctx, bus.crowd, b + 1.02, { level: 0.45 * lvl });
+        SFX.clap(ctx, bus.crowd, b + 1.02, { level: 0.2 * lvl });
+        SFX.stomp(ctx, bus.crowd, b + 1.36, { level: 0.45 * lvl });
+        SFX.clap(ctx, bus.crowd, b + 1.36, { level: 0.2 * lvl });
       }
     },
-    stop() {
+    stop(fade) {
       this.stopClaps();
       clearInterval(this.timer);
       this.timer = null;
+      this.busyUntil = 0;
       const n = this.nodes;
       this.nodes = null;
       if (n && ctx) {
-        n.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.2);
+        n.out.gain.setTargetAtTime(0.0001, ctx.currentTime, fade || 0.2);
         setTimeout(() => {
           try {
             n.out.disconnect();
+            for (const s of n.srcs) s.stop();
           } catch (_) {}
-        }, 1200);
+        }, 1000 + (fade || 0.2) * 3000);
       }
     },
   };
 
-  /* ---------- music: a drumline with brass, 8 bars ---------- */
-
-  const BPM = 100, STEP = 60 / BPM / 4;
+  /* ---------- music: the menu theme ----------
+     D minor at 104 beats a minute, sixteen bars: eight of a theme over Dm, Bb, F, C, then eight that climb through
+     Gm, Dm and Bb to the dominant and fall back into the theme. Drums, a bass, a soft pad, brass. */
+  const BPM = 104, STEP = 60 / BPM / 4, BARS = 16;
   const KICK = 'x.....x...x.....x.....x.x.x.....';  // two bars of sixteenths
-  const SNARE = '....x..g.g..x.gg....x..g.gg.x.xx';
-  const RIM = 'x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.';
-  const CHORDS = [[-7, [-7, -4, 0]], [-11, [-11, -7, -4]], [-4, [-4, 0, 3]], [-9, [-9, -5, -2]]];  // Dm, Bb, F, C around A4
-  const LEAD = { 64: 5, 67: 8, 70: 12, 72: 10, 76: 8, 80: 5, 84: 3, 88: 5, 96: 8, 99: 12, 102: 15, 104: 12, 108: 10, 112: 8, 116: 10, 120: 12 };
+  const SNARE = '....x..g.g..x.gg....x..g.gg.x..g';
+  const CHORDS = [[-7, [-7, -4, 0]], [-11, [-11, -7, -4]], [-4, [-4, 0, 3]], [-9, [-9, -5, -2]], [-14, [-14, -11, -7]], [-7, [-7, -4, 0]], [-11, [-11, -7, -4]], [-12, [-12, -8, -5]]];
 
-  const DRUM = {
-    kick(c, out, t, v) {
-      const o = osc(c, 'sine', 150, t, 0.25);
-      o.frequency.exponentialRampToValueAtTime(44, t + 0.12);
-      chain(o, env(c, t, 0.003, 0.6 * v, 0.24), out);
-    },
-    snare(c, out, t, v) {
-      chain(noise(c, 'white', t, 0.16), filter(c, 'bandpass', 2100, 0.7), env(c, t, 0.002, 0.42 * v, 0.13), out);
-      const o = osc(c, 'triangle', 205, t, 0.1);
-      o.frequency.exponentialRampToValueAtTime(150, t + 0.08);
-      chain(o, env(c, t, 0.002, 0.3 * v, 0.09), out);
-    },
-    rim(c, out, t, v) {
-      chain(noise(c, 'white', t, 0.03), filter(c, 'highpass', 6500), env(c, t, 0.001, 0.07 * v, 0.025), out);
-    },
-  };
+  /* the tune, one list per two-bar phrase: [step within the phrase, semitones from A4, length in steps] */
+  const TUNE = [
+    [[0, 5, 3], [3, 5, 1], [4, 8, 4], [8, 12, 6], [14, 10, 2], [16, 8, 6], [24, 5, 6]],
+    [[0, 5, 3], [3, 5, 1], [4, 8, 4], [8, 13, 6], [14, 12, 2], [16, 10, 8], [26, 8, 2], [28, 10, 4]],
+    [[0, 12, 3], [3, 12, 1], [4, 15, 4], [8, 17, 6], [14, 15, 2], [16, 12, 6], [24, 8, 6]],
+    [[0, 10, 3], [3, 10, 1], [4, 12, 4], [8, 15, 6], [14, 12, 2], [16, 10, 4], [20, 7, 4], [24, 10, 8]],
+    [[0, 10, 2], [4, 10, 2], [6, 13, 6], [16, 10, 2], [20, 10, 2], [22, 15, 6]],
+    [[0, 12, 2], [4, 12, 2], [6, 8, 6], [16, 5, 4], [20, 8, 4], [24, 12, 6]],
+    [[0, 13, 2], [4, 13, 2], [6, 17, 6], [16, 13, 2], [20, 13, 2], [22, 20, 8]],
+    [[0, 19, 4], [4, 16, 4], [8, 12, 4], [12, 16, 4], [16, 19, 6], [24, 24, 8]],
+  ];
+  const BASS = { 0: 0, 3: 0, 6: 0, 8: 12, 10: 0, 12: 0, 14: 7 };  // step in the bar: semitones above the root
 
-  /* everything that happens on one sixteenth-note step of the 8-bar loop */
+  /* everything that happens on one sixteenth-note step of the loop */
   function musicStep(c, out, i, t) {
-    const s = i % 32, bar = Math.floor(i / 16), fill = bar === 7;
-    if (KICK[s] === 'x') DRUM.kick(c, out, t, 1);
-    const sn = fill && i % 16 >= 8 ? 'x' : SNARE[s];
-    if (sn === 'x') DRUM.snare(c, out, t, fill ? 0.55 + (i % 16) * 0.04 : 1);
-    else if (sn === 'g') DRUM.snare(c, out, t, 0.3);
-    if (RIM[s] === 'x') DRUM.rim(c, out, t, i % 4 === 0 ? 1 : 0.6);
-    const [root, notes] = CHORDS[Math.floor(bar / 2) % 4];
-    if (i % 16 === 0 || i % 16 === 6 || i % 16 === 10) {
-      // bass
-      const lp = filter(c, 'lowpass', 520, 1), o = osc(c, 'sawtooth', hz(root - 24), t, 0.3);
-      chain(o, lp, env(c, t, 0.006, 0.27, 0.3), out);
+    const s = i % 32, inBar = i % 16, bar = Math.floor(i / 16), phrase = Math.floor(bar / 2) % 8, at = i % 32, fill = bar % 8 === 7;
+    const [root, notes] = CHORDS[phrase];
+    /* drums */
+    if (KICK[s] === 'x' && !(fill && inBar >= 8)) DRUM.kick(c, out, t, 0.8);
+    if (fill && inBar >= 8) DRUM.tom(c, out, t, 0.55 + inBar * 0.03, [210, 210, 175, 175, 140, 140, 105, 105][inBar - 8]);  // a run down the toms into the next section
+    else if (SNARE[s] === 'x') DRUM.snare(c, out, t, 0.85);
+    else if (SNARE[s] === 'g') DRUM.snare(c, out, t, 0.28);
+    if (inBar % 2 === 0) DRUM.hat(c, out, t, inBar % 4 === 0 ? 1 : 0.6, inBar === 14 && bar % 2 === 1);
+    if (i % 128 === 0) cymbal(c, out, t, 0.11, 1.4);  // a crash where each half begins
+    /* bass: root, octave and fifth, tucked under the kick */
+    if (BASS[inBar] !== undefined) {
+      const f = hz(root - 24 + BASS[inBar]), lp = filter(c, 'lowpass', 420, 2), o = osc(c, 'sawtooth', f, t, 0.24);
+      lp.frequency.setValueAtTime(1400, t);
+      lp.frequency.exponentialRampToValueAtTime(420, t + 0.2);
+      chain(o, lp, env(c, t, 0.005, 0.3, 0.24), out);
+      chain(osc(c, 'square', f * 2, t, 0.2), gain(c, 0.3), lp);  // an octave up, so the line is still there on a phone
+      chain(osc(c, 'sine', f / 2, t, 0.24), env(c, t, 0.005, 0.2, 0.24), out);
     }
-    if (i % 32 === 0) for (const n of notes) brass(c, out, t, hz(n - 12), STEP * 14, 0.05);  // pad stab every two bars
-    if (i % 32 === 22) for (const n of notes) brass(c, out, t, hz(n - 12), STEP * 5, 0.042);
-    if (LEAD[i] !== undefined) brass(c, out, t, hz(LEAD[i]), STEP * (LEAD[i + 3] !== undefined || LEAD[i + 2] !== undefined ? 2 : 4), 0.062);
+    /* pad: the chord held soft for the two bars */
+    if (at === 0) for (const n of notes) {
+      const lp = filter(c, 'lowpass', 1100, 0.7), g = envHold(c, t, 0.25, 0.045, STEP * 28, 0.5);
+      chain(lp, g, out);
+      for (const cents of [-11, 10]) {
+        const o = osc(c, 'sawtooth', hz(n), t, STEP * 34);
+        o.detune.value = cents;
+        o.connect(lp);
+      }
+    }
+    /* brass: a stab on the downbeat and a pickup, the timpani under it, and the tune on top in octaves */
+    if (at === 0) {
+      for (const n of notes) brass(c, out, t, hz(n - 12), STEP * 3, 0.075);
+      timpani(c, out, t, hz(root - 24), 0.2);
+    }
+    if (at === 22) for (const n of notes) brass(c, out, t, hz(n - 12), STEP * 2, 0.06);
+    for (const [st, semi, len] of TUNE[phrase]) if (st === at) {
+      brass(c, out, t, hz(semi), STEP * len * 0.92, 0.13);
+      brass(c, out, t, hz(semi - 12), STEP * len * 0.92, 0.065);
+    }
   }
 
   const music = {
@@ -476,7 +936,7 @@
         while (this.next < ctx.currentTime + 0.14) {
           musicStep(ctx, this.out, this.step, this.next);
           this.next += STEP;
-          this.step = (this.step + 1) % 128;
+          this.step = (this.step + 1) % (BARS * 16);
         }
       }, 30);
     },
@@ -501,9 +961,11 @@
      so the voice is whatever the phone or computer has. The crowd dips while he talks. Settings can turn it off. */
   const ann = {
     voice: null, primed: false, log: [],
+    /* the best English voice the device has: the newer "natural" voices first, then known good ones, then any */
     pickVoice() {
       const all = (window.speechSynthesis && speechSynthesis.getVoices()) || [], en = all.filter(v => /^en/i.test(v.lang));
-      const want = [/Daniel/, /Aaron/, /Alex/, /Google UK English Male/, /Microsoft (Guy|David|Ryan)/, /Google US English/, /Samantha/];
+      const want = [/Natural.*(Guy|Christopher|Eric|Andrew|Brian)/i, /(Evan|Tom|Nathan|Aaron|Daniel).*(Enhanced|Premium)/i, /Enhanced|Premium|Natural|Neural/i, /Daniel/, /Aaron/, /Alex/, /Google UK English Male/, /Microsoft (Guy|David|Ryan)/,
+        /Google US English/, /Samantha/];
       for (const re of want) {
         const v = en.find(x => re.test(x.name));
         if (v) {
@@ -527,7 +989,7 @@
     },
     duck(on) {
       if (!ctx || !bus) return;
-      bus.crowd.gain.setTargetAtTime(on ? 0.5 : 1, ctx.currentTime, 0.12);
+      bus.crowd.gain.setTargetAtTime(on ? 0.42 : 1, ctx.currentTime, 0.12);
     },
     say(text, urgent) {
       this.log.push(text);
@@ -541,9 +1003,9 @@
         const u = new SpeechSynthesisUtterance(text);
         if (!this.voice) this.pickVoice();
         if (this.voice) u.voice = this.voice;
-        u.rate = 1.1;
-        u.pitch = 0.9;
-        u.volume = 0.95;
+        u.rate = 1.08;
+        u.pitch = 0.92;
+        u.volume = VOL[S.vol] === undefined ? 1 : Math.min(1, VOL[S.vol] + 0.15);
         u.onstart = () => this.duck(true);
         u.onend = u.onerror = () => this.duck(false);
         speechSynthesis.speak(u);
@@ -562,7 +1024,7 @@
 
   /* ---------- weather ---------- */
   const weatherBed = {
-    kind: 'clear', node: null,
+    kind: 'clear', node: null, timer: null,
     set(kind) {
       this.kind = kind || 'clear';
       this.apply();
@@ -570,6 +1032,8 @@
     apply() {
       const want = ctx && S.snd && !wantMusic ? this.kind : 'clear';
       if (this.node && this.node.kind === want) return;
+      clearInterval(this.timer);
+      this.timer = null;
       if (this.node) {
         const n = this.node;
         n.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
@@ -589,9 +1053,12 @@
         return n;
       };
       if (want === 'rain') {
-        // hiss on the seats and the turf, and a low wash underneath
-        chain(src('white'), filter(c, 'highpass', 2600), gain(c, 0.035), out);
-        chain(src('pink', 0.8), filter(c, 'bandpass', 700, 0.4), gain(c, 0.05), out);
+        // hiss on the seats and the turf, a low wash underneath, and now and then thunder a long way off
+        chain(src('white'), filter(c, 'highpass', 2600), gain(c, 0.07), out);
+        chain(src('pink', 0.8), filter(c, 'bandpass', 700, 0.4), gain(c, 0.1), out);
+        this.timer = setInterval(() => {
+          if (ctx.state === 'running' && Math.random() < 0.12) SFX.thunder(ctx, bus.crowd, ctx.currentTime + 0.01);
+        }, 4000);
       } else {
         // wind: a band of noise that wanders
         const f = filter(c, 'bandpass', 330, 1.4), lfo = c.createOscillator(), depth = gain(c, 140);
@@ -599,7 +1066,7 @@
         chain(lfo, depth, f.frequency);
         lfo.start(t);
         srcs.push(lfo);
-        chain(src('pink', 0.7), f, gain(c, 0.11), out);
+        chain(src('pink', 0.7), f, gain(c, 0.2), out);
       }
       out.connect(bus.crowd);
       out.gain.setTargetAtTime(1, t, 0.8);
@@ -617,7 +1084,14 @@
   function play(name, opts) {
     if (!ctx || !S.snd || ctx.state !== 'running' || !SFX[name]) return;
     try {
-      SFX[name](ctx, bus.sfx, ctx.currentTime + 0.001, opts);
+      let out = bus[ROUTE[name] || 'sfx'];
+      if (opts && opts.x !== undefined) {
+        // where on the field it happened, left to right
+        const p = pan(ctx, (opts.x / 53.33 * 2 - 1) * 0.7);
+        p.connect(out);
+        out = p;
+      }
+      SFX[name](ctx, out, ctx.currentTime + 0.001, opts);
     } catch (_) {}
   }
 
@@ -630,6 +1104,7 @@
         bus = buildGraph(ctx);
       }
       if (ctx.state !== 'running') ctx.resume();
+      wantStems();
       if (wantMusic) music.start();
       else crowd.start();
       weatherBed.apply();
@@ -652,6 +1127,77 @@
     if (!b || b.classList.contains('pb') || b.dataset.quiet !== undefined) return;
     play(b.classList.contains('go') ? 'ok' : 'tick');
   }, true);
+
+  /* in-place radix-2 FFT of re/im, length a power of two */
+  function fft(re, im) {
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        [re[i], re[j]] = [re[j], re[i]];
+        [im[i], im[j]] = [im[j], im[i]];
+      }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let cr = 1, ci = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const a = i + k, b = a + len / 2, xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - xr;
+          im[b] = im[a] - xi;
+          re[a] += xr;
+          im[a] += xi;
+          const t = cr * wr - ci * wi;
+          ci = cr * wi + ci * wr;
+          cr = t;
+        }
+      }
+    }
+  }
+
+  /* Peak and loudness of a rendered buffer; how its energy is shared between six bands (under 200 Hz, to 500, 1k, 2k,
+     4k, and above); and its loudness with everything under 250 Hz taken away, which is roughly what a phone's own
+     speaker gives you. */
+  function stats(buf) {
+    const chans = [];
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) chans.push(buf.getChannelData(ch));
+    let peak = 0;
+    for (const d of chans) for (let i = 0; i < d.length; i++) if (Math.abs(d[i]) > peak) peak = Math.abs(d[i]);
+    const db = v => +(20 * Math.log10(Math.max(1e-6, v))).toFixed(1);
+    const d = chans[0], sr = buf.sampleRate, N = 8192, edges = [200, 500, 1000, 2000, 4000], sums = new Array(6).fill(0), re = new Float64Array(N), im = new Float64Array(N);
+    let above = 0, all = 0;
+    for (let at = 0; at + N <= d.length; at += N / 2) {
+      for (let i = 0; i < N; i++) {
+        re[i] = d[at + i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / N));
+        im[i] = 0;
+      }
+      fft(re, im);
+      for (let k = 1; k < N / 2; k++) {
+        const f = k * sr / N, e = re[k] * re[k] + im[k] * im[k];
+        let b = 0;
+        while (b < 5 && f >= edges[b]) b++;
+        sums[b] += e;
+        all += e;
+        if (f >= 250) above += e;
+      }
+    }
+    /* the same signal through a 250 Hz high-pass (two poles), for the peak a small speaker would reach */
+    const w = 2 * Math.PI * 250 / sr, al = Math.sin(w) / 1.414, a0 = 1 + al, b0 = (1 + Math.cos(w)) / 2 / a0, b1 = -(1 + Math.cos(w)) / a0, a1 = -2 * Math.cos(w) / a0, a2 = (1 - al) / a0;
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0, small = 0;
+    for (let i = 0; i < d.length; i++) {
+      const y = b0 * d[i] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2;
+      x2 = x1;
+      x1 = d[i];
+      y2 = y1;
+      y1 = y;
+      if (Math.abs(y) > small) small = Math.abs(y);
+    }
+    const rms = rmsOf(chans);
+    return { peakDb: db(peak), rmsDb: db(rms), phonePeakDb: db(small), phoneDb: db(rms * Math.sqrt(above / (all || 1))), bands: sums.map(v => Math.round(v / (all || 1) * 100)).join('/') };
+  }
 
   PG.audio = {
     play, crowd, music,
@@ -686,6 +1232,7 @@
     /* settings changed */
     refresh() {
       if (!ctx) return;
+      bus.out.gain.setTargetAtTime(TRIM * (VOL[S.vol] === undefined ? 1 : VOL[S.vol]), ctx.currentTime, 0.05);
       if (!S.snd) {
         crowd.stop();
         ann.hush();
@@ -695,30 +1242,68 @@
       if (!S.mus) music.stop();
       else if (wantMusic) music.start();
     },
-    /* render a voice offline and report its level: used to balance the mix */
+    /* Render something through the whole mix, off line, and report its level and where its energy sits.
+       name: an effect, 'music', or 'crowd' with opts { level, cheer, clap, noStems }. */
     async measure(name, opts, seconds) {
-      const sr = 44100, len = seconds || 2.5, c = new OfflineAudioContext(1, sr * len, sr), g = buildGraph(c);
-      if (name === 'music') for (let i = 0; i < Math.floor(len / STEP); i++) musicStep(c, g.music, i % 128, 0.02 + i * STEP);
+      const sr = 44100, len = seconds || 2.5, Off = window.OfflineAudioContext || window.webkitOfflineAudioContext, c = new Off(2, Math.floor(sr * len), sr), g = buildGraph(c);
+      g.out.gain.value = TRIM;
+      if (name === 'music') for (let i = 0; i < Math.floor(len / STEP); i++) musicStep(c, g.music, i % (BARS * 16), 0.02 + i * STEP);
       else if (name === 'crowd') {
-        const n = buildCrowd(c, 0, len);
+        const o = opts || {}, raw = o.noStems ? null : await (PG.audio._raw || (PG.audio._raw = renderStems(sr))), st = raw && Object.fromEntries(Object.keys(raw).map(k => [k, toBuffer(c, raw[k])]));
+        const n = buildCrowd(c, 0, len, st), m = crowdMix(o.level || 0);
         n.out.gain.value = 1;
         n.out.connect(g.crowd);
-        n.bed.gain.value = 0.04 + 0.08 * (opts && opts.level || 0);
-        n.roar.gain.value = opts && opts.roar || 0;
-      } else SFX[name](c, g.sfx, 0.02, opts);
-      const d = (await c.startRendering()).getChannelData(0);
+        n.bed.gain.value = m.bed;
+        n.air.gain.value = m.air;
+        n.roar.gain.value = o.cheer ? CHEER.roar(o.cheer) : m.floor;
+        n.hiss.gain.value = o.cheer ? CHEER.hiss(o.cheer) : m.floor * 0.8;
+        n.clap.gain.value = o.cheer ? CHEER.clap(o.cheer) : 0;
+      } else if (name.startsWith('stem:')) {
+        const raw = await (PG.audio._raw || (PG.audio._raw = renderStems(sr))), s = c.createBufferSource();
+        s.buffer = toBuffer(c, raw[name.slice(5)]);
+        s.loop = len > s.buffer.duration;
+        s.connect(g.crowd);
+        s.start(0);
+      } else SFX[name](c, g[ROUTE[name] || 'sfx'], 0.02, opts);
+      return stats(await rendered(c));
+    },
+    /* every effect, the stems, the crowd at three moods and the music: one table of levels */
+    async report() {
+      const out = {};
+      for (const n of Object.keys(SFX)) out[n] = await this.measure(n, n === 'hit' ? { power: 1 } : undefined, n === 'thunder' ? 4 : 2.2);
+      for (const n of Object.keys(STEMS)) out['stem ' + n] = await this.measure('stem:' + n, null, STEMS[n].len);
+      out['stem clap'] = await this.measure('stem:clap', null, 5);
+      out['crowd quiet'] = await this.measure('crowd', { level: 0.3 }, 6);
+      out['crowd tense'] = await this.measure('crowd', { level: 1 }, 6);
+      out['crowd cheering'] = await this.measure('crowd', { level: 0.6, cheer: 1 }, 6);
+      out['crowd noise only'] = await this.measure('crowd', { level: 0.3, noStems: true }, 6);
+      out.music = await this.measure('music', null, 16 * 16 * STEP);
+      return out;
+    },
+    names: Object.keys(SFX),
+    /* test hook: the level leaving the mix right now, read from an analyser on the output (the last 0.17 s) */
+    get meter() {
+      if (!ctx || !bus) return null;
+      if (!bus.meter) {
+        bus.meter = ctx.createAnalyser();
+        bus.meter.fftSize = 8192;
+        bus.out.connect(bus.meter);
+      }
+      const d = new Float32Array(bus.meter.fftSize);
+      bus.meter.getFloatTimeDomainData(d);
       let peak = 0, sum = 0;
       for (let i = 0; i < d.length; i++) {
-        const a = Math.abs(d[i]);
-        if (a > peak) peak = a;
+        peak = Math.max(peak, Math.abs(d[i]));
         sum += d[i] * d[i];
       }
       const db = v => +(20 * Math.log10(Math.max(1e-6, v))).toFixed(1);
       return { peakDb: db(peak), rmsDb: db(Math.sqrt(sum / d.length)) };
     },
-    names: Object.keys(SFX),
     get state() {
       return ctx ? ctx.state : 'none';
+    },
+    get stemsReady() {
+      return !!stems;
     },
   };
 })();

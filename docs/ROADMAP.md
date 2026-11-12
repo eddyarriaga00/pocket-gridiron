@@ -394,6 +394,19 @@ what is next. Update it after every item.
   test player now holds its key for 0.3 s; the first version of that deadlocked a quarterback career (a stale charge
   after a sack stopped it snapping), which is why `finish()` clears the charge.
 
+- 13:42 Audio, second version. Nobody at this end can hear, so it was checked by measurement: `PG.audio.report()` renders
+  every sound through the whole mix off line and gives peak, loudness, the loudness and peak with everything under
+  250 Hz removed (about what a phone speaker plays) and the share of energy in six bands; `PG.audio.meter` reads the live
+  output. Before: crowd bed -35 dB RMS, tick -26 dB peak, catch -17, throw -20, whistle -13. After (dB, peak / RMS):
+  crowd quiet -8 / -22, tense -4 / -17, cheering -3 / -14; music -3 / -17; whistle -8, hit -8 (phone peak -9, it was
+  nearly all under 200 Hz at first), kick -8 (phone -12), catch -11, horn -5, fanfare -4, tick -20. Nothing reaches
+  full scale: the limiter holds sustained sound near -4.5 dB. The loops have no click at the seam (the jump there is no
+  bigger than between any two samples) and hold their level round the loop to within about 2 dB after the roar's
+  voices were spread over its first two seconds. A live run in the pane with a real click (music, crowd at three
+  moods, cheer, ooh, groan, chant, claps, whistle, hit, roll, touchdown, rain and thunder, pause muffle) matched
+  the off-line levels and raised no errors. What measurement cannot say: whether the voices sound like people or
+  like a choir of synthesizers, and whether the theme is any good. `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -474,7 +487,12 @@ what is next. Update it after every item.
 - [x] Throw power: hold a receiver's letter (on the field, on the pad, or its number key) and a green bar fills; let go to
       throw with that much on the ball. A quick tap floats a lob, a full bar fires a bullet, and the bar and a ring round
       the receiver's letter show the level. This replaces "tap for a bullet, hold for a lob"
-- [ ] Audio, rebuilt (asked for twice)
+- [x] Audio, rebuilt (asked for twice). `js/audio.js` is a second version:
+      the crowd is now voices (several hundred synthesized syllables rendered into murmur and roar loops, applause from
+      single claps, and rendered "ooh", "aww" and "DE-FENSE" reactions) instead of filtered noise; every effect is
+      rebuilt in layers with energy a phone speaker can play; the menu has a new sixteen-bar theme; the mix ends in a bus
+      compressor and a limiter; a drum roll leads into kickoffs, hits and catches are placed left to right, rain has
+      thunder; Settings has a Volume choice. Still no audio files
 - [ ] Interface polish, a little
 - [ ] Still open from before: a person plays it on a phone; contract years could matter more; animation checked in motion
 

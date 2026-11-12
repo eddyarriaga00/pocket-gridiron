@@ -64,7 +64,8 @@ js/game.js              the engine: plays, AI, rules, controls, menus, the 2D ov
 js/shaders.js           GLSL: turf, sky dome, crowd, rim light on players, glow and vignette pass
 js/render3d.js          three.js renderer: stadium, instanced player models (a far and a near level of detail),
                         shadows, weather, cameras
-js/audio.js             synthesized sound: effects, crowd, music, weather, and the announcer (speech synthesis)
+js/audio.js             synthesized sound: effects, a crowd built from rendered voices, music, weather, and the
+                        announcer (speech synthesis)
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode
 js/season.js            Season mode
@@ -99,6 +100,8 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 - `H.camp('run', 4)` plays a training-camp drill (`'pass'`, `'run'` or `'tackle'`) with a simple test player.
 - `H.fingerprint()` is a seeded run. After a change that should not alter behaviour it must return the same string.
 - `PG.dbg.seed(n)` makes any run repeatable; `PG.audio.spoken` lists what the announcer has said.
+- `await PG.audio.report()` renders every sound off line and gives its peak, loudness and spectrum;
+  `PG.audio.meter` reads the level of what is playing now.
 
 `node tools/fmt.js <files>` is the house formatter. `node --expose-internals tools/astcheck.js before.js after.js`
 proves a reformat did not change the program.

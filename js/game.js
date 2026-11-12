@@ -842,7 +842,7 @@
       credit(ps.passer, 'comp', 1);
       credit(r, 'rec', 1);
       openField(0.05, 0.3);
-      snd('catch');
+      snd('catch', { x: r.x });
       if (pm) {
         my.att++;
         my.comp++;
@@ -1114,7 +1114,7 @@
           o.vx = o.vy = 0;
           ps.tackler = o;
           ps.userTkl = AUTO || o.team !== 0 || !G.sel ? 0 : o === G.sel ? 2 : G.sel.team === 0 && !G.sel.down && dist(G.sel, c2) < 2.6 ? 1 : 0;
-          snd('hit', { power: pw });
+          snd('hit', { power: pw, x: c2.x });
           if (userP(c2) || o === G.sel || pw > 1.05) buzz(Math.round(14 + pw * 22));  // you feel the ones you are in, and the big ones
           if (pw > 1.05 && !QUIET && !AUTO && PG.audio) PG.audio.crowd.ooh(0.6);
           hitFx(c2.x, c2.y);
@@ -1150,7 +1150,7 @@
         }
         c2.vx *= moved === 'truck' ? 0.6 : 0.7;
         c2.vy *= moved === 'truck' ? 0.6 : 0.7;
-        snd('hit', { power: moved === 'truck' ? 0.9 : 0.45 });
+        snd('hit', { power: moved === 'truck' ? 0.9 : 0.45, x: c2.x });
         if (userP(c2)) toast(moved === 'truck' ? 'Ran him over!' : moved === 'stiff' ? 'Stiff arm!' : 'Broken tackle!');
       }
       if (c2.team === 0 ? c2.y >= 100 : c2.y <= 0) finish('td');
@@ -2226,6 +2226,7 @@
     G.preT = 0;
     camUpd(0, true);
     toast('Kickoff');
+    snd('roll', { dur: 1.42 });  // the drum line builds to the kick, which comes a second and a half after the teams line up
     updHud();
   }
 
@@ -2735,6 +2736,7 @@
 
   function buzz(pattern) {
     if (AUTO || QUIET || !touched || SET.hap === false || !navigator.vibrate) return;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;  // a scripted tap is not a real one: the browser would refuse and log an error
     try {
       navigator.vibrate(pattern);
     } catch (_) {}
@@ -3081,6 +3083,7 @@
   ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
   ${chip('slh','Buttons',SET.left?'Left side':'Right side')}
   <h2>Sound</h2>
+  ${chip('svl','Volume',['Low','Medium','High'][SET.vol??2])}
   ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
   ${chip('smu','Music',SET.mus?'On':'Off')}
   ${chip('san','Announcer',SET.ann!==false?'On':'Off')}
@@ -3133,6 +3136,13 @@
       });
       on('srp', () => {
         SET.replay = SET.replay === false;
+      });
+      on('svl', () => {
+        SET.vol = ((SET.vol ?? 2) + 1) % 3;
+        if (PG.audio) {
+          PG.audio.refresh();
+          PG.audio.play('chime');  // so you hear the new level
+        }
       });
       on('ssn', () => {
         SET.snd = !SET.snd;

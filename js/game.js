@@ -181,13 +181,15 @@
     } else if (!AUTO) {
       /* a few seconds over the stadium with the matchup on screen; a tap skips it */
       const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
-      const line = e.weather === 'rain' ? 'It is raining, so hold on to the ball.' : e.weather === 'snow' ? 'Snow is falling.'
-        : e.time === 'day' ? 'A beautiful afternoon for football.' : e.time === 'dusk' ? 'The sun is going down.' : 'A clear night for football.';
       G.state = 'intro';
       scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span></div><em>vs</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span></div></div>
   <p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><small>Tap to skip</small></button>`;
       $('#intro').onclick = endIntro;
-      say(`${t1.name} at ${t0.name}. ${line}`);
+      /* the broadcast opens: a welcome, who is playing, and a word from the analyst if there is time before the ball is kicked */
+      vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
+      vo('intro.away.' + t1.ab, { ttl: 14 });
+      vo('intro.home.' + t0.ab, { ttl: 16 });
+      vo('a.intro', { pri: 0, keep: true, ttl: 16 });
       if (PG.audio) PG.audio.weather(e.weather);
       return;
     } else banner('Kickoff', tname(first) + ' ball', 1500);
@@ -732,6 +734,7 @@
     }
     ps.air = { x0: q.x, y0: q.y, x1: tx, y1: ty, t: 0, T, h: (1.2 + d * 0.11) * hf, target: r, x: q.x, y: q.y, z: 1.8, dist: d };
     if (!AUTO && !QUIET && PG.audio && d >= 24 && T >= 0.95) PG.audio.crowd.swell(T, q.team === 0 ? 0.6 : 0.42);  // a long ball: the stadium draws breath until it comes down
+    if (d >= 26 && T >= 1.05) vo('deep', { every: 25 });
     if (option && r) {
       /* The read. An underneath defender who did not step up at the run fake and is standing in the throwing lane
          can get a hand on the ball (see resolvePass): throw when he bites, hand off when he sits. */
@@ -943,6 +946,7 @@
       ps.open = true;
       toast('Intercepted!');
       snd('hit');
+      vo('int', { pri: 2 });
       if (pm) {
         my.att++;
         my.pint++;
@@ -1218,7 +1222,7 @@
               buzz(45);
               toast('Fumble! Get on it');
               snd('shout', { x: c2.x });
-              say('Fumble!', true);
+              vo('fumble', { pri: 2 });
               if (PG.audio) PG.audio.crowd.ooh(0.9);
             }
             return;
@@ -1415,7 +1419,9 @@
       if (ok) G.score[t]++;
       snd(ok ? 'chime' : 'whistle');
       toast(ok ? 'Extra point is good' : 'Extra point missed');
-      say(ok ? 'The extra point is good.' : 'He missed the extra point!');
+      vo(ok ? 'xp.good' : 'xp.miss');
+      voScore(t, G.voS0);
+      G.voS0 = null;
       hudKey = '';
       updHud();
       next();
@@ -1454,7 +1460,9 @@
     G.state = 'dead';
     G.deadT = 2;
     banner(G.last, good ? `${tname(off)} convert the try` : 'The try fails', 1800);
-    say(good ? 'The two-point try is good!' : 'No good on the try.', true);
+    vo(good ? 'two.good' : 'two.miss', { pri: 2 });
+    voScore(off, G.voS0);
+    G.voS0 = null;
     hudKey = '';
     updHud();
   }
@@ -1478,7 +1486,8 @@
     if (!AUTO && !QUIET) {
       snd('kick');
       react(got ? k : 1 - k, got ? 1.2 : 0.6, 2.5);
-      say(got ? `Onside kick, and the ${tname(k)} recover it!` : `Onside kick. ${tname(1-k)} recover.`, true);
+      vo('onside', { pri: 2 });
+      vo(got ? 'onside.got' : 'onside.lost', { ttl: 6 });
     }
     hudKey = '';
     updHud();
@@ -1514,7 +1523,8 @@
     }
     const off = ps.offTeam, dir = G.dir, c = ps.carrier, los = ps.los, me = QUIET ? null : G.me;
     G.chg = null;  // a throw still being wound up dies with the play
-    let big = '', sub = '', stop = false, score = false, rpGain = 0;
+    let big = '', sub = '', stop = false, score = false, rpGain = 0, tryRes = '';
+    const s0 = G.score.slice();  // the score before this play, for the booth
     if (kind === 'inc') {
       big = arg || 'Incomplete';
       G.sig = 'inc';
@@ -1533,10 +1543,12 @@
         const ok = rnd() < 0.45;
         if (ok) G.score[t] += 2;
         tryTxt = ok ? ' · two-point try is good' : ' · two-point try fails';
+        tryRes = ok ? 'two.good' : 'two.miss';
       } else {
         const xp = rnd() < 0.96;
         if (xp) G.score[t]++;
         tryTxt = xp ? ' · extra point is good' : ' · extra point missed';
+        tryRes = xp ? 'xp.good' : 'xp.miss';
       }
       big = 'Touchdown!';
       G.sig = 'td';
@@ -1678,7 +1690,7 @@
     cpuTimeout();
     if (G.ot && score) G.final = true;
     G.last = sub === 'Turnover on downs' ? sub : big;
-    callPlay(kind, arg, big, sub, rpGain, c);
+    callPlay(kind, kind === 'td' ? tryRes : arg, big, sub, rpGain, c, s0);
     if (G.drive && (score || G.poss !== off)) G.drive.done = true;
     if (kind !== 'td') snd('whistle');
     for (const p of P) {
@@ -1721,7 +1733,7 @@
     if (!AUTO && !QUIET) {
       snd('whistle');
       toast(`Timeout, ${tname(t)} · ${G.to[t]} left`);
-      say(`Timeout, ${tname(t)}.`);
+      vo(chance(0.7) ? 'timeout.team.' + tab(t) : 'timeout');
       updHud();
     }
     return true;
@@ -1749,7 +1761,8 @@
 
   function refCall(text, team, size) {
     if (AUTO || QUIET || !PG.audio) return;
-    const a = PG.audio, len = a.pa(text.replace(/\d+/g, n => NUMS[+n] || n));
+    const a = PG.audio, len = a.pa(text.replace(/\d+/g, n => NUMS[+n] || n), { wait: G.drill ? 0 : 0.9 });  // the booth sees the flag first, then the referee has the floor
+    vo('flag');
     a.crowd.ooh(0.35);  // a flag is down, and nobody knows on whom yet
     setTimeout(() => {
       if (!G.ros || G.state === 'menu' || G.state === 'over') return;
@@ -1758,6 +1771,7 @@
         a.crowd.cheer(size, 2);
         if (R3) R3.cheer(size);
       }
+      analyst('a.flag', 0.35);
     }, len ? Math.max(500, len * 1000 - 450) : 350);
   }
 
@@ -1784,7 +1798,6 @@
     banner('Flag', `${name}, ${tname(team)} · ${text}`, 1900);
     snd('whistle');
     refCall(`${name}, ${team === off ? 'offense' : 'defense'}. ${first ? 'Automatic first down' : text.replace(',', ' penalty.').replace('yards', 'yard')}.`, team, 0.7);
-    say(`Flag on the play. ${name}, ${tname(team)}. ${text}.`, true);
     hudKey = '';
     updHud();
   }
@@ -1805,7 +1818,6 @@
     banner('Flag', `${name}, ${tname(team)} · ${yd} yard${yd === 1 ? '' : 's'}`, 1700);
     snd('whistle');
     refCall(`${name}, ${onOff ? 'offense' : 'defense'}. ${yd} yard penalty. ${G.down === 1 && G.togo === 10 ? 'First down' : 'Replay the down'}.`, team, 0.55);
-    say(`Flag on the play. ${name}, ${tname(team)}. ${yd} yards.`, true);
     updHud();
   }
 
@@ -1830,6 +1842,7 @@
           G.clock = G.ql;
           kickoff(rnd() < .5 ? 0 : 1);
           banner('Overtime', 'Next score wins', 1600);
+          vo('ot', { pri: 2 });
         } else {
           G.final = true;
           return true;
@@ -1838,6 +1851,7 @@
         G.q++;
         G.clock = G.ql;
         banner('End of quarter', '', 1200);
+        vo(G.q === 2 ? 'q.end1' : 'q.end3');
       }
     }
     return false;
@@ -2001,7 +2015,8 @@
         snd('fanfare');
         react(0, 1.2, 5);
       } else if (w < 0) snd('lose');
-      say(w === 0 ? `It ends in a tie, ${G.score[0]} all.` : `${tname(w > 0 ? 0 : 1)} win it, ${Math.max(G.score[0], G.score[1])} to ${Math.min(G.score[0], G.score[1])}.`, true);
+      vo(w === 0 ? 'final.tie' : chance(0.5) ? 'win.team.' + tab(w > 0 ? 0 : 1) : w > 0 ? 'final.win' : 'final.loss', { pri: 2 });
+      analyst('a.final', 0.8, { big: true, ttl: 10 });
     }
     if (!AUTO && !G.drill && PG.milestones) PG.milestones.game({ us: G.score[0], them: G.score[1], stats: G.stats, ot: G.ot, diff: G.diff, weather: G.env && G.env.weather });
     if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), drill: G.drill });
@@ -2143,6 +2158,7 @@
         G.state = 'kickm';
         G.meter = rnd(3);
         $('#mtxt').textContent = fg ? `${d} yards · stop in the green` : 'Punt · stop in the green';  // one line on the narrowest phone; the tag below names the kick
+        voPre();
         return;
       }
       toast(fg ? `${d}-yard field goal attempt` : tname(G.poss) + ' punt');
@@ -2163,9 +2179,8 @@
           }, 1250);
         }
       }
-      if (G.down === 3 && Math.random() < 0.5) say(`Third down and ${Math.max(1, Math.round(G.togo))}.`);
-      else if (G.down === 4) say('Fourth down.');
     }
+    voPre();
   }
 
   function snap() {
@@ -2218,6 +2233,7 @@
     ps.carrier = null;
     G.state = 'kicka';
     snd('kick');
+    if (ps.kick.type === 'punt') vo('punt', { pri: 0 });
   }
 
   let HANG = 1;  // extra hang time, in seconds, on a punt that will be returned live
@@ -2283,7 +2299,7 @@
           if (!AUTO && !QUIET) {
             buzz(45);
             toast('Muffed! Get on it');
-            say('He dropped it!', true);
+            vo('punt.muff', { pri: 2 });
             if (PG.audio) PG.audio.crowd.ooh(0.9);
           }
         } else {
@@ -2362,6 +2378,10 @@
     G.state = 'kicka';
     snd('kick');
     if (PG.audio && !AUTO && !QUIET) PG.audio.crowd.cheer(0.45, 1.6);
+    if (G.q === 3 && !G.voHalf) {
+      G.voHalf = true;
+      vo('half.back', { pri: 0 });
+    } else vo('kickoff', { pri: 0 });
   }
 
   /* Career: play the snaps the user's unit is not on the field for, headless, until their unit is back on. */
@@ -2420,6 +2440,15 @@
     G.deadT = 2.3;
     banner(big, own ? 'You watched this one from the sideline' : sub, 2100);
     updHud();
+    /* the booth sums the drive up in a line: it was played out of sight */
+    if (pts >= 6) vo('td.team.' + tab(t), { pri: 2 });
+    else if (pts === 3) vo('fg.good', { pri: 2 });
+    else if (other > 0) vo(other >= 6 ? 'td.return' : 'safety', { pri: 2 });
+    else if (chance(0.7)) {
+      vo('drive.stop');
+      analyst('a.stop', 0.3);
+    }
+    if (pts || other) voScore(pts ? t : 1 - t, s0);
     if (pts >= 6 && mine) {
       confetti(0);
       snd('fanfare');
@@ -2877,35 +2906,143 @@
     } catch (_) {}
   }
 
-  /* the announcer; silent in simulations */
-  function say(text, urgent) {
-    if (AUTO || QUIET || !PG.audio) return;
-    PG.audio.say(text, urgent);
+  /* ---------- the booth ----------
+     What the two commentators say, and when. Their clips, and the rules for who may talk over whom, are in
+     js/audio.js; this is the editorial side: which line fits the moment, and how often it is worth saying. All of it
+     is cosmetic, so it uses Math.random and never the game's own generator (a seeded test run must not change
+     because someone is listening), and none of it happens in simulated games or in practice. */
+  const chance = p => Math.random() < p;
+  const tab = t => TEAMS[G.tm[t]].ab;
+  const voSaid = {};
+  let voClock = 0, voAn = -99;  // seconds of football the booth has sat through (step() counts them), and when the analyst last spoke
+
+  /* Ask the booth for a line. o.every: not the same call again within that many seconds; the rest of o is the booth's
+     own (see booth.say in js/audio.js). Returns whether it will be said. */
+  function vo(call, o) {
+    if (AUTO || QUIET || G.drill || !PG.audio || !PG.audio.call) return false;
+    if (o && o.every) {
+      if (voClock - (voSaid[call] === undefined ? -1e9 : voSaid[call]) < o.every) return false;
+      voSaid[call] = voClock;
+    }
+    return PG.audio.call(call, o);
   }
 
-  /* His call for the play that just ended. Which line he picks is cosmetic, so it uses Math.random and never the
-     game's own generator: a seeded test run must not change because someone is listening. */
-  function callPlay(kind, good, big, sub, gain, c) {
-    if (AUTO || QUIET || !PG.audio) return;
-    const any = a => a[Math.floor(Math.random() * a.length)], team = c ? TEAMS[G.tm[c.team]] : null, who = c ? c.name : '';
-    let line = '', urgent = true;
-    if (kind === 'td') line = any([`Touchdown, ${team.name}!`, `${who} scores! Touchdown, ${team.city}!`, `He is in! Touchdown ${team.name}!`]);
-    else if (kind === 'fumble') line = any([`${tname(c.team)} ball!`, `${who} falls on it. ${tname(c.team)} ball!`]);
-    else if (ps && ps.fum && (kind === 'tackle' || kind === 'oob')) line = any(['They get it back.', `${tname(c.team)} keep the ball.`]);
-    else if (big === 'Interception!') line = any(['Intercepted!', `Picked off by ${who}!`, `${team.name} take it away!`]);
-    else if (big === 'Sack!') line = any(['Sacked!', 'They get to the quarterback. Sack!']);
-    else if (big === 'Safety!') line = 'Safety! Two points.';
-    else if (kind === 'fg') line = good ? any(['The kick is good.', 'Right down the middle. Three points.']) : any(['No good!', 'He missed it.']);
-    else if (sub === 'Turnover on downs') line = 'They are stopped. Turnover on downs.';
-    else if (gain >= 25) line = any([`What a play! ${gain} yards.`, `${who} breaks loose for ${gain}!`]);
-    else if (big === 'First down' && gain >= 12) {
-      line = any([`${gain} yards and a first down.`, `First down, ${team.name}.`]);
-      urgent = false;
-    } else if (kind === 'inc' && Math.random() < 0.25) {
-      line = any(['Incomplete.', 'Falls incomplete.', 'Nobody home.']);
-      urgent = false;
+  /* The analyst: p is how likely he is to speak. He waits for the play-by-play man to finish, and he leaves a few
+     seconds between his own remarks unless the moment is a big one (o.big). */
+  function analyst(call, p, o) {
+    if (AUTO || QUIET || G.drill || !chance(p) || (voClock - voAn < 9 && !(o && o.big))) return;
+    voAn = voClock;
+    vo(call, Object.assign({ pri: 0, keep: true, ttl: 7 }, o));
+  }
+
+  /* after points: what they did to the game. s0 is the score before the play that brought them. */
+  function voScore(t, s0) {
+    if (!s0) return;
+    const m0 = s0[t] - s0[1 - t], m1 = G.score[t] - G.score[1 - t];
+    const call = m1 === 0 ? 'score.tie' : m0 <= 0 && m1 > 0 ? 'score.lead' : m0 > 0 ? (chance(0.4) ? 'score.extend' : '') : chance(0.6) ? 'score.cut' : '';
+    if (!call) return;
+    vo(call, { ttl: 10 });
+    if (m0 <= 0) analyst('a.lead', 0.5, { big: true, ttl: 12 });
+  }
+
+  /* Before the snap: the down and distance, some of the time ("Third and six."), and what the moment means. A first
+     down was already called when it was made, so it is only said to open a drive. */
+  function voPre() {
+    if (AUTO || QUIET || G.drill || !ps) return;
+    const d = G.down, n = Math.max(1, Math.round(G.togo)), toGoal = G.poss === 0 ? 100 - G.los : G.los, goal = toGoal <= G.togo + 0.5, kick = ps.mode === 'kick', dr = G.drive || {};
+    if (G.q === 3 && !G.voHalf) {
+      G.voHalf = true;  // a career has no kickoff to say it over
+      if (vo('half.back', { pri: 0 })) return;
     }
-    if (line) PG.audio.say(line, urgent);
+    if (G.q === 4 && G.clock < 60 && Math.abs(G.score[0] - G.score[1]) <= 8 && !G.voLate) {
+      G.voLate = true;
+      vo('late');
+      analyst('a.close', 1, { big: true, ttl: 9 });
+      return;
+    }
+    if (toGoal < 20 && !goal && !kick && dr.plays > 1 && !dr.voRz) {
+      dr.voRz = true;  // the first snap inside the twenty on this drive
+      if (chance(0.7)) {
+        vo('redzone', { pri: 0 });
+        analyst('a.redzone', 0.35);
+        return;
+      }
+    }
+    const num = k => (n <= 10 && chance(0.6) ? `down.${k}n.${n}` : '');
+    let call = '';
+    if (kick) call = d === 4 && chance(0.5) ? (goal ? 'down.4g' : num(4) || 'down.4') : '';
+    else if (d === 1) call = goal ? 'down.1g' : dr.plays <= 1 && chance(0.45) ? 'down.1' : '';
+    else if (d === 2) call = goal ? (chance(0.7) ? 'down.2g' : '') : chance(0.6) ? '' : num(2) || (n <= 3 ? 'down.2s' : n <= 7 ? 'down.2m' : 'down.2l');
+    else if (d === 3) call = goal ? 'down.3g' : chance(0.15) ? '' : num(3) || (n <= 2 ? 'down.3s' : n <= 6 ? 'down.3m' : 'down.3l');
+    else call = 'down.4go';
+    if (!call) return;
+    vo(call, { pri: d >= 3 ? 1 : 0, ttl: 2.5 });
+    if (d === 3 && !goal) analyst('a.third', 0.22);
+    else if (d === 4 && !kick) analyst('a.fourth', 0.5, { big: true });
+  }
+
+  /* The call of the play that just ended: the play-by-play man says what happened, and the analyst, some of the time,
+     says why. `good` is the kick's result, the punt's, or (after a touchdown) how the try went when it was settled on
+     the spot; s0 is the score before the play. */
+  function callPlay(kind, good, big, sub, gain, c, s0) {
+    if (AUTO || QUIET || G.drill || !PG.audio || !PG.audio.call) return;
+    const off = ps.offTeam, t = c ? c.team : off, ko = ps.mode === 'ko', down = kind === 'tackle' || kind === 'oob';
+    if (kind === 'td') {
+      const back = ko || t !== off;  // a return, or the defense's score
+      vo(back && chance(0.6) ? 'td.return' : chance(0.45) ? 'td.team.' + tab(t) : 'td', { pri: 2 });
+      if (!back) analyst('a.td', 0.75, { big: true, ttl: 8 });
+      if (good) {
+        if (good !== 'xp.good') vo(good, { ttl: 10 });  // the routine extra point goes without saying
+        voScore(t, s0);
+      } else G.voS0 = s0;  // your try comes after the celebration, and the booth's sums with it
+    } else if (kind === 'fumble') {
+      vo(ps.fum && ps.fum.muff ? 'ball.team.' + tab(t) : 'fumble.def', { pri: 2 });
+      if (!(ps.fum && ps.fum.muff) && chance(0.5)) vo('ball.team.' + tab(t), { ttl: 6 });
+      analyst('a.fumble', 0.6, { big: true });
+    } else if (ps.fum && down) vo('fumble.off');
+    else if (big === 'Interception!') {
+      if (chance(0.6)) vo('ball.team.' + tab(t), { ttl: 5 });  // "Intercepted!" was called as it happened
+      analyst('a.int', 0.7, { big: true, ttl: 8 });
+    } else if (sub === 'Turnover on downs') {
+      vo('downs', { pri: 2 });
+      analyst('a.downs', 0.6, { big: true });
+    } else if (big === 'Sack!') {
+      vo('sack', { pri: 2 });
+      analyst('a.sack', 0.5, { big: true });
+    } else if (big === 'Safety!') {
+      vo('safety', { pri: 2 });
+      voScore(1 - off, s0);
+    } else if (kind === 'fg') {
+      vo(good ? 'fg.good' : 'fg.miss', { pri: 2 });
+      analyst(good ? 'a.fggood' : 'a.fgmiss', 0.4, { big: true });
+      if (good) voScore(off, s0);
+    } else if (kind === 'kotb' || big === 'Touchback') vo('touchback', { pri: 0 });
+    else if (kind === 'punt') {
+      if (good.tb || good.fair) vo(good.tb ? 'touchback' : 'punt.fair', { pri: 0 });
+    } else if (ko && down) {
+      if (Math.round((c.y - ps.land) * G.dir) >= 28) {
+        vo('kick.big', { pri: 2 });
+        analyst('a.return', 0.5, { big: true });
+      } else if (chance(0.6)) vo('kick.return', { pri: 0 });
+    } else if (down) {
+      const first = big === 'First down', pass = ps.caught, short = { pri: first ? 1 : 0 };
+      let said = false;
+      if (pass) said = gain >= 20 ? vo('pass.big', { pri: 2 }) : gain >= 8 ? chance(0.8) && vo('pass.good') : gain >= 0 && chance(0.35) && vo('pass.short', short);
+      else said = gain >= 15 ? vo('run.big', { pri: 2 }) : gain >= 6 ? chance(0.8) && vo('run.good') : gain >= 1 ? chance(0.3) && vo('run.short', short) : chance(gain ? 0.75 : 0.6) && vo(gain ? 'run.loss' : 'run.none');
+      if (first && chance(said ? 0.7 : 0.55)) vo('first', { ttl: 5 });
+      if (pass && gain >= 20) analyst('a.bigpass', 0.6, { big: true });
+      else if (!pass && gain >= 15) analyst('a.bigrun', 0.6, { big: true });
+      else if (first) analyst('a.first', 0.15, { every: 40 });
+      else if (G.down === 4) analyst('a.stop', 0.4);  // third down, and they did not get there
+      else if (!pass && gain >= 6) analyst('a.run', 0.15);
+      else if (gain < 0) analyst('a.stop', 0.2);
+    } else if (kind === 'inc') {
+      const call = big === 'Thrown away' ? 'pass.away' : big === 'Pass broken up' || big === 'Batted down' ? 'pass.broken' : big === 'Overthrown' ? 'pass.over' : 'pass.inc';
+      if (chance(call === 'pass.broken' ? 0.85 : 0.6)) vo(call, { ttl: 2 });
+      if (call === 'pass.broken') analyst('a.cover', G.down === 4 ? 0.4 : 0.15);
+      else if (call === 'pass.over') analyst('a.miss', G.down === 4 ? 0.4 : 0.15);
+      else if (G.down === 4) analyst('a.stop', 0.3);
+    }
   }
 
   /* the home crowd is on the user's side: it cheers what is good for team 0 and groans at the rest */
@@ -3017,7 +3154,7 @@
     const draw = sure => {
       ov.innerHTML = sure
         ? `<div class="dlg"><h3>${G.drill?'Leave drill?':'Leave game?'}</h3><p>${G.drill?'This drill will not count. You can start it again.':G.mode!=='exh'?'This game will not count. You can play it again.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">${G.drill?'Leave drill':'Leave game'}</button><button class="btn2" id="pk">Keep playing</button></div>`
-        : `<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pan">Announcer: ${SET.ann!==false?'on':'off'}</button><button class="btn2 warn" id="pq">${G.drill?'Leave drill':'Leave game'}</button></div>`;
+        : `<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pan">Commentary: ${SET.ann!==false?'on':'off'}</button><button class="btn2 warn" id="pq">${G.drill?'Leave drill':'Leave game'}</button></div>`;
       const on = (id, f) => {
         const el = $('#' + id);
         if (el) el.onclick = f;
@@ -3276,7 +3413,7 @@
   ${chip('svl','Volume',['Low','Medium','High'][SET.vol??2])}
   ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
   ${chip('smu','Music',SET.mus?'On':'Off')}
-  ${chip('san','Announcer',SET.ann!==false?'On':'Off')}
+  ${chip('san','Commentary',SET.ann!==false?'On':'Off')}
   <h2>Rules</h2>
   ${chip('spn','Penalties',SET.pen!==false?'On':'Off')}
   <h2>Help</h2>
@@ -3468,7 +3605,8 @@
     setBrief('');
     snd('whistle', { long: true });
     if (!AUTO && !QUIET && PG.audio) PG.audio.halftime(true);  // the band takes the field
-    say(`That is the half. ${tname(0)} ${G.score[0]}, ${tname(1)} ${G.score[1]}.`, true);
+    vo(G.score[0] > G.score[1] ? 'half.lead' : G.score[0] < G.score[1] ? 'half.trail' : 'half.tie', { pri: 2 });
+    analyst('a.half', 0.7, { big: true, ttl: 10 });
     scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>Halftime</b><span>${tname(G.poss)} get the ball</span></div><div class="sc">${G.score[0]} – ${G.score[1]}</div>
   ${statTable()}${G.lineFn?`<p class="note">You: ${G.lineFn(G.my)}</p>`:''}<button class="go" id="h2">Second half</button></div>`;
     $('#h2').onclick = startCall;
@@ -4000,11 +4138,14 @@
   function step(dt) {
     if (G.paused) return;
     SDT = dt;
+    voClock += dt;
     readInput();
     const st = G.state;
     if (st === 'intro') {
       G.introT += dt;
-      if (G.introT > 3.8) endIntro();
+      /* the matchup stays up while the play-by-play man welcomes everybody in; a tap still skips it */
+      const b = G.introT > 3.8 && G.introT < 7 && PG.audio && PG.audio.booth;
+      if (G.introT > 3.8 && !(b && b.now && /^intro\.(?!away|home)/.test(b.now))) endIntro();
     } else if (st === 'pre') {
       G.preT += dt;
       jogIn(dt);

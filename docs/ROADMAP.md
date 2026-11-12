@@ -24,9 +24,15 @@ what is next. Update it after every item.
 - **Taste (stated by the owner):** no yellow or gold anywhere; no condensed italic display type (Archivo,
   upright, is the display face); small controls (54px actions, 70px snap, 50px receiver buttons).
 - **Original game.** No real league, team, player or video game names, logos or likenesses.
-- **Assets:** procedural only. Do not download audio, models, textures or fonts. Libraries only from
-  cdnjs, pinned to an exact version (three.js 0.159.0 is confirmed available at
+- **Assets:** procedural only, with one exception the owner chose on 2026-11-12 at about 17:58 ("of course option
+  1", the free speech model on his Mac): the two commentators' lines are recorded by `tools/voice.py` with Kokoro-82M
+  (open weights, Apache 2.0) and committed as `audio/vo.pack`. The model, its Python environment and the single clips
+  live in `.voice/`, which git ignores. Nothing else is to be downloaded (audio, models, textures, fonts, tools, or a
+  different speech model) without his say-so, and no credits are to be spent on the voice service connected to the
+  session. Libraries only from cdnjs, pinned to an exact version (three.js 0.159.0 is confirmed available at
   `https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js`).
+- **The booth is original.** Every line is written for this game. Never a real commentator's voice, name or
+  catchphrase, and no league or team marks.
 - **Always shippable.** Keep the 2D renderer working as a fallback. New systems go in behind a setting until
   they are verified, then become the default.
 
@@ -62,6 +68,17 @@ what is next. Update it after every item.
    nothing inside him and nothing under the turf, and `PG.r3d.tackleStrip(0)` draws that tackle as a row of frames;
    `PG.r3d.poseOf(i)` gives the pose player i is drawn in, for checking that a state reaches the figure; `PG.r3d.strip(8)` returns an image of one stride from the side
    (put it in an `<img>` and look at it).
+8. Commentary, after any change to the script, the voices or the booth. `tools/voice.py` prints, for every clip it
+   records, its length and pitch, and flags any whose sound has far fewer syllables than its words (a swallowed
+   line). In the page: `PG.audio.deaf(true)` first (the mix runs but the speakers get nothing; the test pane plays
+   through the owner's speakers otherwise), then a real click so the sound engine starts and `PG.audio.booth.state`
+   becomes `'ready'`. `PG.audio.booth.log` after `H.exh(3, 120)` and `H.career('QB', 2)` lists every line the game
+   asked for: every one must exist in `PG.VO.clips`, and the drills must ask for none. Levels:
+   `await PG.audio.measure('vo:td')`, `'vo:a.first'` and so on against `measure('crowd', { level: 0.6, cheer: 1 })`:
+   a line should peak near -3 dB and sit about -16 dB RMS, a few dB above a full roar once the roar is dipped under
+   it. Timing needs real time, which the synchronous harness does not give: step the game from a timer
+   (`setInterval(() => { H.bot(); PG.dbg.step(0.02); }, 20)`) and watch `PG.audio.booth.now` and `.waiting`. The
+   hidden pane only runs while a tool call is waiting on it, so wait inside the call.
 
 ## Architecture
 
@@ -538,6 +555,40 @@ what is next. Update it after every item.
   credits, one short line at 0.5; the account holds 5 credits), and this Mac (M1, Python 3.14, no speech model, no
   ffmpeg; only compact system voices installed). Asked the owner which way to go; see "Next ideas".
 
+- 18:32 The booth (Round 10). The owner chose the free model on his Mac. Downloaded, with that say-so and nothing
+  else: `kokoro-v1.0.onnx` (326 MB) and `voices-v1.0.bin` (28 MB) from the kokoro-onnx project's GitHub release
+  "model-files-v1.0", and the `kokoro-onnx` 0.6.1 package with its dependencies from PyPI into a Python 3.12
+  environment (155 MB); all of it in `.voice/`, outside the repository. Auditioned twelve of the model's male voices
+  on one line and measured pitch and range: play-by-play is `am_fenrir` (the second-widest range of the twelve, at a middle pitch:
+  4.8 semitones between the 10th and 90th percentile) at 1.05 speed; the analyst is a deeper blend, 65% `am_michael`
+  and 35% `am_onyx`, at 0.98, so the two cannot be mistaken for each other (median pitch 155 Hz against 110).
+  `tools/voice.py`: records each line, trims it, lifts the worked-up calls (up to 7% faster and higher, 3.5 dB more
+  top, 3 dB louder), cuts rumble, compresses, sets loudness (calm lines -20 dB RMS while speaking, the biggest calls
+  -17.8), holds peaks under -2 dB, and encodes 40 kbit/s AAC. One- and two-word shouts are spoken at 0.78 speed
+  first: "Touchdown!" came out at 0.59 s, a real call holds the word. Each clip is checked by counting the syllable
+  peaks in its sound against the syllables in its words: none came out short (the worst is 4 heard of 6, two vowels
+  running together). The .m4a files carried 3.4 kB of padding and tags each, a third of a short clip, so the tool
+  strips them and moves the sound pointers: the pack went from 3.2 MB to 2.4 MB. 273 clips, 6.5 minutes of speech.
+  In the game (`js/audio.js`): the pack is fetched after the first tap, kept compressed, and a clip is decoded when
+  wanted (the last 36 stay decoded; all of them decoded at once would be about 120 MB). The booth has its own route:
+  dry, a little presence, its own compressor. Priorities: colour is dropped when anyone is talking, a call waits its
+  turn and is dropped when its moment has passed, a big call cuts in with a 25 ms fade. Measured through the whole
+  mix: a play-by-play line peaks at -3 dB and sits at -16 to -17.8 dB RMS, the analyst (trimmed to 0.84, his rumble
+  cut at 115 Hz and his top lifted 3 dB after he measured 50% of his energy under 200 Hz) at -14 to -15; a full roar
+  is -13.7 and is dipped 7.5 dB under them, so they sit 5 dB over a roar and 8 over an ordinary crowd. Raising the
+  booth further only pushed it into the limiter, so the dip does the work.
+  In the game (`js/game.js`): the editorial side, on the game's own clock so tests can count it. Three scripted
+  exhibition games asked for 171 lines (57 a game, 29 of them the analyst's), every one of which exists; the drills
+  asked for none. In real time with the speakers muted (`PG.audio.deaf`), a game's opening ran: welcome (the matchup
+  card now stays up until he has finished it), "The Aviators are in town.", "And the Outlaws are ready to defend
+  their home field.", the analyst, then the return; a touchdown ran call, analyst, missed extra point, "And they take
+  the lead.", analyst, in that order over nine seconds; an interception cut in over the analyst; a line asked for
+  behind a five-second line with 1.5 s to live was not said. Peaks stayed at -2.8 dB over a minute of play.
+  The referee now waits 0.9 s before his call so the booth's "Flag down." is not under it. The one-file build
+  carries the pack as base64 (3.8 MB in all) and plays it. Commentary only, and none of it touches the game's
+  generator: `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at 320x568 and
+  390x844 (the switch is now labelled "Commentary"); no console errors. Nobody has heard any of it in the game.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -682,16 +733,33 @@ what is next. Update it after every item.
       or inside the other man. The quarterback's wind-up from run 2 now really shows (it was not reaching the game).
       Still to be judged in motion by a person
 
+### Round 10 (the owner at 17:48 on 2026-11-12: "the voice over is too ai, it needs to be like the nfl commentators";
+### then, offered four ways to do it, at about 17:58: "of course option 1", the free speech model on his Mac)
+- [x] A recorded broadcast booth in place of the phone's speech voice: a play-by-play man and an analyst, 273 clips
+      of an original script (`tools/commentary.json`), recorded with Kokoro-82M on the owner's Mac by `tools/voice.py`
+      and shipped as one 2.4 MB file. The play-by-play man opens the broadcast and names both teams, calls the down
+      and distance before some snaps ("Third and six."), calls a long ball while it is in the air, an interception as
+      it happens, every result worth a call, the first down, the score and what it did to the game ("And they take
+      the lead."), the quarters, the half and the final. The analyst follows the big moments with a reason and stays
+      quiet otherwise. One of them talks at a time, a big call cuts in over small talk, and the crowd dips under them.
+      A career's simulated drives get one line each. Practice has no commentary. Settings and the pause menu call the
+      switch "Commentary". Still to be judged by ear: nobody has listened to it in the game. What measurement already
+      says: the model does not shout, so the big calls are lifted by processing (a little faster and higher, brighter,
+      louder) and will still be calmer than a real announcer's.
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
-- Commentary that sounds like a broadcast booth. The owner listened and wrote at about 17:48 on 2026-11-12: "the voice
-  over is too ai, it needs to be like the nfl commentators". The spoken lines come from the phone's own speech voice,
-  which cannot be made to sound human, so this needs recorded lines: an original two-man booth (play-by-play and
-  analyst) with our own words, never a real commentator's voice, name or catchphrase, and no league or team marks.
-  WAITING on the owner's choice of how the lines are recorded: a free open-source voice model run on this Mac (needs
-  a download, which the assets rule forbids without his say-so), or the paid voice service connected to the session
-  (5 credits there at 17:51; a full booth is roughly 60 to 100). Until he answers: do not add spoken lines, and do
-  not download or generate any audio.
+- The booth, after the owner has listened (do not start before his verdict). If the voices are right but too calm:
+  a more expressive open speech model with an excitement control would give real shouted calls, but it is a
+  multi-gigabyte download with a machine-learning runtime, so it needs his say-so first. If a voice is wrong: the
+  voices are two lines in `tools/commentary.json` (a mix of the model's 54 voices, a speed, two tone settings), and
+  the whole booth re-records in about five minutes. More lines are cheap (about 9 kB each): player positions ("the
+  quarterback keeps it himself"), drive summaries, the score read out at the half and the end, which needs numbers
+  recorded and joined.
+- The referee and the stadium announcer are still the synthesized voice from the speakers. With the booth recorded,
+  they are now the most artificial voices in the game: record them the same way (a third voice, played down the
+  stadium-speaker route), sentence by sentence so "Holding, offense." + "Ten yard penalty." + "Replay the down."
+  join at the full stops.
 - More stadium sound: the stadium announcer on scores and at the end of each quarter, the defense calling out the play
   at the line, a goal-post "doink" (the kick model would have to allow one).
 - Motion, the rest: a second and third man joining a tackle (a pile); blockers whose hands are on the man they block

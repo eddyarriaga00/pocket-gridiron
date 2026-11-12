@@ -34,6 +34,10 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
 - Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
+- A broadcast booth: a play-by-play man and an analyst call the game ("Third and six." ... "He goes deep!" ...
+  "Touchdown, Outlaws!" ... "You can't draw it up any better than that."). About 270 recorded lines, every one written
+  for this game and spoken by an open speech model; the big calls cut in over the small talk, and the crowd sits under
+  them. Settings can turn the commentary off.
 - A stadium you can hear, all of it made in code: the quarterback's cadence, pads that crack harder the faster the hit,
   a crowd that chants, boos a flag on the home team and builds a wall of noise on third down, the referee's call
   echoing over the speakers, the crowd finishing the announcer's "first down", a band in the stands and a halftime show.
@@ -63,7 +67,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 | Zoom the camera | − and + under the scoreboard | − and =, or the mouse wheel |
 
 Settings has the accent color, 2D or 3D graphics, sharpness, camera zoom, shadows, the glow pass, close-up model detail,
-replays, penalties, the button side, volume, sound, music, the announcer, vibration and the control tips.
+replays, penalties, the button side, volume, sound, music, the commentary, vibration and the control tips.
 
 ## How it is built
 
@@ -75,20 +79,46 @@ js/game.js              the engine: plays, AI, rules, controls, menus, the 2D ov
 js/shaders.js           GLSL: turf, sky dome, crowd, rim light on players, glow and vignette pass
 js/render3d.js          three.js renderer: stadium, instanced player models (a far and a near level of detail),
                         shadows, weather, cameras
-js/audio.js             synthesized sound: effects, a crowd built from rendered voices, a voice on the stadium
-                        speakers, a marching band, music, weather, and the announcer (speech synthesis)
+js/audio.js             the sound engine: synthesized effects, a crowd built from rendered voices, a voice on the
+                        stadium speakers, a marching band, music, weather, and the booth that plays the recorded
+                        commentators (the device's speech voice is only their stand-in when the clips cannot be had)
+js/vo.js                the index of the commentators' clips (written by tools/voice.py)
+audio/vo.pack           the clips themselves, end to end in one file (about 2.3 MB of AAC)
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode
 js/season.js            Season mode
 js/camp.js              Training camp: drill scripts, scoring and screens
 js/milestones.js        Milestones earned across all modes
 docs/ROADMAP.md         what is done, what is next, and a log of how each part was checked
-tools/                  local server, test harness, formatter, bundler, icon generator
+tools/                  local server, test harness, interface audit, formatter, bundler, icon generator, and the
+                        booth: commentary.json (the script) and voice.py (records it)
 ```
 
-Nothing is downloaded at run time except three.js 0.159.0 from cdnjs and the Archivo font from Google Fonts. There
-are no image, model or audio files: the field, the crowd, the players and every sound are generated in code.
+Nothing is downloaded at run time except three.js 0.159.0 from cdnjs, the Archivo font from Google Fonts and the
+commentators' clips (after the first tap, and only while the commentary is switched on). There are no image or model
+files: the field, the crowd, the players and every sound but the two commentators are generated in code.
 Without WebGL the game falls back to its 2D canvas renderer.
+
+### The broadcast booth
+
+The commentators are not real people and do not imitate any: no real announcer's voice, name or catchphrase is used,
+and every line in `tools/commentary.json` was written for this game. The lines are spoken by
+[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open speech model (Apache 2.0), run on a Mac through
+[kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) (MIT). `tools/voice.py` records each line, masters it
+(trim, a lift in pitch, pace and brightness for the worked-up calls, a compressor, a set loudness), checks it against
+its words by counting syllables, encodes it as AAC with macOS's `afconvert`, and writes `audio/vo.pack` and `js/vo.js`.
+Neither the model nor its Python environment is in the repository; they live in `.voice/`, which git ignores. To
+record again after changing the script or a voice:
+
+```
+python3.12 -m venv .voice/venv && .voice/venv/bin/pip install kokoro-onnx==0.6.1
+# put kokoro-v1.0.onnx and voices-v1.0.bin (the kokoro-onnx release "model-files-v1.0") in .voice/model/
+.voice/venv/bin/python -I tools/voice.py          # records only the lines that changed, then rebuilds the pack
+.voice/venv/bin/python -I tools/voice.py --reel   # also writes .voice/booth-sample.m4a, a minute of both voices
+```
+
+A voice is a line in the script: a mix of the model's voices, a speed, and two tone settings. Changing it and running
+the tool gives the whole booth a new voice in about five minutes.
 
 ## Run locally
 
@@ -110,8 +140,14 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 - `H.exh(2, 120)`, `H.career('QB', 2)`, `H.careerSeasons('WR', 2)` play scripted games in each mode (careers are QB or WR).
 - `H.camp('run', 4)` plays a training-camp drill (`'pass'`, `'run'` or `'tackle'`) with a simple test player.
 - `H.fingerprint()` is a seeded run. After a change that should not alter behaviour it must return the same string.
-- `PG.dbg.seed(n)` makes any run repeatable; `PG.audio.spoken` lists what the announcer has said.
-- `await PG.audio.report()` renders every sound off line and gives its peak, loudness and spectrum;
+- `PG.dbg.seed(n)` makes any run repeatable.
+- `PG.audio.booth` shows the commentators: whether their clips loaded, what is being said, what is waiting, and
+  `log`, every line the game has asked for (it fills with the sound off too, so a scripted game shows what they would
+  say). `PG.audio.call('td', { pri: 2 })` asks for a line by hand.
+- `PG.audio.deaf(true)` keeps the whole mix running but sends nothing to the speakers, so sound can be tested, and
+  metered, in silence.
+- `await PG.audio.report()` renders every sound off line and gives its peak, loudness and spectrum
+  (`PG.audio.measure('vo:td')` does one commentary line through the whole mix);
   `PG.audio.meter` reads the level of what is playing now, and `PG.audio.asked` lists what the game has asked the
   stadium for (a referee's call, a boo, the halftime show), so the hooks can be checked without sound.
 

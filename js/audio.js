@@ -1,10 +1,12 @@
 /* Pocket Gridiron: sound engine (second version, 2026-11-12).
-   Every sound is made in code with the Web Audio API; there are still no audio files.
+   Every sound but one is made in code with the Web Audio API. The exception is the broadcast booth: two recorded
+   commentators, whose clips (audio/vo.pack) tools/voice.py makes from the script in tools/commentary.json.
    
    PG.audio.play(name, opts)   one-shot effects (whistle, hit, catch, horn, ...); opts.x pans by field position
    PG.audio.crowd.*            the stadium: murmur, roar and applause loops that follow the game, oohs, groans, chants
    PG.audio.music.*            the menu theme: drums, bass, pad and a brass section, sixteen bars
-   PG.audio.say(text, urgent)  the announcer: the device's own speech synthesizer, with the crowd dipped under it
+   PG.audio.call(key, opts)    the booth: a play-by-play man and an analyst, one at a time, the crowd dipped under them
+   PG.audio.say(text, urgent)  the device's own speech voice: what the booth falls back to when its clips cannot be had
    PG.audio.weather(kind)      a bed of rain (with thunder) or wind under the crowd
    PG.audio.muffle(on)         everything goes dull and distant while the game is paused
    
@@ -24,6 +26,8 @@
   if (S.ann === undefined) S.ann = true;
   if (S.vol === undefined) S.vol = 2;
   const VOL = [0.45, 0.7, 1], TRIM = 0.8;  // Settings: low, medium, high; and the headroom left above the limiter
+  const BOOTH = 1.5, ANALYST = 0.84;  // the commentators' level against everything else, and the analyst's against the play-by-play man's (he is the deeper voice, and the second one)
+  let deaf = false;  // test hook: the mix runs, but nothing reaches the speakers
 
   let ctx = null;  // the live AudioContext, created on the first tap
   let bus = null;  // the gain nodes of the live graph: master, sfx, crowd, music, ui, pa
@@ -183,11 +187,11 @@
      Each bus also feeds the stadium reverb by its own amount. `pa` is the public-address system: band-limited, with a
      slap coming back off the far stand, for the horn and the organ. */
   function buildGraph(c) {
-    const master = gain(c, 1), tone = filter(c, 'lowpass', 20000, 0.5), out = gain(c, TRIM * (VOL[S.vol] === undefined ? 1 : VOL[S.vol]));
+    const master = gain(c, 1), tone = filter(c, 'lowpass', 20000, 0.5), out = gain(c, TRIM * (VOL[S.vol] === undefined ? 1 : VOL[S.vol])), gate = gain(c, 1);
     /* Web Audio's compressor adds its own make-up gain (about 5 dB for the first of these, 3 for the second), so
        quiet passages come up and loud ones are held: the second, at 20 to 1, is the ceiling, and TRIM leaves a
        little room above it for the instant it takes to react. */
-    chain(master, tone, compressor(c, -18, 12, 2, 0.015, 0.3), compressor(c, -6, 0, 20, 0.003, 0.1), out, c.destination);
+    chain(master, tone, compressor(c, -18, 12, 2, 0.015, 0.3), compressor(c, -6, 0, 20, 0.003, 0.1), out, gate, c.destination);
     const verb = c.createConvolver();
     verb.buffer = impulse(c, 2.6);
     chain(verb, gain(c, 0.4), master);
@@ -207,7 +211,12 @@
     const stands = gain(c, 1), dull = filter(c, 'lowpass', 4600, 0.5);
     chain(stands, dull, gain(c, 0.85), master);
     chain(dull, gain(c, 0.4), verb);
-    return { master, tone, out, sfx: mk(1, 0.2), crowd: mk(1, 0.14), music: mk(0.9, 0.09), ui: mk(1, 0.03), pa, stands };
+    /* the booth is glass and carpet, so none of the stadium is on the commentators: the rumble off, a little presence,
+       and a compressor of their own, so an aside and a shout sit close enough together to both be heard over a crowd */
+    const booth = gain(c, BOOTH), pres = filter(c, 'peaking', 3000, 0.9);
+    pres.gain.value = 2.5;
+    chain(booth, filter(c, 'highpass', 80, 0.7), pres, compressor(c, -20, 8, 2.5, 0.004, 0.18), master);
+    return { master, tone, out, gate, sfx: mk(1, 0.2), crowd: mk(1, 0.14), music: mk(0.9, 0.09), ui: mk(1, 0.03), pa, stands, booth };
   }
 
   /* ---------- voices ---------- */
@@ -1266,9 +1275,9 @@
     },
   };
 
-  /* ---------- announcer ----------
-     Short calls on the big moments. There are no recordings: the words go to the device's speech synthesizer,
-     so the voice is whatever the phone or computer has. The crowd dips while he talks. Settings can turn it off. */
+  /* ---------- the device's voice ----------
+     What the game had before the booth was recorded, and what the booth still falls back to: the words go to the
+     device's speech synthesizer, so the voice is whatever the phone or computer has. The crowd dips while it talks. */
   const ann = {
     voice: null, primed: false, log: [],
     /* the best English voice the device has: the newer "natural" voices first, then known good ones, then any */
@@ -1330,6 +1339,167 @@
       } catch (_) {}
       this.duck(false);
     },
+  };
+
+  /* ---------- the booth ----------
+     Two recorded commentators: a play-by-play man and an analyst. tools/voice.py records the script in
+     tools/commentary.json with an open speech model and packs the clips end to end into audio/vo.pack; js/vo.js says
+     where each one sits. The pack is fetched once and kept as it came (a couple of megabytes); a clip is decoded when
+     it is first wanted, and the last few dozen stay decoded.
+     One of them talks at a time. A bigger call cuts in over a smaller one. An equal one waits its turn, and is dropped
+     if its moment passes while it waits. Colour is only said when nobody is talking. The crowd and the band dip under
+     them. If this build has no clips, or they cannot be fetched or read, the same words go to the device's voice for
+     the calls that matter. The two are never mixed: while the clips are still on their way, nothing is said. */
+  const VO = PG.VO || null;
+  const booth = {
+    state: VO ? 'idle' : 'none',  // none: this build has no clips; idle: not asked for yet; loading; ready; failed
+    pack: null, got: null, bufs: new Map(), bags: {}, last: {}, q: [], cur: null, prev: null, ducked: false, bad: 0, log: [],
+    /* fetch the clips, once: a promise for the pack's bytes, or for null when they cannot be had */
+    load() {
+      if (this.got || !VO) return this.got || Promise.resolve(null);
+      this.state = 'loading';
+      const inline = () => {
+        const text = atob(VO.b64), bytes = new Uint8Array(text.length);  // the one-file build carries the pack inside itself
+        for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+        VO.b64 = null;
+        return bytes.buffer;
+      };
+      this.got = (VO.b64 ? Promise.resolve().then(inline) : fetch(VO.pack, { cache: 'no-cache' }).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))))
+        .then(ab => {
+          if (ab.byteLength !== VO.bytes) throw new Error('not the pack this index was written for');
+          this.pack = ab;
+          this.state = 'ready';
+          return ab;
+        })
+        .catch(() => {
+          this.state = 'failed';
+          return null;
+        });
+      return this.got;
+    },
+    /* a clip, decoded, as a promise; clip is its index entry: [id, offset in the pack, bytes, seconds] */
+    buf(c, clip) {
+      const live = c === ctx, hit = live && this.bufs.get(clip[0]);
+      if (hit) {
+        this.bufs.delete(clip[0]);  // the one used last goes to the back of the line
+        this.bufs.set(clip[0], hit);
+        return hit;
+      }
+      const p = new Promise((ok, no) => {
+        const r = c.decodeAudioData(this.pack.slice(clip[1], clip[1] + clip[2]), ok, no);
+        if (r && r.catch) r.catch(() => {});  // newer browsers also answer with a promise; the callbacks have it
+      });
+      if (live) {
+        this.bufs.set(clip[0], p);
+        if (this.bufs.size > 36) this.bufs.delete(this.bufs.keys().next().value);
+        p.catch(() => {
+          this.bufs.delete(clip[0]);
+          if (++this.bad >= 3) this.state = 'failed';  // this browser cannot read them
+        });
+      }
+      return p;
+    },
+    /* the next take of a call: every take once, in a shuffled order, before any comes round again */
+    take(call) {
+      const all = VO && VO.clips[call];
+      if (!all) return null;
+      let bag = this.bags[call];
+      if (!bag || !bag.length) {
+        bag = this.bags[call] = all.slice().sort(() => Math.random() - 0.5);
+        if (bag.length > 1 && bag[bag.length - 1] === this.last[call]) bag.reverse();  // not the same one twice running
+      }
+      return (this.last[call] = bag.pop());
+    },
+    left() {
+      return this.cur ? Math.max(0, this.cur.end - ctx.currentTime) : 0;
+    },
+    duck(on) {
+      if (!bus || this.ducked === on) return;
+      this.ducked = on;
+      bus.crowd.gain.setTargetAtTime(on ? 0.42 : 1, ctx.currentTime, on ? 0.08 : 0.3);
+      bus.stands.gain.setTargetAtTime(on ? 0.5 : 1, ctx.currentTime, on ? 0.08 : 0.3);
+    },
+    /* Ask for a line. o.pri: 0 colour, 1 a call (the default), 2 a big call. o.ttl: how many seconds it may wait its
+       turn. o.keep: colour that may wait behind a call instead of being dropped. Returns whether it will be said. */
+    say(call, o) {
+      o = o || {};
+      const pri = o.pri === undefined ? 1 : o.pri, now = performance.now() / 1000;
+      this.log.push(call);  // kept so tests can see what was asked for, heard or not
+      if (this.log.length > 600) this.log.shift();
+      if (!S.ann || !S.snd || !ctx || ctx.state !== 'running' || wantMusic) return false;
+      if (this.state === 'idle') this.load();
+      if (this.state === 'none' || this.state === 'failed') {
+        const clip = pri ? this.take(call) : null;  // the device's voice makes the calls and leaves the colour out
+        return clip ? ann.say(VO.text[clip[0]], pri > 1) : false;
+      }
+      if (this.state !== 'ready') return false;
+      if (this.cur && pri > this.cur.pri) {
+        this.q = this.q.filter(x => x.pri >= pri);  // he cuts in, and what was waiting behind the smaller line goes with it
+        this.cut();
+      } else if (!pri && !o.keep && (this.q.length || this.left() > 0.8)) return false;
+      const clip = this.take(call);
+      if (!clip) return false;
+      this.q.push({ call, clip, pri, who: call.startsWith('a.') ? 'a' : 'p', until: now + (o.ttl || (pri ? 3.5 : 2)) });
+      if (this.q.length > 5) {
+        let k = 0;  // too much waiting: the least of it goes
+        for (let i = 1; i < this.q.length - 1; i++) if (this.q[i].pri < this.q[k].pri) k = i;
+        this.q.splice(k, 1);
+      }
+      if (!this.cur) this.next();
+      return true;
+    },
+    next() {
+      if (this.cur) return;
+      const now = performance.now() / 1000;
+      let it = this.q.shift();
+      while (it && it.until < now) it = this.q.shift();  // its moment has passed
+      if (!it) return this.duck(false);
+      const prev = this.prev, gap = prev && now - prev.at < 1.2 ? (prev.who === it.who ? 0.12 : 0.3) : 0;  // a breath between lines, a longer one between the two men
+      const cur = (this.cur = { call: it.call, pri: it.pri, who: it.who, end: Infinity, src: null, g: null });
+      const done = () => {
+        if (this.cur !== cur) return;
+        this.cur = null;
+        this.prev = { who: cur.who, at: performance.now() / 1000 };
+        this.next();
+      };
+      this.buf(ctx, it.clip).then(b => {
+        if (this.cur !== cur) return;  // cut before it could start
+        const src = ctx.createBufferSource(), g = gain(ctx, cur.who === 'a' ? ANALYST : 1), t = ctx.currentTime + 0.02 + gap;
+        src.buffer = b;
+        chain(src, g, bus.booth);
+        src.onended = () => {
+          try {
+            g.disconnect();
+          } catch (_) {}
+          done();
+        };
+        src.start(t);
+        cur.src = src;
+        cur.g = g;
+        cur.end = t + b.duration;
+        this.duck(true);
+      }, done);
+    },
+    cut() {
+      const c = this.cur;
+      this.cur = this.prev = null;
+      if (!c || !c.src) return;
+      c.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.025);  // a quick fade, not a click
+      try {
+        c.src.stop(ctx.currentTime + 0.12);
+      } catch (_) {}
+    },
+    hush() {
+      this.q.length = 0;
+      if (ctx) this.cut();
+      this.duck(false);
+    },
+  };
+
+  /* nobody speaks: the game is paused, hidden, back in the menus, or the sound was switched off */
+  const quiet = () => {
+    ann.hush();
+    booth.hush();
   };
 
   /* ---------- weather ---------- */
@@ -1412,6 +1582,7 @@
       if (!ctx) {
         ctx = new (window.AudioContext || window.webkitAudioContext)();
         bus = buildGraph(ctx);
+        bus.gate.gain.value = deaf ? 0 : 1;
       }
       if (ctx.state !== 'running') ctx.resume();
       wantStems();
@@ -1419,6 +1590,7 @@
       else crowd.start();
       weatherBed.apply();
       ann.prime();
+      if (S.ann && S.snd) booth.load();  // the commentators' clips come down behind the menus
     } catch (_) {}
   }
 
@@ -1427,7 +1599,7 @@
     if (!ctx) return;
     if (document.hidden) {
       ctx.suspend();
-      ann.hush();
+      quiet();
     } else ctx.resume();
   });
 
@@ -1518,7 +1690,7 @@
       if (wantMusic) {
         crowd.stop();
         music.start();
-        ann.hush();
+        quiet();
         this.halftime(false);
       } else {
         music.stop();
@@ -1527,13 +1699,14 @@
       weatherBed.apply();
     },
     /* The stadium speakers: the referee giving a call (his microphone clicks on first), or the stadium announcer
-       (opts.announcer: his channel is always open). Returns how long it will take, 0 when nothing can be heard. */
+       (opts.announcer: his channel is always open). opts.wait holds it back that many seconds. Returns how long it
+       will take, the wait included, 0 when nothing can be heard. */
     pa(text, opts) {
       note('pa: ' + text);
       if (!ctx || !S.snd || ctx.state !== 'running' || wantMusic) return 0;
-      const t = ctx.currentTime + 0.05, lead = opts && opts.announcer ? 0 : 0.3;
+      const wait = (opts && opts.wait) || 0, t = ctx.currentTime + 0.05 + wait, lead = opts && opts.announcer ? 0 : 0.3;
       if (lead) SFX.mic(ctx, bus.pa, t);
-      return lead + paVoice(ctx, bus.pa, t + lead, text) + 0.05;
+      return wait + lead + paVoice(ctx, bus.pa, t + lead, text) + 0.05;
     },
     /* a home first down, the way a stadium does it: the announcer starts the sentence and the crowd finishes it */
     firstDown(team) {
@@ -1578,6 +1751,19 @@
     say(text, urgent) {
       return ann.say(text, urgent);
     },
+    /* the booth: ask the commentators for a line (the options are described at booth.say) */
+    call(key, o) {
+      return booth.say(key, o);
+    },
+    /* test hook: what the booth is doing, and everything it has been asked for */
+    get booth() {
+      return { state: booth.state, now: booth.cur && booth.cur.call, left: +(ctx ? booth.left() : 0).toFixed(2), waiting: booth.q.map(x => x.call), log: booth.log, kept: booth.bufs.size };
+    },
+    /* test hook: the mix keeps running, but nothing reaches the speakers (the meter still reads it) */
+    deaf(on) {
+      deaf = !!on;
+      if (bus) bus.gate.gain.value = deaf ? 0 : 1;
+    },
     /* the band strikes up, unless it played in the last quarter of a minute; `which` picks the piece (for tests) */
     band(which) {
       if (!ctx || !S.snd || ctx.state !== 'running' || wantMusic) return false;
@@ -1597,7 +1783,7 @@
     muffle(on) {
       if (!ctx || !bus) return;
       bus.tone.frequency.setTargetAtTime(on ? 650 : 20000, ctx.currentTime, on ? 0.08 : 0.15);
-      if (on) ann.hush();
+      if (on) quiet();
     },
     /* settings changed */
     refresh() {
@@ -1605,9 +1791,10 @@
       bus.out.gain.setTargetAtTime(TRIM * (VOL[S.vol] === undefined ? 1 : VOL[S.vol]), ctx.currentTime, 0.05);
       if (!S.snd) {
         crowd.stop();
-        ann.hush();
+        quiet();
       } else if (!wantMusic) crowd.start();
-      if (!S.ann) ann.hush();
+      if (!S.ann) quiet();
+      else if (S.snd) booth.load();
       weatherBed.apply();
       if (!S.mus) music.stop();
       else if (wantMusic) music.start();
@@ -1638,6 +1825,14 @@
       else if (name.startsWith('pa:')) {
         SFX.mic(c, g.pa, 0.02);
         paVoice(c, g.pa, 0.32, name.slice(3));
+      } else if (name.startsWith('vo:')) {
+        /* a commentator's line: 'vo:td', take opts.take (the first when not given) */
+        const clip = VO && (VO.clips[name.slice(3)] || [])[(opts && opts.take) || 0];
+        if (!clip || !(await booth.load())) return null;
+        const src = c.createBufferSource();
+        src.buffer = await booth.buf(c, clip);
+        chain(src, gain(c, name.startsWith('vo:a.') ? ANALYST : 1), g.booth);
+        src.start(0.02);
       } else SFX[name](c, g[ROUTE[name] || 'sfx'], 0.02, opts);
       return stats(await rendered(c));
     },
@@ -1649,6 +1844,11 @@
       out['stem clap'] = await this.measure('stem:clap', null, 5);
       for (const w of [0, 1, 2, 3]) out['band ' + w] = await this.measure('band:' + w, null, w === 3 ? 17.5 : w === 2 ? 9.5 : 4);
       out['pa call'] = await this.measure('pa:Holding, offense. Ten yard penalty. Replay the down.', null, 5);
+      if (VO) {
+        out['booth aside'] = await this.measure('vo:a.first', null, 2);
+        out['booth call'] = await this.measure('vo:pass.good', null, 2.2);
+        out['booth big call'] = await this.measure('vo:td', { take: 2 }, 2);
+      }
       out['crowd quiet'] = await this.measure('crowd', { level: 0.3 }, 6);
       out['crowd tense'] = await this.measure('crowd', { level: 1 }, 6);
       out['crowd cheering'] = await this.measure('crowd', { level: 0.6, cheer: 1 }, 6);

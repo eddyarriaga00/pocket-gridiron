@@ -16,7 +16,7 @@
   const v3 = new T.Vector3(), v3b = new T.Vector3(), col = new T.Color(), zAxis = new T.Vector3(0, 0, 1);
 
   let renderer, scene, camera, W = 1, H = 1;
-  let fieldTex, fieldCanvas, crowdTex, crowdCanvas, crowdMat, ribbonTex, ribbonCanvas;
+  let fieldTex, fieldCanvas, crowdTex, crowdCanvas, crowdMat, ribbonTex, ribbonCanvas, boardTex, boardCanvas, boardKey = '';
   let parts = [], figs = [], shadows, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
   let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null;
   const posts = [];
@@ -132,6 +132,7 @@
 
   /* ---------- animation: fill TG with the pose this player wants ---------- */
   function stanceOf(p, s) {
+    if (s.ps.mode === 'ko') return 'wide';
     if (p.isOL || /^D[ET]/.test(p.role) || p.role === 'TE') return 'line';
     if (p.role === 'QB') return Math.abs(p.y - s.ps.los) < 2.6 ? 'under' : 'two';
     return /^(RB|FB|OLB|MLB)/.test(p.role) ? 'two' : 'wide';
@@ -141,6 +142,7 @@
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5), ph = p.anim * 2.4, sn = Math.sin(ph), cs = Math.cos(ph);
     const carrier = ps.carrier === p && !ps.air, inPocket = carrier && p === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open;
     let hx = null, hy = 0, snap = false;
+    if (!(p.down || p.fell)) f.fall = 0;
     tg[PELY] = HIP; tg[EL] = 0.25; tg[ER] = 0.25; tg[CHRX] = -0.05;
 
     if (p.down || p.fell) {                                   // on the turf
@@ -282,6 +284,27 @@
     ribbonTex.needsUpdate = true;
   }
 
+  function paintBoard(G, t0, t1, down) {
+    const c = boardCanvas.getContext('2d'), w = 512, h = 160;
+    c.fillStyle = '#05080f'; c.fillRect(0, 0, w, h);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (!G.ros) {
+      c.fillStyle = '#ffffff'; c.font = '800 54px Archivo, Arial, sans-serif'; c.fillText('POCKET GRIDIRON', w / 2, h / 2 + 2, w - 40);
+    } else {
+      c.fillStyle = t0.c1; c.fillRect(0, 0, 150, 104); c.fillStyle = t1.c1; c.fillRect(w - 150, 0, 150, 104);
+      c.fillStyle = '#ffffff'; c.font = '800 30px Archivo, Arial, sans-serif'; c.fillText(t0.ab, 75, 28); c.fillText(t1.ab, w - 75, 28);
+      c.font = '800 56px Archivo, Arial, sans-serif'; c.fillText(G.score[0], 75, 72); c.fillText(G.score[1], w - 75, 72);
+      const sec = Math.ceil(G.clock || 0);
+      c.font = '800 46px Archivo, Arial, sans-serif'; c.fillText(Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'), w / 2, 44);
+      c.font = '700 20px Archivo, Arial, sans-serif'; c.fillStyle = '#9fb0cc';
+      c.fillText(G.q > 4 ? 'OVERTIME' : ['1ST', '2ND', '3RD', '4TH'][G.q - 1] + ' QUARTER', w / 2, 84);
+      c.fillStyle = '#0e1626'; c.fillRect(0, 106, w, 54);
+      c.fillStyle = '#ffffff'; c.font = '800 28px Archivo, Arial, sans-serif';
+      c.fillText(G.celeb ? 'TOUCHDOWN ' + (G.celeb.team === 0 ? t0 : t1).name.toUpperCase() : (down || '').toUpperCase(), w / 2, 134, w - 30);
+    }
+    boardTex.needsUpdate = true;
+  }
+
   /* ---------- scene ---------- */
   function quadMesh(a, b, c, d, mat, ru, rv) {
     const g = new T.BufferGeometry();
@@ -332,6 +355,15 @@
     ring4(-54, FW + 54, -64, 164, 23.6, 0.01, 5, ribbonMat, 3, 1);                                 // ribbon board between the decks
     ring4(-55, FW + 55, -65, 165, 28.6, 34, 24, crowdMat);
     ring4(-14, FW + 14, -24, 124, 0, 0.01, 1.6, wallMat);                                          // the wall at field level
+    /* video boards behind both end zones */
+    boardCanvas = document.createElement('canvas'); boardCanvas.width = 512; boardCanvas.height = 160;
+    boardTex = new T.CanvasTexture(boardCanvas); boardTex.colorSpace = T.SRGBColorSpace;
+    const boardMat = new T.MeshBasicMaterial({ map: boardTex, fog: false });
+    for (const [y, ry] of [[128, 0], [-28, Math.PI]]) {
+      const m = new T.Mesh(new T.PlaneGeometry(36, 11.25), boardMat); m.position.set(FW / 2, 13, -y); m.rotation.y = ry; scene.add(m);
+      box(38, 13.2, 1, 0x05080f, FW / 2, 13, -(y + (ry ? -0.7 : 0.7)), true);
+      box(1.2, 8, 1.2, 0x10182a, FW / 2 - 12, 4, -(y + (ry ? -1 : 1)), true); box(1.2, 8, 1.2, 0x10182a, FW / 2 + 12, 4, -(y + (ry ? -1 : 1)), true);
+    }
     /* light towers in the four corners */
     const glowC = document.createElement('canvas'); glowC.width = glowC.height = 64;
     const gx = glowC.getContext('2d'), rg = gx.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -415,7 +447,7 @@
     renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
     camera = new T.PerspectiveCamera(76, 1, 2, 900);
     buildScene();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { teamsKey = ''; numCache.clear(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { teamsKey = ''; boardKey = ''; numCache.clear(); });
     return true;
   }
   function resize(w, h, dpr) {
@@ -437,11 +469,13 @@
     time += dt;
     const G = s.G, P = s.P, ps = s.ps, t0 = s.teams[G.tm[0]], t1 = s.teams[G.tm[1]];
     const key = G.tm[0] + '-' + G.tm[1];
-    if (key !== teamsKey) { teamsKey = key; setTeams(t0, t1); }
+    if (key !== teamsKey) { teamsKey = key; boardKey = ''; setTeams(t0, t1); }
+    const bk = G.ros ? [G.score, G.q, Math.ceil(G.clock || 0), s.down, !!G.celeb].join('|') : 'menu';
+    if (bk !== boardKey) { boardKey = bk; paintBoard(G, t0, t1, s.down); }
 
     /* players */
     const fresh = ps !== lastPs; lastPs = ps;
-    const st = { G, ps, pre: G.state === 'pre' || G.state === 'kickm', live: G.state === 'live', dir: G.dir || 1, celeb: G.celeb || null };
+    const st = { G, ps, pre: G.state === 'pre' || G.state === 'kickm', live: G.state === 'live' || G.state === 'replay', dir: G.dir || 1, celeb: G.celeb || null };
     let ctl = null;
     for (let i = 0; i < MAXP; i++) {
       const f = figs[SIDELINE + i], p = P[i];
@@ -472,6 +506,8 @@
         dirV.set((a.x1 - a.x0) / a.T, vz, -(a.y1 - a.y0) / a.T).normalize();
         ball.quaternion.setFromUnitVectors(zAxis, dirV);
         if (a.kick) ball.rotateX(time * 14); else ball.rotateZ(time * 22);
+      } else if (ps.loose) {
+        bx = ps.loose.x; by = ps.loose.y; bz = ps.loose.z; ball.rotation.set(time * 9, time * 4, 0);
       } else if (c) {
         const f = figs[SIDELINE + P.indexOf(c)];
         if (f) {
@@ -506,6 +542,9 @@
     if (menu) {
       const a = time * 0.06;
       v3.set(FW / 2 + Math.sin(a) * 58, 30 + Math.sin(a * 0.7) * 6, -50 + Math.cos(a) * 95); v3b.set(FW / 2, 2, -50);
+    } else if (G.state === 'replay' && ps) {                             // replay: low, from the middle of the field
+      const side = cm.fx > FW / 2 ? -1 : 1;
+      v3.set(cm.fx + side * 13, 3.4, -(cm.fy - st.dir * 5)); v3b.set(cm.fx, 1.5, -cm.fy);
     } else if (G.celeb && G.state === 'dead' && G.celeb.who) {          // touchdown: circle the scorer
       const w = G.celeb.who, a = time * 0.55;
       v3.set(w.x + Math.sin(a) * 7.5, 2.9, -w.y + Math.cos(a) * 7.5); v3b.set(w.x, 2.1, -w.y);
@@ -518,7 +557,7 @@
         v3b.y = lerp(1.2, 0, e);
       }
     }
-    const pre = G.state === 'pre', k = cm.snap ? 1 : pre ? 1 - Math.exp(-dt * 12) : 1 - Math.exp(-dt * 4.2);
+    const pre = G.state === 'pre', k = cm.snap ? 1 : pre ? 1 - Math.exp(-dt * 12) : G.state === 'replay' ? 1 - Math.exp(-dt * 6) : 1 - Math.exp(-dt * 4.2);
     cm.snap = false;
     camPos.lerp(v3, k); camLook.lerp(v3b, k);
     camera.position.copy(camPos);

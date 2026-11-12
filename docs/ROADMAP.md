@@ -80,15 +80,17 @@ what is next. Update it after every item.
 - [ ] Verify fall and celebration close up; kicker leg swing; jog to the line; referee
 
 ### 5. Game feel
-- [ ] Break-the-huddle jog to formation, snap and handoff motion
-- [ ] Ball bounces on incompletions; spiral in flight
-- [ ] Instant replay of touchdowns from a second camera
-- [ ] Referee signals, scoreboard in the stadium
+- [x] Break-the-huddle jog to formation; the ball travels from the turf to the quarterback on the snap
+- [x] Incomplete passes bounce and roll (`ps.loose`)
+- [x] Instant replay of touchdowns, interceptions and 28+ yard plays: half speed, low camera, tap to skip, setting to turn off
+- [x] Stadium video boards with score, clock, down and distance, "TOUCHDOWN" on scores
+- [x] Cinematic cameras: push-out before the snap, orbit around the scorer
+- [ ] Referee signals, handoff motion, celebration variety
 
 ### 6. Gameplay
-- [ ] Live kickoffs and returns (exhibition), touchbacks
+- [x] Live kickoffs and returns in exhibition (touchbacks when the kick reaches the end zone); career and simulations use the 25
+- [x] Computer tuning after the 3D pass: `H.sim(14,180)` gives 4.1 ypc, 62% completions, 2% sacks, 0.9% INT, 28 pts/game
 - [ ] Lob and bullet passes (hold vs tap)
-- [ ] Computer quarterback tuning: more completions, some sacks
 - [ ] Penalties and fumbles (rare), timeouts
 
 ### 7. Career depth
@@ -128,6 +130,9 @@ what is next. Update it after every item.
 - 03:50 3D renderer and player models in. 95 draw calls, 131k triangles, 0.9 ms CPU per frame on the dev machine.
   `PG.r3d.debugCam = {pos:[x,h,-y], look:[x,h,-y]}` pins the camera for close-up screenshots; `PG.dbg.render()` forces a frame.
   `H.sim(6,120)`: 4.7 ypc, 59% completions, 2.1% INT, 24 pts/game, no errors.
+
+- 04:30 Kickoffs, replays, video boards, jog-in, loose ball. Regression clean. Note: the pane's `zoom` action can return a
+  stale capture; use `screenshot` after `PG.dbg.render()`.
 
 ## Morning hand-off
 

@@ -53,6 +53,8 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
   background:rgba(6,10,19,.88);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase}
 #toast.on{opacity:1}
 
+#rp{position:absolute;left:10px;top:84px;display:flex;align-items:center;gap:7px;background:rgba(6,10,19,.88);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 9px;font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;pointer-events:none}
+#rp i{width:7px;height:7px;border-radius:50%;background:var(--red)}
 /* pre-snap assignment card (career) */
 #brief{position:absolute;left:10px;bottom:16px;max-width:58%;background:rgba(6,10,19,.9);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:7px 10px;pointer-events:none}
 #brief b{display:block;font-family:var(--display);font-size:12.5px;font-weight:800;letter-spacing:.04em;line-height:1.15;text-transform:uppercase}

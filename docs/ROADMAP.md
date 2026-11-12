@@ -65,15 +65,19 @@ what is next. Update it after every item.
 - [ ] Later: between-play cadence, ball bounce, footsteps, announcer voice
 
 ### 3. 3D renderer
-- [ ] three.js scene behind a Graphics setting, automatic fallback to 2D when WebGL is unavailable
-- [ ] Field texture (stripes, lines, hashes, numbers, end zones, midfield logo), goal posts, pylons, sticks
-- [ ] Stadium: stands with crowd, light towers, sideline figures, sky
-- [ ] Camera matched to the portrait framing; overlay canvas projects through the 3D camera
+- [x] three.js scene (`js/render3d.js`) behind a Graphics setting, automatic fallback to 2D when WebGL or the library is unavailable
+- [x] Field texture (stripes, lines, hashes, numbers, end zones, midfield logo), goal posts, pylons, first-down marker
+- [x] Stadium: two decks of crowd, ribbon boards with team names, light towers with glow, benches, sideline figures
+- [x] Camera matched to the portrait framing (fov 76, 24 yd high, 40 back); overlay canvas projects through the 3D camera
+- [ ] Polish: calmer crowd texture (moire at distance), scoreboard, menu camera path
 
 ### 4. Player models and animation
-- [ ] Procedural low-poly player rig (helmet, facemask, pads, jersey number, arms, legs), ball model
-- [ ] Stances, run cycle, backpedal, throw, catch, block, tackle and fall, dive, juke, spin, celebration
-- [ ] Blob shadows, user ring, pass target ring in 3D
+- [x] Procedural low-poly rig: helmet with stripe, visor and facemask, pads, jersey numbers front and back, arms, legs, shoes.
+      Every body part is an InstancedMesh (13 draw calls for all figures). Ball model with stripes and laces.
+- [x] Poses: line, under-center, two-point and wide stances; run cycle; backpedal with eyes on the quarterback; pocket carry;
+      tucked carry; throw; catch reach; block; dive; stumble; fall; celebration and heads-down
+- [x] Blob shadows, user ring, pass target ring in 3D
+- [ ] Verify fall and celebration close up; kicker leg swing; jog to the line; referee
 
 ### 5. Game feel
 - [ ] Break-the-huddle jog to formation, snap and handoff motion
@@ -120,6 +124,10 @@ what is next. Update it after every item.
 - 03:15 Sound engine done. Levels checked offline with `PG.audio.measure(name)` (peak / RMS dBFS): whistle -13/-26,
   hit -8/-30, horn -8/-22, fanfare -9/-24, music -4/-22, crowd bed -35 (quiet) to -29 (loud), big cheer -19.
   Nobody has listened to it yet: levels are verified, taste is not.
+
+- 03:50 3D renderer and player models in. 95 draw calls, 131k triangles, 0.9 ms CPU per frame on the dev machine.
+  `PG.r3d.debugCam = {pos:[x,h,-y], look:[x,h,-y]}` pins the camera for close-up screenshots; `PG.dbg.render()` forces a frame.
+  `H.sim(6,120)`: 4.7 ypc, 59% completions, 2.1% INT, 24 pts/game, no errors.
 
 ## Morning hand-off
 

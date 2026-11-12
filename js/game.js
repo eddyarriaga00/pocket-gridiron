@@ -4,7 +4,7 @@
 'use strict';
 const $=s=>document.querySelector(s);
 const app=document.getElementById('app');
-app.innerHTML=`<canvas id="c"></canvas>
+app.innerHTML=`<canvas id="gl" hidden></canvas><canvas id="c"></canvas>
 <div id="hud" hidden>
   <div class="bug">
     <div class="side" id="sd0"><i></i><b id="a0"></b><em></em><u id="s0">0</u></div>
@@ -20,6 +20,7 @@ app.innerHTML=`<canvas id="c"></canvas>
 const cv=$('#c'),ctx=cv.getContext('2d'),pad=$('#pad'),scr=$('#screen');
 const FW=53.33,PITCH=48*Math.PI/180,CS=Math.cos(PITCH),SN=Math.sin(PITCH),PS=1.6,CAMH=19.3;
 let W=1,H=1,F=1,CY=1,DPR=1,AUTO=false,QUIET=false,FDT=0.016,shake=0;
+let R3=null;   // the 3D renderer (render3d.js) when it is active; null means the 2D canvas draws everything
 const RM=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
 const rnd=(a=1,b)=>b===undefined?Math.random()*a:a+Math.random()*(b-a);
 const clamp=(v,a,b)=>v<a?a:v>b?b:v,hyp=Math.hypot,lerp=(a,b,t)=>a+(b-a)*t;
@@ -32,7 +33,7 @@ const ACCENTS={blue:'#4c9aff',red:'#ff5a6b',orange:'#ff8437',teal:'#2fd6c1',viol
 let ACC=ACCENTS.blue;
 function applyTheme(){if(!ACCENTS[SET.acc])SET.acc='blue';ACC=ACCENTS[SET.acc];document.documentElement.style.setProperty('--acc',ACC)}
 applyTheme();
-function resize(){const r=app.getBoundingClientRect();DPR=Math.min(2.5,window.devicePixelRatio||1);W=r.width||1;H=r.height||1;cv.width=W*DPR;cv.height=H*DPR;F=W*0.62;CY=H*0.5}
+function resize(){const r=app.getBoundingClientRect();DPR=Math.min(2.5,window.devicePixelRatio||1);W=r.width||1;H=r.height||1;cv.width=W*DPR;cv.height=H*DPR;F=W*0.62;CY=H*0.5;if(R3)R3.resize(W,H,DPR)}
 addEventListener('resize',resize);
 
 /* ---------- data ---------- */
@@ -133,7 +134,7 @@ function setupPlay(){
  const off=G.poss,dir=off===0?1:-1,op=G.op,dp=G.dp,bx=G.bx,los=G.los;G.dir=dir;P=[];
  const mk=(team,role,dx,dy)=>{const r=G.ros[team][role],ol=role in OLX;
   const p={team,role,x:clamp(bx+dx,1,FW-1),y:los+dir*dy,vx:0,vy:0,dvx:0,dvy:0,spd:r.spd,acc:ol||role[0]==='D'?9:13,rt:r.rt,num:r.num,name:r.name,
-   eng:null,block:null,shed:0,immune:0,beat:0,stun:0,down:false,tcd:0,route:null,wp:0,juke:0,jcd:0,dive:0,anim:rnd(6),rd:0,isOL:ol,asg:null,man:null,callT:0,manT:0,bt:null,rx:rnd(0.2,0.45)};
+   eng:null,block:null,shed:0,immune:0,beat:0,stun:0,down:false,tcd:0,route:null,wp:0,juke:0,jcd:0,dive:0,anim:rnd(6),rd:0,isOL:ol,asg:null,man:null,callT:0,manT:0,bt:null,rx:rnd(0.2,0.45),thrT:0,spinT:0};
   if(r.x)Object.assign(p,r.x);
   p.sx=p.x;p.sy=p.y;P.push(p);return p};
  for(const r of OLR)mk(off,r,OLX[r],-0.6);
@@ -213,7 +214,7 @@ function carrierAI(p){const td=p.team===0?1:-1;let vx=0;
  if(p.x<5)vx+=(5-p.x)*0.5;if(p.x>FW-5)vx-=(p.x-(FW-5))*0.5;
  vx=clamp(vx,-1.3,1.3);const m=hyp(vx,1)/0.93;p.dvx=vx/m*p.spd;p.dvy=td/m*p.spd}
 function doJuke(p,s){p.juke=0.38*(1+((p.jk??75)-75)*0.012);p.jcd=1.3;p.vx+=s*6;snd('juke')}
-function doSpin(p){p.juke=0.5*(1+((p.jk??75)-75)*0.012);p.jcd=1.7;p.vx*=0.85;p.vy*=0.85;snd('juke')}
+function doSpin(p){p.juke=0.5*(1+((p.jk??75)-75)*0.012);p.jcd=1.7;p.spinT=0.5;p.vx*=0.85;p.vy*=0.85;snd('juke')}
 function manual(p){const b=inp.sprint&&G.stam>0.02?1.15:1;p.dvx=inp.x*p.spd*b;p.dvy=inp.y*p.spd*b}
 function lead(r,T){let x=r.x,y=r.y,rem=r.spd*T*0.93;const rt=r.route;
  if(!rt||r.manT>0)return[clamp(x+r.vx*T,1.5,FW-1.5),clamp(y+r.vy*T,-8.5,108.5)];
@@ -229,7 +230,7 @@ function throwTo(r,pt){const q=ps.carrier;if(!q||ps.thrown)return;let tx,ty,T=0.
   const pr=pressure(q),err=d*0.03*(1+(85-(q.thr??q.rt))*0.03)*(pr?1.9:1);tx=clamp(tx+(rnd()-rnd())*err,1,FW-1);ty=clamp(ty+(rnd()-rnd())*err,-9,109)}
  else{tx=pt.x;ty=pt.y;d=hyp(tx-q.x,ty-q.y);T=d/20}
  ps.air={x0:q.x,y0:q.y,x1:tx,y1:ty,t:0,T,h:1.2+d*0.11,target:r,x:q.x,y:q.y,z:1.8,dist:d};
- ps.thrown=true;ps.carrier=null;ps.passer=q;ps.tgt=r;snd('throw');
+ ps.thrown=true;ps.carrier=null;ps.passer=q;ps.tgt=r;q.thrT=0.32;snd('throw');
  if(r&&r===G.me&&!QUIET){G.my.tgt++;toast('Ball is yours!')}
  if(ps.offTeam===1&&!G.lock){let b=null,bd=1e9;for(const o of P)if(o.team===0&&!o.down){const s=hyp(o.x-tx,o.y-ty);if(s<bd){bd=s;b=o}}if(b)G.sel=b}}
 function qbAI(q,dt,past){
@@ -281,7 +282,7 @@ function tick(dt){
  const cl=new Set(),c=ps.carrier,uod=userOnD(),me=AUTO?null:G.me;
  for(const p of P)if(p.bt&&!p.down&&btValid(p))cl.add(p.bt);
  if(uod){if(G.lock)G.sel=G.me;else if(!G.sel||G.sel.team!==0||G.sel.down)switchDef()}
- for(const p of P){if(p.down)continue;p.tcd-=dt;p.immune-=dt;p.beat-=dt;p.juke-=dt;p.jcd-=dt;p.callT-=dt;p.manT-=dt;if(p.rd>0&&ps.open)p.rd-=dt;
+ for(const p of P){if(p.down)continue;p.tcd-=dt;p.immune-=dt;p.beat-=dt;p.juke-=dt;p.jcd-=dt;p.callT-=dt;p.manT-=dt;p.thrT-=dt;p.spinT-=dt;if(p.rd>0&&ps.open)p.rd-=dt;
   if(p.dive>0){p.dive-=dt;if(p.dive<=0)p.stun=0.7;continue}
   if(p.stun>0){p.dvx=p.dvy=0;continue}
   if(p.eng||p.block)continue;
@@ -335,7 +336,7 @@ function finish(kind,arg){
  if(kind==='inc'){big=arg||'Incomplete';stop=true;G.down++;G.stats[off].att++;react(1-off,0.35,1.4)}
  else if(kind==='td'){const t=c.team;G.score[t]+=6;const xp=rnd()<0.96;if(xp)G.score[t]++;
   big='Touchdown!';sub=tname(t)+(xp?' · extra point is good':' · extra point missed');score=true;
-  if(t===off)addYds(off,Math.round(((t===0?100:0)-los)*dir),true);else G.stats[off].to++;kickoff(1-t);confetti(t);if(t===0){snd('horn');snd('fanfare')}react(t,1.4,5.5)}
+  if(t===off)addYds(off,Math.round(((t===0?100:0)-los)*dir),true);else G.stats[off].to++;G.celeb={team:t,who:c};kickoff(1-t);confetti(t);if(t===0){snd('horn');snd('fanfare')}react(t,1.4,5.5)}
  else if(kind==='tackle'||kind==='oob'){const t=c.team,y=c.y,x=c.x;
   if(me&&ps.tackler===me)G.my.tkl++;
   if(t!==off){stop=true;big='Interception!';sub=tname(t)+' ball';G.stats[off].to++;G.stats[off].att++;react(t,1.2,3);
@@ -357,6 +358,7 @@ function finish(kind,arg){
  if(G.ot&&score)G.final=true;
  G.last=sub==='Turnover on downs'?sub:big;
  if(kind!=='td')snd('whistle');
+ for(const p of P){p.eng=null;p.block=null}
  G.state='dead';G.deadT=score?2.6:1.7;banner(big,sub,G.deadT*1000-150);updHud()}
 /* Quarter and game-end bookkeeping. Returns true when the game is over. */
 function advance(){
@@ -387,7 +389,7 @@ function cpuOff(t){const toGoal=t===0?100-G.los:G.los,ld=G.score[t]-G.score[1-t]
  if(star==='RB'){const withBack=list.filter(p=>p.r&&p.r.RB);if(withBack.length)list=withBack}
  return pick(list)}
 const cpuDef=()=>G.togo>12&&rnd()<0.35?DEF[5]:DEF[Math.floor(rnd(5))];
-function startCall(){P=[];ps=null;G.me=null;G.state='call';updHud();setBrief('');
+function startCall(){P=[];ps=null;G.me=null;G.celeb=null;G.state='call';updHud();setBrief('');
  if(AUTO){G.op=cpuOff(G.poss);G.dp=cpuDef();return begin()}
  if(G.lock){
   if((G.lockSide==='off')!==(G.poss===0))return simDrives();
@@ -503,7 +505,7 @@ function readInput(){let x=stick.x,y=stick.y;
 /* sounds are synthesized in audio.js */
 function snd(type,opts){if(AUTO||QUIET)return;const a=PG.audio;if(a)a.play(type,opts)}
 /* the home crowd is on the user's side: it cheers what is good for team 0 and groans at the rest */
-function react(goodFor,size,dur){if(AUTO||QUIET)return;const a=PG.audio;if(!a)return;if(goodFor===0)a.crowd.cheer(size,dur);else if(size>=0.7)a.crowd.groan(size*0.9);else a.crowd.ooh(size)}
+function react(goodFor,size,dur){if(AUTO||QUIET)return;if(goodFor===0&&R3)R3.cheer(size);const a=PG.audio;if(!a)return;if(goodFor===0)a.crowd.cheer(size,dur);else if(size>=0.7)a.crowd.groan(size*0.9);else a.crowd.ooh(size)}
 function crowdLevel(){if(!G.ros||G.state==='over')return 0.25;let v=0.3;const toGoal=G.poss===0?100-G.los:G.los;
  if(toGoal<20)v+=0.2;if(G.down>=3)v+=0.15;if(G.q>=4&&Math.abs(G.score[0]-G.score[1])<=8)v+=0.2;
  if(G.state==='live')v+=0.15;else if(G.poss===1&&G.state==='pre')v+=0.1;   // loud when the home defense is out there
@@ -571,12 +573,14 @@ function showMenu(){toMenu();const cs=PG.career&&PG.career.summary();
   <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and control the whole roster.</span><i>›</i></button>
   <h2>Settings</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
+  <div class="opt"><span>Graphics</span><button class="chip" id="mgf">${R3?'3D':'Classic 2D'}</button></div>
   <div class="opt"><span>Sound effects and crowd</span><button class="chip" id="msn">${SET.snd?'On':'Off'}</button></div>
   <div class="opt"><span>Music</span><button class="chip" id="mmu">${SET.mus?'On':'Off'}</button></div>
   <details class="how"><summary>How to play</summary><ul><li>Drag anywhere on the field to move your player.</li><li>Passing: tap a lettered receiver, or the matching button.</li><li>Ball in hand: Sprint, Juke, Spin. On defense: Dive, Sprint.</li><li>Keyboard: arrows, Space to snap, 1–5 to pass, J/K juke and spin, Q/E switch and dive, C to call for the ball, P to pause.</li></ul></details></div>`;
  $('#mC').onclick=()=>{snd('snap');PG.career?PG.career.open():showExh()};$('#mE').onclick=()=>{snd('snap');showExh()};
  scr.querySelectorAll('#acc button').forEach(b=>b.onclick=()=>{SET.acc=b.dataset.a;save('pg.settings',SET);applyTheme();showMenu()});
  $('#msn').onclick=()=>{SET.snd=!SET.snd;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();showMenu()};
+ $('#mgf').onclick=()=>{SET.gfx=R3?'2d':'3d';save('pg.settings',SET);setGfx(SET.gfx!=='2d');showMenu()};
  $('#mmu').onclick=()=>{SET.mus=!SET.mus;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();showMenu()}}
 function showExh(){let me=SET.me,opp=SET.opp,ql=SET.ql,diff=SET.diff;if(opp===me)opp=(me+1)%TEAMS.length;
  const draw=()=>{G.tm=[me,opp];scr.innerHTML=`<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Exhibition</h1>
@@ -606,8 +610,8 @@ function camUpd(dt,snapNow){let fx=G.bx,fy=G.los,up=G.poss===0;
   if(G.state==='live'||G.state==='kicka'||G.state==='dead'){
    if(ps.air){fx=ps.air.x;fy=ps.air.y}else if(ps.carrier){fx=ps.carrier.x;fy=ps.carrier.y;up=ps.carrier.team===0}else{fx=cam.fx;fy=cam.fy}}}
  if(G.state==='menu')fy=50;
- cam.fx=fx;cam.fy=fy;const tx=lerp(FW/2,fx,0.8),ty=fy-(up?10.5:18),k=snapNow?1:Math.min(1,dt*4.5);cam.x+=(tx-cam.x)*k;cam.y+=(ty-cam.y)*k}
-function pj(x,y,z=0){const dx=x-cam.x,dy=y-cam.y,dz=z-CAMH,d=dy*CS-dz*SN;if(d<1)return null;const s=F/d;return{x:W/2+dx*s,y:CY-(dy*SN+dz*CS)*s,s}}
+ cam.fx=fx;cam.fy=fy;cam.up=up;if(snapNow)cam.snap=true;const tx=lerp(FW/2,fx,0.8),ty=fy-(up?10.5:18),k=snapNow?1:Math.min(1,dt*4.5);cam.x+=(tx-cam.x)*k;cam.y+=(ty-cam.y)*k}
+function pj(x,y,z=0){if(R3)return R3.project(x,y,z);const dx=x-cam.x,dy=y-cam.y,dz=z-CAMH,d=dy*CS-dz*SN;if(d<1)return null;const s=F/d;return{x:W/2+dx*s,y:CY-(dy*SN+dz*CS)*s,s}}
 function quad(x0,y0,x1,y1,fill){const a=pj(x0,y0),b=pj(x1,y0),c=pj(x1,y1),d=pj(x0,y1);if(!a||!b||!c||!d)return;
  ctx.fillStyle=fill;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.fill()}
 function gline(x0,y0,x1,y1,w,col,z0=0,z1=0){const a=pj(x0,y0,z0),b=pj(x1,y1,z1);if(!a||!b)return;ctx.strokeStyle=col;ctx.lineWidth=Math.max(1,(a.s+b.s)/2*w);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
@@ -650,12 +654,15 @@ function drawPlayer(p){const q=pj(p.x,p.y);if(!q||q.y<-40||q.y>H+60)return;const
  ctx.fillStyle=hel;ctx.beginPath();ctx.arc(x,y-k*1.86+dv,k*0.31,0,7);ctx.fill();
  ctx.strokeStyle=home?t.c1:'#f1f1f1';ctx.lineWidth=Math.max(1,k*0.09);ctx.beginPath();ctx.moveTo(x,y-k*2.17+dv);ctx.lineTo(x,y-k*1.6+dv);ctx.stroke();
  if(ps.carrier===p&&!ps.air){ctx.fillStyle='#7a4a21';ctx.beginPath();ctx.ellipse(x+k*0.46,y-k*1.05+dv,k*0.2,k*0.3,0.4,0,7);ctx.fill()}
- if(ctl){const ty=y-k*2.35;
+ drawTags(p,x,y-k*2.35,ctl)}
+/* what floats over a player's head: the YOU tag or control arrow, and the receiver letters */
+function drawTags(p,x,ty,ctl){
+ if(ctl){
   if(G.lock){ctx.font='800 9px Archivo,Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';const w2=ctx.measureText('YOU').width/2+5;
    ctx.fillStyle=ACC;rr(x-w2,ty-16,w2*2,14,4);ctx.fillStyle='#06101f';ctx.fillText('YOU',x,ty-8.5)}
   else{ctx.fillStyle=ACC;ctx.beginPath();ctx.moveTo(x,ty);ctx.lineTo(x-5,ty-9);ctx.lineTo(x+5,ty-9);ctx.fill()}}
  p.hx=undefined;
- if(p.let&&ps.offTeam===0&&ps.mode==='pass'&&!ps.thrown&&userP(ps.qb)&&(G.state==='pre'||G.state==='live')){const by=y-k*2.3-14;p.hx=x;p.hy=by;
+ if(p.let&&ps.offTeam===0&&ps.mode==='pass'&&!ps.thrown&&userP(ps.qb)&&(G.state==='pre'||G.state==='live')){const by=ty-13;p.hx=x;p.hy=by;
   ctx.fillStyle=p.col;ctx.strokeStyle='#0b0f18';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,by,11,0,7);ctx.fill();ctx.stroke();
   ctx.fillStyle='#0b0f18';ctx.font='800 12.5px Archivo,Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.let,x,by+0.5)}}
 /* play art painted on the turf: the user's routes on offense, their assignment on defense */
@@ -675,19 +682,20 @@ function drawAssign(me){
  else if(me.asg==='rush')gline(me.x,me.y,ps.qb.x,ps.qb.y,0.12,'rgba(255,107,107,.8)')}
 function render(){
  ctx.setTransform(DPR,0,0,DPR,0,0);
- if(shake>0){shake-=FDT;ctx.translate(rnd(-3,3),rnd(-3,3))}
- drawField();
+ if(R3){ctx.clearRect(0,0,W,H);R3.render({G,P,ps,cam,teams:TEAMS,acc:ACC,shake,isCtl},FDT);if(shake>0)shake-=FDT}
+ else{if(shake>0){shake-=FDT;ctx.translate(rnd(-3,3),rnd(-3,3))}drawField()}
  if(ps&&!AUTO){const me=G.me,lk=G.lock;
   if(ps.offTeam===0&&(G.state==='pre'||(G.state==='live'&&lk&&me&&me!==ps.qb&&!ps.thrown&&!ps.open)))drawArtField(G.state==='pre'?0.85:0.45);
   if(lk&&me&&ps.offTeam===1&&(G.state==='pre'||(G.state==='live'&&!ps.open&&!ps.air)))drawAssign(me)}
- if(ps){const a=ps.air;
+ if(ps&&R3){for(const p of P){const q=pj(p.x,p.y,p.down?1.2:2.95);if(q)drawTags(p,q.x,q.y,isCtl(p))}}
+ else if(ps){const a=ps.air;
   if(a&&!a.kick){const q=pj(a.x1,a.y1),mine=G.lock&&a.target&&a.target===G.me;if(q){ctx.strokeStyle=mine?ACC:'#fff';ctx.lineWidth=mine?4:2;const pu=mine?1+0.15*Math.sin(a.t*18):1;ctx.beginPath();ctx.ellipse(q.x,q.y,q.s*1.3*pu,q.s*0.6*pu,0,0,7);ctx.stroke()}}
   for(const p of [...P].sort((u,v)=>v.y-u.y))drawPlayer(p);
   if(a){const g=pj(a.x,a.y),b=pj(a.x,a.y,a.z);if(g&&b){ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(g.x,g.y,g.s*0.5,g.s*0.22,0,0,7);ctx.fill();
    ctx.fillStyle='#8a5326';ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(b.x,b.y,Math.max(3,b.s*0.42),Math.max(4.5,b.s*0.62),a.t*9,0,7);ctx.fill();ctx.stroke()}}}
  for(let i=FX.length-1;i>=0;i--){const f=FX[i];f.t+=FDT;if(f.t>0.35){FX.splice(i,1);continue}const q=pj(f.x,f.y);if(!q)continue;const r=1+f.t*9;
   ctx.globalAlpha=1-f.t/0.35;ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(q.x,q.y-q.s,q.s*r,q.s*r*0.45,0,0,7);ctx.stroke();ctx.globalAlpha=1}
- post(-10);
+ if(!R3)post(-10);
  for(let i=CONF.length-1;i>=0;i--){const c=CONF[i];c.x+=c.vx*FDT;c.y+=c.vy*FDT;c.a+=FDT*7;if(c.y>H+10){CONF.splice(i,1);continue}
   ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.a);ctx.fillStyle=c.c;ctx.fillRect(-4,-2,8,4);ctx.restore()}
  if(stick.id!==null){ctx.strokeStyle='rgba(255,255,255,.38)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(stick.ox,stick.oy,36,0,7);ctx.stroke();
@@ -702,16 +710,23 @@ function step(dt){if(G.paused)return;readInput();
   case 'live':tick(dt);if(inp.sprint&&inp.manual)G.stam=Math.max(0,G.stam-dt/3.2);else G.stam=Math.min(1,G.stam+dt/6);break;
   case 'kickm':G.meter+=dt;break;
   case 'kicka':kickTick(dt);break;
-  case 'dead':G.deadT-=dt;if(G.deadT<=0)next();break}
+  case 'dead':coast(dt);G.deadT-=dt;if(G.deadT<=0)next();break}
  if(G.ros&&!AUTO&&PG.audio){const lv=crowdLevel();if(Math.abs(lv-(G.crowdLv||0))>0.04){G.crowdLv=lv;PG.audio.crowd.set(lv)}}
  camUpd(dt);if(G.ros){updHud();setPad(padKind());const s=pad.querySelector('.spr');if(s)s.style.setProperty('--st',G.stam)}}
+/* after the whistle players ease to a stop instead of freezing mid-stride */
+function coast(dt){if(!ps)return;const k=Math.pow(0.03,dt);
+ for(const p of P){if(p.down)continue;p.vx*=k;p.vy*=k;p.x+=p.vx*dt;p.y+=p.vy*dt;p.anim+=hyp(p.vx,p.vy)*dt;p.thrT-=dt;p.stun-=dt;p.dive-=dt;p.juke-=dt;p.spinT-=dt}}
+/* 3D when the library and WebGL are available, the 2D canvas otherwise */
+function setGfx(on){const gl=$('#gl');
+ if(on&&PG.r3d){try{if(!gl.dataset.ok){PG.r3d.init(gl);gl.dataset.ok='1'}R3=PG.r3d;gl.hidden=false;resize()}catch(e){console.warn('3D renderer unavailable, using 2D',e);R3=null;gl.hidden=true}}
+ else{R3=null;gl.hidden=true}}
 let last=0;
 function frame(ts){const dt=Math.min(0.034,(ts-last)/1000||0.016);last=ts;FDT=dt;const n=window.FAST||1;
  try{for(let i=0;i<n;i++)step(dt);render()}catch(e){console.error(e)}
  requestAnimationFrame(frame)}
 
 const PG=window.PG={TEAMS,BASE,OFFR,DEFR,SET,rnd,pick,clamp,load,save,scr,$,startGame,showMenu,toMenu,banner,toast,snd,
- boot(){resize();showMenu();requestAnimationFrame(frame)},
+ boot(){resize();setGfx(SET.gfx!=='2d');showMenu();requestAnimationFrame(frame)},
  /* test hooks */
- dbg:{auto:v=>{AUTO=v},step,get G(){return G},get ps(){return ps},get P(){return P}}};
+ dbg:{auto:v=>{AUTO=v},step,render,get G(){return G},get ps(){return ps},get P(){return P}}};
 })();

@@ -17,6 +17,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - **Season.** Take one team through seven weeks and a four-team playoff, calling and playing every snap. Your roster
   keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.
+- **Milestones.** Twelve things worth doing once (a shutout, a win in the rain, a title), earned in any mode.
 - **Training camp.** Three short guided drills (passing, running, tackling), five plays each. A coaching card before
   every snap says what to try, and each drill is scored with one to three stars. The game offers it the first time
   you open it.
@@ -67,6 +68,7 @@ js/league.js            schedule, standings and playoffs shared by Career and Se
 js/career.js            Career mode
 js/season.js            Season mode
 js/camp.js              Training camp: drill scripts, scoring and screens
+js/milestones.js        Milestones earned across all modes
 docs/ROADMAP.md         what is done, what is next, and a log of how each part was checked
 tools/                  local server, test harness, formatter, bundler, icon generator
 ```

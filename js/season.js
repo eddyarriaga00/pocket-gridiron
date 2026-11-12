@@ -211,7 +211,10 @@
     s.to += r.stats[0].to;
     s.take += r.stats[1].to;
     const fin = LG.advance(S, opp, us, them);
-    if (fin === 'Champion') S.titles++;
+    if (fin === 'Champion') {
+      S.titles++;
+      if (PG.milestones) PG.milestones.earn('title');
+    }
     persist();
     const show = () => {
       // drawn again after watching the play of the game

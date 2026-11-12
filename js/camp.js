@@ -80,6 +80,7 @@
     const score = d.score(reps), stars = starsFor(d, score), text = d.total(reps), was = S.best[d.id], best = !was || score > was.score, nextMark = d.marks[stars], nx = DRILLS[DRILLS.indexOf(d) + 1];
     if (best) S.best[d.id] = { score, stars, text };
     persist();
+    if (PG.milestones && DRILLS.every(x => bestStars(x) > 0)) PG.milestones.earn('camp');
     if (stars) PG.snd(stars === 3 ? 'fanfare' : 'chime');
     scr.innerHTML = `<div class="sheet"><div class="shd"><b>${d.name} drill</b><span>${text}</span></div>
   <div class="campst">${starsHtml(stars)}<span>${stars===3?'Three stars. Nothing left to prove here.':stars?`${d.markTxt(nextMark)} for the next star.`:`${d.markTxt(nextMark)} earns the first star.`}${best&&was?' A new best.':''}</span></div>

@@ -783,7 +783,10 @@
     const fin = LG.advance(C, opp, us, them);
     if (C.phase === 'semi' || C.phase === 'final' || (fin && fin !== 'Missed the playoffs')) C.madePO = 1;
     if (fin) {
-      if (fin === 'Champion') C.rings++;
+      if (fin === 'Champion') {
+        C.rings++;
+        if (PG.milestones) PG.milestones.earn('title');
+      }
       closeSeason(fin);
     } else pickGoals();
     C.coach = coachSays(m, grade, pts, won, met, role0, role1);

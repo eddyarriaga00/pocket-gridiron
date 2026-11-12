@@ -142,7 +142,7 @@
   function startGame(o) {
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
-      score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
+      score: [0, 0], q: 1, ql: o.ql || 180, diff: o.diff ?? 1, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
       sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
@@ -1866,6 +1866,7 @@
       } else if (w < 0) snd('lose');
       say(w === 0 ? `It ends in a tie, ${G.score[0]} all.` : `${tname(w > 0 ? 0 : 1)} win it, ${Math.max(G.score[0], G.score[1])} to ${Math.min(G.score[0], G.score[1])}.`, true);
     }
+    if (!AUTO && !G.drill && PG.milestones) PG.milestones.game({ us: G.score[0], them: G.score[1], stats: G.stats, ot: G.ot, diff: G.diff, weather: G.env && G.env.weather });
     if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), drill: G.drill });
     else showFinal();
   }
@@ -3032,7 +3033,8 @@
   <button class="mode" id="mSe"><b>Season</b><span>${(PG.season&&PG.season.summary())||'Take one team through seven games and the playoffs.'}</span><i>›</i></button>
   <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and play one game.</span><i>›</i></button>
   ${camp?`<button class="mode" id="mT"><b>Training camp</b><span>${camp.summary()}</span><i>›</i></button>`:''}
-  <div class="row2"><button class="btn2" id="mS">Settings</button><button class="btn2" id="mH">How to play</button></div></div>`;
+  <div class="row2"><button class="btn2" id="mS">Settings</button><button class="btn2" id="mH">How to play</button></div>
+  ${PG.milestones?`<button class="btn2" id="mM" style="margin-top:8px">${PG.milestones.summary()}</button>`:''}</div>`;
     /* the offer is for the first look at the menu: any choice here answers it */
     const go = f => () => {
       if (camp) camp.seen();
@@ -3048,6 +3050,7 @@
     }
     $('#mS').onclick = showSettings;
     $('#mH').onclick = showHow;
+    if (PG.milestones) $('#mM').onclick = PG.milestones.open;
   }
 
   function showSettings() {

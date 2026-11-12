@@ -361,6 +361,11 @@ what is next. Update it after every item.
   ("muffed, recovered") and by the kicking team ("Muffed punt!", a turnover) score correctly. The fair-catch wave was
   checked in a close-up. Not tried by hand: whether the button is easy to find in the second or so you have.
 
+- 09:09 Milestones. `endGame` reports every finished game that is not a drill or a computer-only run. A rigged All-Pro win in
+  the rain (38-7 with the stat totals set by hand) earned seven at once and the banner listed them; the seeded
+  `H.fingerprint()` run counts no games and is unchanged. Title and camp milestones are reported by their own screens and
+  were not triggered in a test.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -416,7 +421,14 @@ what is next. Update it after every item.
       Stats tab and the retirement screen. Seasons finished before this existed are not listed
 - [x] Fair catches and muffed punts on live punt returns: a Fair catch button (or Space) while the punt is in the air; the
       computer's returner waves when a tackler will be on him as the ball arrives; a dropped punt is a live ball
-- [ ] Milestones outside Career: a short list across all modes, shown from the menu
+- [x] Milestones: twelve, earned in any mode and kept on the device (`js/milestones.js`, key `pg.milestones.v1`), with a
+      button on the menu that shows the count
+
+### Round 7 (queued at 09:09; work through these in order)
+- [ ] Animation: the receiver's arms go to the ball before a catch, and a tackled player gets up instead of lying still
+- [ ] Stadium life: pylons at the goal lines, a chain crew with the down marker on the sideline
+- [ ] Season mode: awards when the season ends (most valuable player, best offense and defense) and a playoff bracket
+- [ ] Career: a contract (years and salary) from the draft and in free agency, shown on the hub
 
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.

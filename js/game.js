@@ -164,7 +164,13 @@
       setBall(t, t === 0 ? 30 : 70, FW / 2);
       G.pendKO = null;
       banner('Practice', G.drill.n + ' reps', 1500);
-    } else banner('Kickoff', tname(first) + ' ball', 1500);
+    } else {
+      banner('Kickoff', tname(first) + ' ball', 1500);
+      const e = G.env, sky = e.weather === 'rain' ? 'It is raining, so hold on to the ball.' : e.weather === 'snow' ? 'Snow is falling.'
+        : e.time === 'day' ? 'A beautiful afternoon for football.' : e.time === 'dusk' ? 'The sun is going down.' : 'A clear night for football.';
+      say(`${TEAMS[o.b].name} at ${TEAMS[o.a].name}. ${sky}`);
+    }
+    if (PG.audio && !AUTO) PG.audio.weather(G.env.weather);
     startCall();
   }
 
@@ -1181,6 +1187,7 @@
     if (!stop && !score) G.clock = Math.max(0, G.clock - 13);
     if (G.ot && score) G.final = true;
     G.last = sub === 'Turnover on downs' ? sub : big;
+    callPlay(kind, arg, big, sub, rpGain, c);
     if (kind !== 'td') snd('whistle');
     for (const p of P) {
       p.eng = null;
@@ -1338,6 +1345,7 @@
         snd('fanfare');
         react(0, 1.2, 5);
       } else if (w < 0) snd('lose');
+      say(w === 0 ? `It ends in a tie, ${G.score[0]} all.` : `${tname(w > 0 ? 0 : 1)} win it, ${Math.max(G.score[0], G.score[1])} to ${Math.min(G.score[0], G.score[1])}.`, true);
     }
     if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot });
     else showFinal();
@@ -1452,7 +1460,18 @@
     }
     G.state = 'pre';
     setBrief(briefTxt());
-    if (!AUTO && PG.audio && G.poss === 1 && G.down >= 3 && ps.mode !== 'kick') PG.audio.crowd.clapBuild(2.4);
+    if (!AUTO && PG.audio && ps.mode !== 'kick' && !G.drill) {
+      const a = PG.audio, redZone = (G.poss === 0 ? 100 - G.los : G.los) < 20;
+      if (G.poss === 1 && G.down >= 3) Math.random() < 0.5 ? a.crowd.chant(3) : a.crowd.clapBuild(2.4);
+      else if (G.poss === 0 && (G.down === 3 || redZone) && Math.random() < 0.35) {
+        a.play('organ');
+        setTimeout(() => {
+          if (G.state === 'pre') a.crowd.cheer(0.45, 0.9);  // the crowd answers the riff
+        }, 1250);
+      }
+      if (G.down === 3 && Math.random() < 0.5) say(`Third down and ${Math.max(1, Math.round(G.togo))}.`);
+      else if (G.down === 4) say('Fourth down.');
+    }
   }
 
   function snap() {
@@ -1988,6 +2007,36 @@
     if (a) a.play(type, opts);
   }
 
+  /* the announcer; silent in simulations */
+  function say(text, urgent) {
+    if (AUTO || QUIET || !PG.audio) return;
+    PG.audio.say(text, urgent);
+  }
+
+  /* His call for the play that just ended. Which line he picks is cosmetic, so it uses Math.random and never the
+     game's own generator: a seeded test run must not change because someone is listening. */
+  function callPlay(kind, good, big, sub, gain, c) {
+    if (AUTO || QUIET || !PG.audio) return;
+    const any = a => a[Math.floor(Math.random() * a.length)], team = c ? TEAMS[G.tm[c.team]] : null, who = c ? c.name : '';
+    let line = '', urgent = true;
+    if (kind === 'td') line = any([`Touchdown, ${team.name}!`, `${who} scores! Touchdown, ${team.city}!`, `He is in! Touchdown ${team.name}!`]);
+    else if (kind === 'fumble') line = `Fumble! ${tname(1 - c.team)} recover.`;
+    else if (big === 'Interception!') line = any(['Intercepted!', `Picked off by ${who}!`, `${team.name} take it away!`]);
+    else if (big === 'Sack!') line = any(['Sacked!', 'They get to the quarterback. Sack!']);
+    else if (big === 'Safety!') line = 'Safety! Two points.';
+    else if (kind === 'fg') line = good ? any(['The kick is good.', 'Right down the middle. Three points.']) : any(['No good!', 'He missed it.']);
+    else if (sub === 'Turnover on downs') line = 'They are stopped. Turnover on downs.';
+    else if (gain >= 25) line = any([`What a play! ${gain} yards.`, `${who} breaks loose for ${gain}!`]);
+    else if (big === 'First down' && gain >= 12) {
+      line = any([`${gain} yards and a first down.`, `First down, ${team.name}.`]);
+      urgent = false;
+    } else if (kind === 'inc' && Math.random() < 0.25) {
+      line = any(['Incomplete.', 'Falls incomplete.', 'Nobody home.']);
+      urgent = false;
+    }
+    if (line) PG.audio.say(line, urgent);
+  }
+
   /* the home crowd is on the user's side: it cheers what is good for team 0 and groans at the rest */
   function react(goodFor, size, dur) {
     if (AUTO || QUIET) return;
@@ -2088,12 +2137,13 @@
   function openPause() {
     if (!G.ros || G.state === 'over' || G.paused) return;
     G.paused = true;
+    if (PG.audio) PG.audio.muffle(true);  // the stadium goes dull and distant while the game is stopped
     const ov = $('#ov');
     ov.hidden = false;
     const draw = sure => {
       ov.innerHTML = sure
         ? `<div class="dlg"><h3>Leave game?</h3><p>${G.mode!=='exh'?'This game will not count. You can play it again.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">Leave game</button><button class="btn2" id="pk">Keep playing</button></div>`
-        : `<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pmu">Music: ${SET.mus?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
+        : `<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pan">Announcer: ${SET.ann!==false?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
       const on = (id, f) => {
         const el = $('#' + id);
         if (el) el.onclick = f;
@@ -2107,8 +2157,8 @@
         if (PG.audio) PG.audio.refresh();
         draw(false);
       });
-      on('pmu', () => {
-        SET.mus = !SET.mus;
+      on('pan', () => {
+        SET.ann = SET.ann === false;
         save('pg.settings', SET);
         if (PG.audio) PG.audio.refresh();
         draw(false);
@@ -2127,6 +2177,7 @@
     $('#ov').hidden = true;
     $('#ov').innerHTML = '';
     G.paused = false;
+    if (PG.audio) PG.audio.muffle(false);
   }
 
   $('#pz').onclick = openPause;
@@ -2279,6 +2330,7 @@
   <h2>Sound</h2>
   ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
   ${chip('smu','Music',SET.mus?'On':'Off')}
+  ${chip('san','Announcer',SET.ann!==false?'On':'Off')}
   <h2>Help</h2>
   ${chip('stp','Control tips',SET.tips&&Object.keys(SET.tips).length?'Show again':'On')}</div>`;
       const on = (id, f) => {
@@ -2322,6 +2374,10 @@
       });
       on('smu', () => {
         SET.mus = !SET.mus;
+        if (PG.audio) PG.audio.refresh();
+      });
+      on('san', () => {
+        SET.ann = SET.ann === false;
         if (PG.audio) PG.audio.refresh();
       });
       on('stp', () => {
@@ -2427,6 +2483,7 @@
     ps = null;
     setBrief('');
     snd('whistle', { long: true });
+    say(`That is the half. ${tname(0)} ${G.score[0]}, ${tname(1)} ${G.score[1]}.`, true);
     scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>Halftime</b><span>${tname(G.poss)} get the ball</span></div><div class="sc">${G.score[0]} – ${G.score[1]}</div>
   ${statTable()}${G.lineFn?`<p class="note">You: ${G.lineFn(G.my)}</p>`:''}<button class="go" id="h2">Second half</button></div>`;
     $('#h2').onclick = startCall;

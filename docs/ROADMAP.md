@@ -184,7 +184,8 @@ what is next. Update it after every item.
 - [x] Weather and time of day: day, dusk, night, rain, snow
 - [x] Moves: Power (truck a tackler in front, stiff-arm one beside), Hurdle, Hit (hit stick), Strip; fumbles (lost or recovered);
       rain and snow make catches, fumbles and field goals harder
-- [ ] Sound round 2: announcer calls (speech synthesis, a setting), chants, footsteps, stings between plays
+- [x] Sound round 2: announcer calls through the device's speech synthesizer (Settings and the pause menu can turn it off),
+      a stomp-stomp-clap chant, an organ riff the crowd answers, rain and wind beds, a muffled mix while paused
 - [ ] Presentation: pre-game intro, player of the game, drive summary
 - [ ] README refresh, final regression, morning summary
 
@@ -210,6 +211,12 @@ what is next. Update it after every item.
   `H.sim(12,180)`: 4.5 ypc, 57% completions, 1.6% INT, 31 pts/game, no errors. `H.fingerprint()` re-baselined (the fumble roll
   changes the random sequence on purpose). Hurdle pose checked by screenshot; truck, stiff arm, hit and strip checked by
   script only (timers and odds), not yet by eye.
+
+- 07:27 Sound round 2. `PG.audio.spoken` keeps the announcer's last lines, so a scripted game can show what he would say:
+  kickoff welcome with the weather, third and fourth downs, touchdowns with the scorer's name, turnovers, sacks, field goals,
+  the half and the final score. The test pane has no speech voices, so the calls were checked as text only; nobody has heard
+  them. Levels (peak / RMS dBFS): organ -11/-22, stomp -19/-40. The announcer's word choice uses `Math.random`, never the game's
+  seeded generator, so `H.fingerprint()` is unchanged.
 
 ## Morning hand-off
 

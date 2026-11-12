@@ -4,6 +4,9 @@
      PG.audio.play(name, opts)   one-shot effects (whistle, hit, catch, horn, ...)
      PG.audio.crowd.*            the stadium: a bed that follows the game, cheers, groans, clap builds
      PG.audio.music.*            the menu loop: a synthesized drumline with brass
+     PG.audio.say(text, urgent)  the announcer: the device's own speech synthesizer, with the crowd dipped under it
+     PG.audio.weather(kind)      a bed of rain or wind under the crowd
+     PG.audio.muffle(on)         everything goes dull and distant while the game is paused
 
    Each voice is a function (ctx, out, t, opts) so it can also be rendered in an OfflineAudioContext,
    which is how levels are checked (PG.audio.measure). */
@@ -11,6 +14,7 @@
   'use strict';
   const S = PG.SET;
   if (S.mus === undefined) S.mus = true;
+  if (S.ann === undefined) S.ann = true;
 
   let ctx = null;        // the live AudioContext, created on the first tap
   let bus = null;        // { master, sfx, crowd, music } gain nodes of the live graph
@@ -84,10 +88,10 @@
 
   /* master chain with a little stadium reverb on a send */
   function buildGraph(c) {
-    const master = gain(c, 0.9);
+    const master = gain(c, 0.9), tone = filter(c, 'lowpass', 20000, 0.5);
     const comp = c.createDynamicsCompressor();
     comp.threshold.value = -16; comp.knee.value = 14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.22;
-    chain(master, comp, c.destination);
+    chain(master, tone, comp, c.destination);
     const verb = c.createConvolver();
     const len = Math.floor(c.sampleRate * 1.9), ir = c.createBuffer(2, len, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) {
@@ -98,7 +102,7 @@
     const wet = gain(c, 0.5);
     chain(verb, wet, master);
     const mk = (level, send) => { const g = gain(c, level); g.connect(master); const s = gain(c, send); chain(g, s, verb); return g; };
-    return { master, sfx: mk(1, 0.3), crowd: mk(1, 0.12), music: mk(0.8, 0.14) };
+    return { master, tone, sfx: mk(1, 0.3), crowd: mk(1, 0.12), music: mk(0.8, 0.14) };
   }
 
   /* ---------- one-shot effects ---------- */
@@ -213,6 +217,26 @@
       bp.frequency.linearRampToValueAtTime(400, t + 0.7);
       chain(noise(c, 'pink', t, 0.9), bp, env(c, t, 0.08, 0.45 * a, 0.7), out);
     },
+    /* a stadium organ riff: a rising run that stops on a held note, leaving room for the crowd to answer */
+    organ(c, out, t) {
+      const notes = [[-7, 0, 0.13], [-3, 0.14, 0.13], [0, 0.28, 0.13], [5, 0.42, 0.13], [0, 0.56, 0.1], [5, 0.68, 0.5]];   // D4 F#4 A4 D5 A4 D5
+      for (const [semi, at, dur] of notes) {
+        const g = envHold(c, t + at, 0.012, 0.085, dur, 0.06);
+        g.connect(out);
+        [[1, 1], [2, 0.5], [3, 0.3], [4, 0.16], [6, 0.08]].forEach(([h, a]) => {      // drawbars
+          const o = osc(c, 'sine', hz(semi) * h, t + at, dur + 0.08), og = gain(c, a);
+          o.detune.value = Math.sin(h * 3.1) * 4;
+          chain(o, og, g);
+        });
+      }
+    },
+    /* one stomp of a few thousand feet on aluminum */
+    stomp(c, out, t, o) {
+      const lvl = o && o.level !== undefined ? o.level : 0.2, sw = osc(c, 'sine', 95, t, 0.2);
+      sw.frequency.exponentialRampToValueAtTime(46, t + 0.14);
+      chain(sw, env(c, t, 0.004, lvl, 0.2), out);
+      chain(noise(c, 'pink', t, 0.12), filter(c, 'lowpass', 420, 0.6), env(c, t, 0.004, lvl * 0.9, 0.11), out);
+    },
     clap(c, out, t, o) {
       const lvl = o && o.level !== undefined ? o.level * 1.5 : 0.15;
       for (let i = 0; i < 4; i++) {   // a handful of hands, slightly apart
@@ -292,6 +316,16 @@
       next();
     },
     stopClaps() { clearTimeout(this.clapTimer); this.clapTimer = null; },
+    /* stomp, stomp, clap: the home crowd getting behind its defense */
+    chant(bars) {
+      if (!this.nodes || !S.snd) return;
+      const t = ctx.currentTime + 0.05, beat = 0.36;
+      for (let i = 0; i < (bars || 3); i++) {
+        const b = t + i * beat * 4, lvl = 0.14 + i * 0.03;
+        SFX.stomp(ctx, bus.crowd, b, { level: lvl }); SFX.stomp(ctx, bus.crowd, b + beat, { level: lvl });
+        SFX.clap(ctx, bus.crowd, b + beat * 2, { level: lvl * 0.55 });
+      }
+    },
     stop() {
       this.stopClaps();
       clearInterval(this.timer); this.timer = null;
@@ -363,6 +397,69 @@
     },
   };
 
+  /* ---------- announcer ----------
+     Short calls on the big moments. There are no recordings: the words go to the device's speech synthesizer,
+     so the voice is whatever the phone or computer has. The crowd dips while he talks. Settings can turn it off. */
+  const ann = {
+    voice: null, primed: false, log: [],
+    pickVoice() {
+      const all = (window.speechSynthesis && speechSynthesis.getVoices()) || [], en = all.filter(v => /^en/i.test(v.lang));
+      const want = [/Daniel/, /Aaron/, /Alex/, /Google UK English Male/, /Microsoft (Guy|David|Ryan)/, /Google US English/, /Samantha/];
+      for (const re of want) { const v = en.find(x => re.test(x.name)); if (v) { this.voice = v; return; } }
+      this.voice = en.find(v => /en-US/i.test(v.lang)) || en[0] || null;
+    },
+    /* some phones only allow speech after one utterance has been started by a tap */
+    prime() {
+      if (this.primed || !('speechSynthesis' in window)) return;
+      this.primed = true;
+      try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); this.pickVoice(); speechSynthesis.addEventListener('voiceschanged', () => this.pickVoice()); } catch (_) {}
+    },
+    duck(on) {
+      if (!ctx || !bus) return;
+      bus.crowd.gain.setTargetAtTime(on ? 0.5 : 1, ctx.currentTime, 0.12);
+    },
+    say(text, urgent) {
+      this.log.push(text); if (this.log.length > 30) this.log.shift();          // kept so tests can see what was called
+      if (!S.ann || !S.snd || !('speechSynthesis' in window) || !ctx || ctx.state !== 'running') return false;
+      try {
+        if (speechSynthesis.speaking || speechSynthesis.pending) { if (!urgent) return false; speechSynthesis.cancel(); }
+        const u = new SpeechSynthesisUtterance(text);
+        if (!this.voice) this.pickVoice();
+        if (this.voice) u.voice = this.voice;
+        u.rate = 1.1; u.pitch = 0.9; u.volume = 0.95;
+        u.onstart = () => this.duck(true); u.onend = u.onerror = () => this.duck(false);
+        speechSynthesis.speak(u);
+        return true;
+      } catch (_) { return false; }
+    },
+    hush() { try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (_) {} this.duck(false); },
+  };
+
+  /* ---------- weather ---------- */
+  const weatherBed = {
+    kind: 'clear', node: null,
+    set(kind) { this.kind = kind || 'clear'; this.apply(); },
+    apply() {
+      const want = ctx && S.snd && !wantMusic ? this.kind : 'clear';
+      if (this.node && this.node.kind === want) return;
+      if (this.node) { const n = this.node; n.out.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3); setTimeout(() => { try { n.out.disconnect(); n.stop(); } catch (_) {} }, 1500); this.node = null; }
+      if (want !== 'rain' && want !== 'snow') return;
+      const c = ctx, t = c.currentTime, out = gain(c, 0.0001), srcs = [];
+      const src = (color, rate) => { const n = noise(c, color, t, 86400, rate); srcs.push(n); return n; };
+      if (want === 'rain') {                      // hiss on the seats and the turf, and a low wash underneath
+        chain(src('white'), filter(c, 'highpass', 2600), gain(c, 0.035), out);
+        chain(src('pink', 0.8), filter(c, 'bandpass', 700, 0.4), gain(c, 0.05), out);
+      } else {                                    // wind: a band of noise that wanders
+        const f = filter(c, 'bandpass', 330, 1.4), lfo = c.createOscillator(), depth = gain(c, 140);
+        lfo.frequency.value = 0.13; chain(lfo, depth, f.frequency); lfo.start(t); srcs.push(lfo);
+        chain(src('pink', 0.7), f, gain(c, 0.11), out);
+      }
+      out.connect(bus.crowd);
+      out.gain.setTargetAtTime(1, t, 0.8);
+      this.node = { kind: want, out, stop() { for (const n of srcs) try { n.stop(); } catch (_) {} } };
+    },
+  };
+
   /* ---------- public ---------- */
 
   function play(name, opts) {
@@ -375,12 +472,14 @@
       if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); bus = buildGraph(ctx); }
       if (ctx.state !== 'running') ctx.resume();
       if (wantMusic) music.start(); else crowd.start();
+      weatherBed.apply();
+      ann.prime();
     } catch (_) {}
   }
   for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, unlock, { capture: true, passive: true });
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
-    if (document.hidden) ctx.suspend(); else ctx.resume();
+    if (document.hidden) { ctx.suspend(); ann.hush(); } else ctx.resume();
   });
   /* interface clicks: every menu button ticks, primary buttons confirm */
   document.addEventListener('click', e => {
@@ -395,12 +494,23 @@
     scene(name) {
       wantMusic = name === 'menu';
       if (!ctx) return;
-      if (wantMusic) { crowd.stop(); music.start(); } else { music.stop(); crowd.start(); }
+      if (wantMusic) { crowd.stop(); music.start(); ann.hush(); } else { music.stop(); crowd.start(); }
+      weatherBed.apply();
+    },
+    say(text, urgent) { return ann.say(text, urgent); },
+    get spoken() { return ann.log; },
+    weather(kind) { weatherBed.set(kind); },
+    muffle(on) {
+      if (!ctx || !bus) return;
+      bus.tone.frequency.setTargetAtTime(on ? 650 : 20000, ctx.currentTime, on ? 0.08 : 0.15);
+      if (on) ann.hush();
     },
     /* settings changed */
     refresh() {
       if (!ctx) return;
-      if (!S.snd) crowd.stop(); else if (!wantMusic) crowd.start();
+      if (!S.snd) { crowd.stop(); ann.hush(); } else if (!wantMusic) crowd.start();
+      if (!S.ann) ann.hush();
+      weatherBed.apply();
       if (!S.mus) music.stop(); else if (wantMusic) music.start();
     },
     /* render a voice offline and report its level: used to balance the mix */

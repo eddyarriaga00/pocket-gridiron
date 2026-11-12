@@ -323,6 +323,16 @@ what is next. Update it after every item.
       run-heavy play-calling for a running back), and Career now has a Rookie / Pro / All-Pro choice. Whether an average
       *person* wins about half is still unknown: the script only plays like the computer
 
+### Round 5 (queued at 08:15; work through these in order)
+- [ ] Names on the backs of jerseys; a short vibration on big hits and scores where the device supports it
+- [ ] Play of the game: the best play is kept and can be watched again from the final screen
+- [ ] Playbook: four more offensive plays (screen, quarterback sneak, counter, bootleg), two more defenses (Cover 4, goal line)
+- [ ] Live punt returns in Exhibition and Season
+- [ ] Camera choice in Settings (standard, close, high)
+- [ ] Training camp: three guided drills (passing, running, tackling) with medals, offered on first launch
+- [ ] Left-handed layout: the buttons on the left
+- [ ] A hall-of-fame score and verdict on the retirement screen
+
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.
 - Play on a real phone: touch feel, frame rate with shadows and the glow pass on, button reach with five buttons on the pad.

@@ -29,7 +29,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Tap a receiver for a bullet pass, hold for a lob.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
-- Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
+- Punt returns you play, with fair catches and muffs. Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
 - Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
 
@@ -46,6 +46,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 | Switch / Dive / Hit / Strip (defense) | The buttons | Q / E / F / R |
 | Audible / Flip (before the snap) | The buttons | V / X |
 | Time out | Time out, right after the whistle or on the play-call sheet | T |
+| Fair catch | Fair catch, while a punt to you is in the air | Space |
 | Pause | The pause button under the scoreboard | P or Esc |
 
 Settings has the accent color, 2D or 3D graphics, sharpness, the camera, shadows, the glow pass, close-up model detail,

@@ -352,6 +352,15 @@ what is next. Update it after every item.
 - 09:02 Career history. `closeSeason` adds one row to `C.hist`. Two scripted quarterback seasons and one running-back season
   produced the right rows on both screens; `H.fingerprint()` unchanged.
 
+- 09:07 Punt returns, second pass. A returnable punt now hangs one second longer (`HANG`; simulated punts are untouched, so
+  `H.fingerprint()` is unchanged), every third coverage man holds up five yards short as a second wave, and the punter trails
+  as the last man. Before, the nearest coverage man was 14 to 19 yards away at the catch and nobody had a reason to fair
+  catch. After (scripted, 50 punts by the user's team and 40 by the computer): the computer fair-catches 34%, returns
+  average 5.1 and 5.4 yards, 3 touchdowns in 90 (5 in 66 before the second wave). Muff chance is 1.5%, 5% with a tackler
+  within 2.5 yards, 1% on a fair catch, times the weather; forced in a test, both a recovery by the receiving team
+  ("muffed, recovered") and by the kicking team ("Muffed punt!", a turnover) score correctly. The fair-catch wave was
+  checked in a close-up. Not tried by hand: whether the button is easy to find in the second or so you have.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -405,7 +414,8 @@ what is next. Update it after every item.
 - [x] Touchdown celebrations: already there (three for the scorer, two for teammates); struck from this round
 - [x] Career history: a season-by-season table (team, record, finish, stat line, average grade, overall, honors) on the
       Stats tab and the retirement screen. Seasons finished before this existed are not listed
-- [ ] Fair catches and muffed punts on live punt returns
+- [x] Fair catches and muffed punts on live punt returns: a Fair catch button (or Space) while the punt is in the air; the
+      computer's returner waves when a tackler will be on him as the ball arrives; a dropped punt is a live ball
 - [ ] Milestones outside Career: a short list across all modes, shown from the menu
 
 ### Next ideas (nothing here is started)

@@ -784,6 +784,13 @@
       tg[HR] = 0.45 - w * 0.3;
       tg[KL] = -0.75;
       tg[KR] = -0.75;
+    } else if (p.fc) {
+      // fair catch: one arm straight up, waving, eyes on the ball
+      tg[SRX] = 3.05;
+      tg[SRZ] = 0.25 + Math.sin(time * 9) * 0.22;
+      tg[ER] = 0.1;
+      tg[HEADRX] = -0.35;
+      tg[CHRX] = -0.08;
     } else if (p.thrT > 0) {
       // throwing motion: cock, then whip through
       const u = 1 - p.thrT / 0.32;

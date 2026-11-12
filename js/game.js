@@ -1203,7 +1203,7 @@
     bounce(b, dt);
     if (b.x < 0 || b.x > FW || b.y < -10 || b.y > 110) return recover(null);
     if (f.t > 0.35 && b.z < 1.3) for (const p of P) {
-      if (p.down || p.fell || p.stun > 0 || p.flat > 0 || p === f.by || hyp(p.x - b.x, p.y - b.y) > 1.15) continue;
+      if (p.down || p.fell || p.stun > 0 || p.flat > 0 || (p === f.by && !f.muff) || hyp(p.x - b.x, p.y - b.y) > 1.15) continue;  // a returner may fall on his own muff; a tackled runner cannot
       const mine = !AUTO && p === G.sel && p.team === 0;  // the player you are steering is surer of it
       if (rnd() < (mine ? 0.8 : 0.5)) return recover(p);
       b.vx = rnd(-4.5, 4.5);
@@ -1455,7 +1455,7 @@
     } else if (kind === 'fumble') {
       const t = arg.team, f = ps.fum.forced, ez = t === 0 ? c.y <= 0 : c.y >= 100;
       stop = true;
-      big = 'Fumble!';
+      big = ps.fum.muff ? 'Muffed punt!' : 'Fumble!';
       sub = `${c.name} recovers for the ${tname(t)}` + (f ? ` · forced by ${f.name}` : '');
       G.stats[1 - t].to++;
       react(t, 1.2, 3);
@@ -1544,7 +1544,7 @@
       setBall(off, off === 0 ? 25 : 75, FW / 2);
     } else if (kind === 'punt') {
       big = 'Punt';
-      sub = arg.tb ? 'Touchback' : `${arg.d} yards · ${tname(1-off)} ball at ${spotTxt(arg.y)}`;
+      sub = arg.tb ? 'Touchback' : `${arg.fair?'Fair catch':arg.d+' yards'} · ${tname(1-off)} ball at ${spotTxt(arg.y)}`;
       stop = true;
       setBall(1 - off, arg.y, arg.x);
     }
@@ -1554,7 +1554,7 @@
       stop = true;
       react(1 - off, 0.9, 2.5);
     }
-    if ((kind === 'tackle' || kind === 'oob') && ps.fum) sub += ' · fumble, recovered';
+    if ((kind === 'tackle' || kind === 'oob') && ps.fum) sub += ps.fum.muff ? ' · muffed, recovered' : ' · fumble, recovered';
     G.runoff = !stop && !score && !G.drill ? Math.min(13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle (there is no clock in practice)
     G.clock -= G.runoff;
     cpuTimeout();
@@ -2059,7 +2059,7 @@
       const fy = tb ? (off === 0 ? 80 : 20) : clamp(y - dir * rnd(0, 9), 2, 98);
       x1 = x;
       y1 = tb ? (off === 0 ? 104 : -4) : y;
-      T = 2.4 + d * 0.02;
+      T = 2.4 + d * 0.02 + (ps.ret ? HANG : 0);  // a punt you can return hangs longer, so the coverage gets there and a fair catch is a real choice
       h = 13;
       ps.kick = { type: 'punt', arg: { y: fy, x, d: Math.round(d), tb } };
     }
@@ -2068,6 +2068,8 @@
     G.state = 'kicka';
     snd('kick');
   }
+
+  let HANG = 1;  // extra hang time, in seconds, on a punt that will be returned live
 
   function kickTick(dt) {
     const a = ps.air;
@@ -2079,28 +2081,64 @@
     const punt = ps.mode === 'kick' && ps.ret && ps.kick && ps.kick.type === 'punt' && !ps.kick.arg.tb;
     if (punt) {
       const recv = 1 - ps.offTeam, dir = recv === 0 ? 1 : -1, r = ps.ret;  // the coverage runs down, the return team drops to block
+      let wave = 0;
       for (const p of P) {
         if (p === r) seek(p, a.x1, a.y1, 1);
         else if (p.team === recv) seek(p, lerp(p.sx, a.x1, 0.45), a.y1 + dir * clamp((p.sy - a.y1) * dir * 0.45, 6, 24), 0.8);
-        else seek(p, lerp(p.sx, a.x1, 0.3), a.y1, 0.96, true);
+        else if (p === ps.qb) seek(p, a.x1, a.y1 + dir * 15, 0.7);  // the punter trails the play as the last man
+        else seek(p, lerp(p.sx, a.x1, 0.3), a.y1 + dir * (wave++ % 3 === 2 ? 5 : 0), 0.96, true);  // every third man holds up five yards short: a second wave
       }
       integrate(dt);
+      /* how close is the coverage to where the ball comes down? */
+      let near = 99;
+      for (const p of P) if (p.team !== recv && !p.down) near = Math.min(near, hyp(p.x - a.x1, p.y - a.y1));
+      if (recv === 1 && s > 0.75 && !ps.fcSeen) {
+        // the computer's returner looks up once, late: if a tackler will be on him as the ball arrives, he waves for a fair catch
+        ps.fcSeen = true;
+        if (near - 8 * (1 - s) * a.T < 3 && rnd() < 0.8) {
+          ps.fair = true;
+          r.fc = 1;
+          if (!QUIET) toast('Fair catch called');
+        }
+      }
       if (s >= 1) {
-        // caught: from here it is a return, played like a kickoff return
         ps.air = null;
         for (const p of P) {
           p.eng = null;
           p.block = null;
         }
-        Object.assign(ps, { mode: 'ko', punt: true, offTeam: recv, qb: null, carrier: r, open: true, turnover: true, handoff: true, land: a.y1, t: 0 });
         r.x = a.x1;
         r.y = a.y1;
+        /* a punt is easy to drop: more so in rain or snow, and with a tackler in your face. A fair catch is the safe way. */
+        const muff = rnd() < (ps.fair ? 0.01 : 0.015 + (near < 2.5 ? 0.035 : 0)) * G.wx.fum;
+        if (ps.fair && !muff) {
+          r.fc = 0;
+          snd('catch');
+          finish('punt', { fair: true, tb: false, d: ps.kick.arg.d, y: clamp(a.y1, 1, 99), x: a.x1 });
+          return;
+        }
+        // caught (or dropped): from here it is a return, played like a kickoff return
+        Object.assign(ps, { mode: 'ko', punt: true, offTeam: recv, qb: null, carrier: muff ? null : r, open: true, turnover: true, handoff: true, land: a.y1, t: 0 });
+        r.fc = 0;
         G.dir = dir;
         G.sel = null;
         G.state = 'live';
         hudKey = '';
-        snd('catch');
-        if (!AUTO && !QUIET) toast(recv === 0 ? 'Punt return: run!' : 'Cover the punt');
+        if (muff) {
+          ps.fum = { t: 0, by: r, forced: null, muff: true };
+          ps.loose = { x: a.x1, y: a.y1, z: 1.1, vx: rnd(-3, 3), vy: -dir * rnd(1, 4), vz: 3 };
+          r.stun = 0.6;
+          snd('hit', { power: 0.3 });
+          if (!AUTO && !QUIET) {
+            buzz(45);
+            toast('Muffed! Get on it');
+            say('He dropped it!', true);
+            if (PG.audio) PG.audio.crowd.ooh(0.9);
+          }
+        } else {
+          snd('catch');
+          if (!AUTO && !QUIET) toast(recv === 0 ? 'Punt return: run!' : 'Cover the punt');
+        }
       }
       return;
     }
@@ -2370,6 +2408,15 @@
 
   function act(k, n) {
     if (AUTO || G.paused) return;
+    if (k === 'fair' || (k === 'main' && G.state === 'kicka')) {
+      // wave for a fair catch: the ball is yours where it lands, and nobody may hit you
+      if (G.state === 'kicka' && ps && ps.mode === 'kick' && ps.ret && ps.ret.team === 0 && !ps.fair && ps.air && !ps.kick.arg.tb) {
+        ps.fair = true;
+        ps.ret.fc = 1;
+        toast('Fair catch called');
+      }
+      return;
+    }
     if (k === 'main') {
       if (G.state === 'intro') {
         endIntro();
@@ -2446,6 +2493,7 @@
       return G.poss === 0 ? 'snap' : 'defpre';
     }
     if (G.state === 'kickm') return 'kick';
+    if (G.state === 'kicka') return ps.mode === 'kick' && ps.ret && ps.ret.team === 0 && !ps.fair && ps.air && !ps.kick.arg.tb ? 'fair' : 'none';  // your returner is under a punt
     if (G.state === 'live') {
       const c = ps.carrier;
       if (ps.fum) return userOnD() ? 'loose' : 'none';
@@ -2458,7 +2506,7 @@
 
   const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
-    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
+    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
 
   function tip(kind) {
@@ -2551,6 +2599,7 @@
       B('Switch', '', () => act('switch'));
       B('Audible', '', () => act('audible'));
     } else if (kind === 'timeout') B('Time out', '', () => act('timeout'));
+    else if (kind === 'fair') B('Fair catch', '', () => act('fair'));
     else if (kind === 'loose') {
       spr();
       B('Dive', '', () => act('dive'));
@@ -3095,7 +3144,7 @@
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
   <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
-  <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
+  <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause.</li></ul></div>`;
     $('#bk').onclick = showMenu;
@@ -3837,6 +3886,9 @@
     },
     /* test hooks: tools/harness.js drives the game through these */
     dbg: {
+      set hang(v) {
+        HANG = v;
+      },
       auto(v) {
         AUTO = v;
       },

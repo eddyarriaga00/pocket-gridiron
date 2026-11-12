@@ -369,6 +369,12 @@ what is next. Update it after every item.
 - 09:14 Catch and get-up poses (render only; `H.fingerprint()` unchanged). The session's usage limit was reached here: the
   next three Round 7 items are untouched.
 
+- 12:16 Chain crew. Three more figures (`CREW`), so 48 instances per body part; a night frame is 255k triangles. Checked from
+  a sideline camera: on 2nd and 9 the back stick and the "2" box stand at the line of scrimmage and the front stick at the
+  line to gain. The standard gameplay camera rarely shows that sideline, so this is mostly for replays and wide plays.
+  `H.fingerprint()` unchanged; exhibition, career and camp bots clean. The scheduled autopilot ended at noon (job cancelled
+  at 12:12); work after that was at the owner's request.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -431,7 +437,9 @@ what is next. Update it after every item.
 - [x] Animation: at the catch the chest turns to the ball and both hands go out to it (up and back for a ball over the
       shoulder), a defender at the catch point gets a hand up, and after the whistle fallen players rise to a knee and stand.
       A pass is now drawn at the height of the figures' hands. Checked in three close-up stills, not in motion
-- [ ] Stadium life: pylons at the goal lines, a chain crew with the down marker on the sideline
+- [x] Stadium life: a chain crew on the home sideline (two sticks ten yards apart with a chain, a down box that shows the
+      down, three men in orange who walk to the next marks after the whistle); the pylons, which were already there, are
+      larger so they show beside the oversized players
 - [ ] Season mode: awards when the season ends (most valuable player, best offense and defense) and a playoff bracket
 - [ ] Career: a contract (years and salary) from the draft and in free agency, shown on the hub
 

@@ -12,13 +12,15 @@
   const SH = PG.shaders;  // GLSL for the turf, sky, crowd and the players' rim light (shaders.js)
 
   const FW = 53.33, HIP = 1.0, PSCALE = 1.6;
-  const SIDELINE = 20, MAXP = 22, REFS = 3, CAP = SIDELINE + MAXP + REFS;  // sideline figures first, then the players, then the officials
+  const SIDELINE = 20, MAXP = 22, REFS = 3, CREW = 3, CAP = SIDELINE + MAXP + REFS + CREW;  // sideline figures first, then the players, the officials, the chain crew
+  const CREW_X = -3.9, BOX_X = -2.6;  // where the sticks stand off the home sideline, and the down box a step nearer the field (on first down it shares a yard line with the back stick)
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const v3 = new T.Vector3(), v3b = new T.Vector3(), col = new T.Color(), col2 = new T.Color(), zAxis = new T.Vector3(0, 0, 1);
 
   let renderer, scene, camera, post = null, glowAmount = 0.8, W = 1, H = 1;
   let fieldTex, fieldCanvas, crowdMat, skyMat, skyDome, ribbonTex, ribbonCanvas, boardTex, boardCanvas, boardKey = '';
-  let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
+  let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks, sticks2, chain, downBox;
+  const crew = [], downMats = [];
   let hemiLight, sunLight, fillLight, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
   const shadowSets = [], towerGlow = [], towerPanels = [], refs = [];
   let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null, menuShot = -1, nearModel = false, camDist = 0;
@@ -1334,7 +1336,7 @@
       g.add(cyl(0.16, 3.33, FW / 2, 1.67, -y), cyl(0.12, 6.4, FW / 2, 3.33, -y, Math.PI / 2),
         cyl(0.1, 11.5, FW / 2 - 3.1, 9.1, -y), cyl(0.1, 11.5, FW / 2 + 3.1, 9.1, -y));
     }
-    for (const y of [-10, 0, 100, 110]) for (const x of [0, FW]) box(0.14, 0.5, 0.14, 0xff7a2f, x, 0.25, -y);
+    for (const y of [-10, 0, 100, 110]) for (const x of [0, FW]) box(0.22, 0.8, 0.22, 0xff7a2f, x, 0.4, -y);
     /* benches */
     for (const x of [-7.6, FW + 7.6]) for (const y of [36, 50, 64]) box(0.7, 0.5, 9, 0x8b93a3, x, 0.25, -y);
     /* line of scrimmage, line to gain, first-down marker */
@@ -1348,14 +1350,46 @@
     };
     losLine = strip(0x4dabf7);
     fdLine = strip(0xff7a2f);
-    sticks = new T.Group();
-    const pole = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 2.6, 6), new T.MeshLambertMaterial({ color: 0xff7a2f }));
-    pole.position.y = 1.3;
-    const disc = new T.Mesh(new T.CylinderGeometry(0.45, 0.45, 0.06, 14), new T.MeshLambertMaterial({ color: 0xff7a2f }));
-    disc.rotation.z = Math.PI / 2;
-    disc.position.y = 2.7;
-    sticks.add(pole, disc);
-    scene.add(sticks);
+    /* The chain crew's gear: two sticks ten yards apart with a chain between them, and the down box at the line of
+       scrimmage with the down on all four faces. Three figures hold them (see updateCrew). */
+    const orange = new T.MeshLambertMaterial({ color: 0xff7a2f }), stick = () => {
+      const g = new T.Group(), pole = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 2.9, 6), orange), disc = new T.Mesh(new T.CylinderGeometry(0.45, 0.45, 0.06, 14), orange);
+      pole.position.y = 1.45;
+      disc.rotation.z = Math.PI / 2;
+      disc.position.y = 3;
+      g.add(pole, disc);
+      scene.add(g);
+      return g;
+    };
+    sticks = stick();
+    sticks2 = stick();
+    chain = new T.Mesh(new T.BoxGeometry(0.05, 0.05, 1), new T.MeshLambertMaterial({ color: 0x2a2f3a }));
+    chain.position.set(CREW_X, 0.12, 0);
+    scene.add(chain);
+    const dark = new T.MeshLambertMaterial({ color: 0x15171c });
+    for (let n = 1; n <= 4; n++) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const x = c.getContext('2d');
+      x.fillStyle = '#ff7a2f';
+      x.fillRect(0, 0, 64, 64);
+      x.fillStyle = '#15171c';
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      x.font = '800 52px Archivo, Arial, sans-serif';
+      x.fillText(String(n), 32, 35);
+      const tex = new T.CanvasTexture(c);
+      tex.colorSpace = T.SRGBColorSpace;
+      const face = new T.MeshBasicMaterial({ map: tex });
+      downMats[n] = [face, face, dark, dark, face, face];
+    }
+    downBox = new T.Group();
+    const boxPole = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 2.6, 6), orange), cube = new T.Mesh(new T.BoxGeometry(0.62, 0.62, 0.62), downMats[1]);
+    boxPole.position.y = 1.3;
+    cube.position.y = 2.9;
+    downBox.add(boxPole, cube);
+    downBox.userData.cube = cube;
+    scene.add(downBox);
     /* markers under players */
     const ringGeo = new T.RingGeometry(0.85, 1.08, 28).rotateX(-Math.PI / 2);
     ring = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false, ...near }));
@@ -1411,6 +1445,14 @@
       f.num.material = stripeMaterial();
       colorFigure(SIDELINE + MAXP + i, { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] });
       refs.push({ x: FW / 2, y: 50, vx: 0, vy: 0, anim: 0, fdDir: 1, placed: false });
+    }
+    for (let i = 0; i < CREW; i++) {
+      const n = SIDELINE + MAXP + REFS + i, f = figs[n], skin = SKIN[(i * 2) % SKIN.length];
+      f.hide = REF_HIDE;
+      setBuild(f, BUILD.ref);
+      f.num.material = NO_NAME;
+      colorFigure(n, { ...REF_COLORS, jersey: '#ff7a2f', skin, glove: skin, visor: skin });
+      crew.push({ y: 50, v: 0, anim: 0, placed: false });
     }
     buildShadows();
     buildWeather(glowTex);
@@ -1601,6 +1643,56 @@
     }
   }
 
+  /* The chain crew. marks are the three spots along the sideline (line to gain, ten yards back, the ball), or null to
+     stay put (a kickoff). Each man walks to his mark and then stands facing the field with his stick in one hand. */
+  function updateCrew(on, marks, dt) {
+    const base = SIDELINE + MAXP + REFS;
+    for (let i = 0; i < CREW; i++) {
+      const f = figs[base + i], c = crew[i];
+      if (!on) {
+        c.placed = false;
+        continue;
+      }
+      const ty = marks ? marks[i] : c.y;
+      if (!c.placed) {
+        c.y = ty;
+        c.placed = true;
+        f.snap = true;
+      }
+      c.v = clamp((ty - c.y) * 2.4, -7, 7);
+      c.y += c.v * dt;
+      c.anim += Math.abs(c.v) * dt * 0.65;
+      const tg = TG, run = Math.min(1, Math.abs(c.v) / 5), sn = Math.sin(c.anim * 2.4), cs = Math.cos(c.anim * 2.4);
+      tg.fill(0);
+      tg[PELY] = HIP - 0.03 * run + Math.abs(cs) * 0.04 * run;
+      tg[CHRX] = -0.05 - 0.12 * run;
+      tg[HL] = sn * 0.75 * run;
+      tg[HR] = -sn * 0.75 * run;
+      tg[KL] = -(0.15 + Math.max(0, cs)) * run;
+      tg[KR] = -(0.15 + Math.max(0, -cs)) * run;
+      tg[SLX] = -sn * 0.5 * run;
+      tg[EL] = 0.3 + run * 0.6;
+      tg[SRX] = 1.2;  // the stick, held out in front
+      tg[ER] = 0.45;
+      /* walking: he faces along the sideline; standing: he faces the field */
+      const want = run > 0.15 ? (c.v > 0 ? 0 : Math.PI) : -Math.PI / 2;
+      let d = want - f.heading;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      f.heading += f.snap ? d : d * (1 - Math.exp(-dt * 8));
+      const k = f.snap ? 1 : 1 - Math.exp(-dt * 20);
+      for (let j = 0; j < NPOSE; j++) f.cur[j] += (tg[j] - f.cur[j]) * k;
+      f.snap = false;
+      applyPose(f);
+      /* standing, he is a step behind his stick; walking, beside it */
+      const x = (i === 2 ? BOX_X : CREW_X) - 0.75;
+      f.root.position.set(x, 0, -c.y);
+      f.root.rotation.y = f.heading;
+      f.root.visible = true;
+      writeFigure(f, base + i);
+      contact.setMatrixAt(base + i, m4.makeTranslation(x, 0.04, -c.y));
+    }
+  }
+
   function hideFigure(f, i) {
     f.root.visible = false;
     for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setMatrixAt(i * p.joints.length + k, ZERO4);
@@ -1722,6 +1814,11 @@
     }
     if (ps && G.state !== 'menu') updateRefs(G, ps, dt);
     else for (const r of refs) r.placed = false;
+    /* The chain crew: front stick at the line to gain, back stick ten yards behind it, the down box on the ball.
+       Once the whistle has gone they set off for the next play's marks, so after a first down you see them move. */
+    const gameOn = G.state !== 'menu' && G.state !== 'over' && G.state !== 'intro', now = !!ps && G.state !== 'dead', way = (now ? ps.offTeam : G.poss) === 0 ? 1 : -1;
+    const toGain = clamp(now ? ps.fd : G.fd, 0, 100), kick = (!!ps && ps.mode === 'ko') || G.pendKO != null;
+    updateCrew(gameOn, kick ? null : [toGain, toGain - way * 10, now ? ps.los : G.los], dt);
     const active = ps && G.state !== 'menu' ? CAP : SIDELINE;
     for (const p of parts) {
       p.mesh.count = active * p.joints.length;
@@ -1805,10 +1902,19 @@
     const L = ps ? ps.los : G.los, FD = ps ? ps.fd : G.fd;
     losLine.visible = showLines;
     fdLine.visible = showLines && FD > 0.1 && FD < 99.9;
-    sticks.visible = fdLine.visible;
     losLine.position.z = -L;
     fdLine.position.z = -FD;
-    sticks.position.set(-2.6, 0, -FD);
+    /* the gear goes where the crew carries it, so it walks down the sideline with them after a first down */
+    const gear = crew[0].placed;
+    sticks.visible = sticks2.visible = chain.visible = downBox.visible = gear;
+    if (gear) {
+      sticks.position.set(CREW_X, 0, -crew[0].y);
+      sticks2.position.set(CREW_X, 0, -crew[1].y);
+      chain.position.z = -(crew[0].y + crew[1].y) / 2;
+      chain.scale.z = Math.max(0.1, Math.abs(crew[0].y - crew[1].y));
+      downBox.position.set(BOX_X, 0, -crew[2].y);
+      downBox.userData.cube.material = downMats[clamp(G.down || 1, 1, 4)];
+    }
 
     /* camera flashes */
     const fp = flashes.geometry.attributes.position, rate = (1.2 + 70 * Math.min(1, cheer)) * dt;

@@ -56,8 +56,9 @@ what is next. Update it after every item.
    The report must be empty. It lists touch areas under 44 pixels, overlapping or covered controls, clipped or cut
    text, type under 10 pixels, contrast under 4.5 to 1 (measured against the picture really behind the text, read back
    from the canvases) and blocks of the in-game display that overlap. `A.menus()` replaces the test season and career.
-7. Motion, after any change to the poses: `PG.r3d.gait(8)` (and 2, 5 and `{ how: 'back' }`) should report a slide of
-   under 2 cm and a sink of under half a centimetre; `PG.r3d.strip(8)` returns an image of one stride from the side
+7. Motion, after any change to the poses: `PG.r3d.gait(8)` (and 2, 5, `{ how: 'back' }`, `{ how: 'side' }` at 3,
+   `{ how: 'diag' }`, `{ who: 'ref' }` and `{ who: 'crew' }`) should report a slide of about 2 cm or less and a sink
+   of under half a centimetre; `PG.r3d.strip(8)` returns an image of one stride from the side
    (put it in an `<img>` and look at it).
 
 ## Architecture
@@ -493,6 +494,21 @@ what is next. Update it after every item.
   phone sizes; no console errors. Not solved: a sideways shuffle. The legs only swing forward and back, so a defender
   sliding across still steps in place while he moves (measured: 120 cm of slide a step).
 
+- 17:20 Motion, the sideways half (automatic run 3; the 16:02 run stopped at the owner's usage limit before any change).
+  The hips now open sideways and the ankle turns on all three axes, so the leg solve reaches a foot placed anywhere
+  on the turf and the shoe still lies flat pointing where he faces. The stride takes the direction of travel in the
+  figure's own frame: forward, backward, sideways or between. A shuffle takes short quick steps (0.5 yard plus 0.06
+  per yard a second), keeps the feet 0.22 of a leg wider than the hips so they never cross, and rides 7% lower.
+  `PG.r3d.gait(3, { how: 'side' })` went from 120 cm of slide a step to 1.7 at most (0.9 on average); a diagonal is
+  0.9, a backward diagonal 2.2; forward and backward are unchanged (1 to 1.5, 0.2). The first version left 3.3 cm,
+  because the ankle only undid the leg's pitch and roll and the shoe swung a little about the ankle: the exact
+  inverse of hip, hip and knee fixed that. A covering defender no longer shuffles at a sprint: above 4.6 yards a
+  second across the field (6.4 straight back) he turns and runs, chest and helmet turned back to the quarterback
+  (looked at in a close-up: a safety at 8.6 yards a second). The officials and the chain crew are on the same stride
+  (1.0 and 1.4 cm) through `stridePhase()`, `strideLegs()` and `easePose()`, which all three kinds of figure share.
+  Drawing only: `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at both phone
+  sizes; no console errors.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -628,13 +644,17 @@ what is next. Update it after every item.
       slide or sink (see the log for the numbers). Stances stand on the turf with flat soles. The quarterback winds up
       while the power bar fills and his follow-through fits the power. Still to be judged in motion by a person
 
+- [x] Run 3, motion sideways. Hips that open, so a shuffle plants its feet too (120 cm of slide a step down to under
+      2); a defender who has ground to cover turns and runs looking back instead of shuffling at a sprint; officials
+      and the chain crew on the players' stride. Still to be judged in motion by a person
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
 - More stadium sound, once somebody has listened to run 1: the stadium announcer on scores and at the end of each
   quarter, the defense calling out the play at the line, a goal-post "doink" (the kick model would have to allow one).
-- Motion, the rest: hips that open sideways, so a defender shuffling across can plant his feet too (now he steps in
-  place); tackles that involve both players (wrap and drive); officials and the bench on the new stride; more
-  touchdown celebrations than the three there are.
+- Motion, the rest: tackles that involve both players (the tackler's arms round the runner, the pair going down
+  together); a head that turns on its own (the helmet only follows the chest now); more touchdown celebrations than
+  the three there are; reserves on the bench who walk about.
 - A real loose-ball scramble instead of an instant recovery; a pile.
 - A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
 - Career: an awards night at the end of the season, age and decline over a long career, a hall of fame screen that

@@ -32,7 +32,7 @@
   const camPos = new T.Vector3(FW / 2, 30, 20), camLook = new T.Vector3(FW / 2, 0, -50);
 
   /* ---------- pose layout ---------- */
-  const PELY = 0, PELRX = 1, PELRZ = 2, CHRX = 3, CHRY = 4, HEADRX = 5, SLX = 6, SLZ = 7, EL = 8, SRX = 9, SRZ = 10, ER = 11, HL = 12, KL = 13, HR = 14, KR = 15, AL = 16, AR = 17, NPOSE = 18;
+  const PELY = 0, PELRX = 1, PELRZ = 2, CHRX = 3, CHRY = 4, HEADRX = 5, SLX = 6, SLZ = 7, EL = 8, SRX = 9, SRZ = 10, ER = 11, HL = 12, KL = 13, HR = 14, KR = 15, AL = 16, AR = 17, HLZ = 18, HRZ = 19, ALZ = 20, ARZ = 21, ALY = 22, ARY = 23, NPOSE = 24;
   const TG = new Float32Array(NPOSE);
 
   /* two poses a fallen player passes through on his way up: one knee down with the other foot planted, then standing */
@@ -423,7 +423,7 @@
     f.ph = Math.random() * 6.28;
     f.lean = 0;  // stride phase and how far he is leaning into a cut
     f.gaitT = 0;  // how long he has been striding (the legs follow the stride exactly once it has settled)
-    f.back = false;
+    f.turned = false;  // a defender in coverage who has turned to run instead of shuffling
     f.wind = 0;  // how far a quarterback has wound up for the throw (0 to 1)
     return f;
   }
@@ -448,6 +448,12 @@
     f.kneeR.rotation.x = c[KR];
     f.ankL.rotation.x = c[AL];
     f.ankR.rotation.x = c[AR];
+    f.hipL.rotation.z = c[HLZ];
+    f.hipR.rotation.z = c[HRZ];
+    f.ankL.rotation.z = c[ALZ];
+    f.ankR.rotation.z = c[ARZ];
+    f.ankL.rotation.y = c[ALY];
+    f.ankR.rotation.y = c[ARY];
   }
 
   const ZERO4 = new T.Matrix4().makeScale(0, 0, 0), fit4 = new T.Matrix4();
@@ -482,60 +488,103 @@
      stride, was sliding backward over the turf at about the runner's own speed while it was there, and sank five
      centimetres into the field. Now each foot is given a place to be and the leg is solved to put it there.
      Each foot spends a share of the cycle on the ground (about half at a walk, a quarter flat out) and the rest in the
-     air. On the ground the toe of the shoe stays exactly where it landed while the hips travel over it, and the heel
-     peels up before it leaves. In the air the ankle swings through on an arc that is higher the faster he runs. */
+     air. On the ground it stays exactly where it landed while the hips travel over it, whichever way he is going:
+     forward (the heel peeling up over the toe before it leaves), backward, or sideways in a shuffle, where the hips
+     open and the feet stay apart instead of crossing. In the air the ankle swings through on an arc that is higher
+     the faster he runs. */
   const smooth = x => x * x * (3 - 2 * x);
-  const stepOf = sp => clamp(0.75 + 0.19 * sp, 0.8, 2.5);  // yards covered by one step at this speed
-  const LEG = [0, 0, 0], GAIT = { duty: 0.4, Ls: 0, c0: 0, h: 1, heel: 0, lift: 0, front: 0, back: false };
+  const stepOf = sp => clamp(0.75 + 0.19 * sp, 0.8, 2.5);  // yards covered by one step at this speed, running
+  const LEG = [0, 0, 0, 0, 0, 0], GAIT = { duty: 0.4, tu: 0, tw: 0, c0: 0, h: 1, heel: 0, lift: 0, fu: 0, fw: 0, piv: 0, base: 0, walk: 1 };
 
-  /* Two bones in the plane the leg swings in. (u, y): where the ankle should be, forward of the hip and above the
-     turf; h: how high the hip is; pitch: how far the heel is lifted (0 is a flat sole). Fills LEG with the hip, knee
-     and ankle angles; a place the leg cannot reach is aimed at as far as it goes. */
-  function legIK(u, y, h, pitch) {
-    const dy = h - y, D = clamp(Math.hypot(u, dy), 0.26, L1 + ANKLE - 0.004), inner = Math.acos(clamp((L1 * L1 + ANKLE * ANKLE - D * D) / (2 * L1 * ANKLE), -1, 1));
-    LEG[0] = Math.atan2(u, dy) + Math.asin(clamp(ANKLE * Math.sin(inner) / D, -1, 1));  // the knee always folds forward
+  /* Two bones, and where the ankle should be: w to his right of the hip, u forward of it, y above the turf. h is how
+     high the hip is and pitch how far the heel is lifted (0 is a flat sole). The leg folds in its own plane, the knee
+     always forward, and the hip swings that plane out to the side when the foot is not straight under it. Fills LEG:
+     the hip forward, the knee, the ankle's pitch, the hip sideways, the ankle's roll and its turn. A place the leg cannot reach is aimed
+     at as far as it goes. */
+  function legIK(w, u, y, h, pitch) {
+    const dy = h - y, D = clamp(Math.hypot(w, u, dy), 0.26, L1 + ANKLE - 0.004), inner = Math.acos(clamp((L1 * L1 + ANKLE * ANKLE - D * D) / (2 * L1 * ANKLE), -1, 1));
+    const del = Math.asin(clamp(ANKLE * Math.sin(inner) / D, -1, 1)), out = Math.asin(clamp(w / (D * Math.cos(del)), -1, 1));
+    const a = Math.atan2(-u, -dy) - Math.atan2(D * Math.sin(del), -D * Math.cos(del) * Math.cos(out));
+    LEG[0] = Math.atan2(Math.sin(a), Math.cos(a));
     LEG[1] = inner - Math.PI;
-    LEG[2] = -pitch - LEG[0] - LEG[1];
+    LEG[3] = out;
+    /* The ankle undoes everything above it, so the shoe points where he faces with its sole flat (or tipped up on
+       its toe by `pitch`) however the leg is bent or swung out. That is the turn hip-forward, hip-out, knee taken
+       backward, written as the three angles the joint is set by. */
+    const th = -LEG[0] - pitch, cb = Math.cos(out), sb = -Math.sin(out), ct = Math.cos(th), st = Math.sin(th), ck = Math.cos(LEG[1]), sk = -Math.sin(LEG[1]);
+    LEG[2] = Math.atan2(ck * cb * st + sk * ct, ck * ct - sk * cb * st);
+    LEG[4] = Math.atan2(sb * ct, cb);
+    LEG[5] = Math.asin(clamp(sb * st, -1, 1));
   }
 
-  /* the shape of the stride at this speed. `along` is the share of his speed that is in the direction he faces:
-     1 running forward, -1 backpedalling, 0 shuffling sideways (the legs cannot plant across themselves, so then they step in place) */
-  function gaitOf(f, sp, run, along) {
-    const g = GAIT, cyc = 2 * stepOf(sp) / f.root.scale.y, share = Math.abs(along);  // figure lengths covered in one cycle of two steps
-    g.back = along < 0;
-    g.duty = clamp(lerp(0.62, 0.8, run) / cyc, 0.24, 0.6);
-    g.Ls = g.duty * cyc * share;  // how far the hips travel over a planted foot
+  /* The shape of the stride for a figure moving at sp yards a second. `along` and `side` are the shares of that
+     speed in the direction he faces and to his right: 1 and 0 running forward, -1 and 0 backpedalling, 0 and 1
+     shuffling to his right. stepLen is the ground one step covers. */
+  function gaitOf(f, sp, run, along, side, stepLen) {
+    const g = GAIT, cyc = 2 * stepLen / f.root.scale.y, lat = Math.abs(side), fwd = Math.max(0, along);  // cyc: figure lengths covered in one cycle of two steps
+    g.duty = clamp(lerp(lerp(0.62, 0.8, run), 0.4, lat) / cyc, 0.24, 0.6);
+    g.tu = g.duty * cyc * along;  // how far the hips travel over a planted foot: forward,
+    g.tw = g.duty * cyc * side;  // and to his right
     g.c0 = f.ph / (2 * Math.PI) + 0.63;
-    g.h = lerp(0.965, 0.94, run) + lerp(0.016, 0.05, run) * (1 - Math.cos(4 * Math.PI * (g.c0 - g.duty / 2))) / 2;  // lowest over the planted foot, highest in the air between steps
-    g.heel = g.back ? 0 : lerp(0.4, 0.95, run) * share;
-    g.lift = lerp(0.06, 0.36, run) * (g.back ? 0.5 : 0.4 + 0.6 * share);
-    g.front = g.Ls * lerp(0.5, 0.46, run) + (g.back ? 0 : 0.06);  // how far ahead of the hip the toe lands
+    g.h = lerp(0.965, 0.94, run) - 0.07 * lat + lerp(0.016, 0.05, run) * (1 - 0.6 * lat) * (1 - Math.cos(4 * Math.PI * (g.c0 - g.duty / 2))) / 2;  // lowest over the planted foot, highest in the air between steps; lower in a shuffle
+    g.piv = smooth(clamp(along * 4, 0, 1));  // going forward the planted point is the toe, otherwise the whole flat foot
+    g.heel = lerp(0.4, 0.95, run) * fwd;
+    g.lift = lerp(0.06, 0.36, run) * (0.4 + 0.6 * fwd);
+    g.fu = g.tu * lerp(0.5, 0.46, run) + 0.06 * g.piv;  // where the foot lands: ahead of the hip,
+    g.fw = g.tw * 0.5;  // and out to the side he is going
+    g.base = 0.22 * lat;  // a shuffle keeps the feet wide apart
+    g.walk = clamp((sp - 0.25) / 0.5, 0, 1);  // fades the stride in from standing still
     return g;
   }
 
-  /* both legs for the stride g, with the hips at height h; `walk` fades it in from standing still */
-  function strideLegs(tg, g, h, walk) {
+  /* Advance a figure's stride for his velocity (field yards a second) and return its shape, or null when he is as
+     good as standing. A shuffle takes shorter, quicker steps than a run at the same speed. */
+  function stridePhase(f, vx, vy, dt) {
+    const sp = Math.hypot(vx, vy);
+    if (sp <= 0.25) return null;
+    const ch = Math.cos(f.heading), sh = Math.sin(f.heading), along = clamp((vy * ch - vx * sh) / sp, -1, 1), side = clamp((vx * ch + vy * sh) / sp, -1, 1);
+    const stepLen = lerp(stepOf(sp), 0.5 + 0.06 * sp, Math.abs(side));
+    f.ph += sp * dt * Math.PI / stepLen;
+    return gaitOf(f, sp, Math.min(1, sp / 7.5), along, side, stepLen);
+  }
+
+  /* both legs for the stride g, with the hips at height h */
+  function strideLegs(tg, g, h) {
+    const sw = (1 - g.duty) / g.duty * 0.55;  // a foot leaves and lands moving nearly with the turf
     for (let k = 0; k < 2; k++) {
-      let c = g.c0 + k * 0.5, u, y, pitch;
+      let c = g.c0 + k * 0.5, u, w, y, pitch;
       c -= Math.floor(c);
+      const home = (k ? 1 : -1) * g.base + g.fw;
       if (c < g.duty) {
         const a = c / g.duty;
         pitch = g.heel * smooth(clamp((a - 0.5) / 0.5, 0, 1));
-        u = g.front - g.Ls * a - TOE * Math.cos(pitch) + SOLE * Math.sin(pitch);  // the ankle rides up and forward over the toe
-        y = TOE * Math.sin(pitch) + SOLE * Math.cos(pitch);
+        u = g.fu - g.tu * a - g.piv * TOE * Math.cos(pitch) + SOLE * Math.sin(pitch);  // the ankle rides up and forward over the toe
+        w = home - g.tw * a;
+        y = g.piv * TOE * Math.sin(pitch) + SOLE * Math.cos(pitch);
       } else {
-        const t = (c - g.duty) / (1 - g.duty), t2 = t * t, t3 = t2 * t, m = -g.Ls / g.duty * (1 - g.duty) * 0.55;  // leave and land moving nearly with the turf
-        const u0 = g.front - g.Ls - TOE * Math.cos(g.heel) + SOLE * Math.sin(g.heel), y0 = TOE * Math.sin(g.heel) + SOLE * Math.cos(g.heel), u1 = g.front - TOE;
-        u = (2 * t3 - 3 * t2 + 1) * u0 + (t3 - 2 * t2 + t) * m + (3 * t2 - 2 * t3) * u1 + (t3 - t2) * m;
+        const t = (c - g.duty) / (1 - g.duty), t2 = t * t, t3 = t2 * t, h0 = 2 * t3 - 3 * t2 + 1, h1 = t3 - 2 * t2 + t + t3 - t2, h2 = 3 * t2 - 2 * t3;
+        const u0 = g.fu - g.tu - g.piv * TOE * Math.cos(g.heel) + SOLE * Math.sin(g.heel), y0 = g.piv * TOE * Math.sin(g.heel) + SOLE * Math.cos(g.heel);
+        u = h0 * u0 - h1 * g.tu * sw + h2 * (g.fu - g.piv * TOE);
+        w = h0 * (home - g.tw) - h1 * g.tw * sw + h2 * home;
         y = lerp(y0, SOLE, smooth(t)) + g.lift * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.85)), 1.3);
         pitch = g.heel * (1 - smooth(Math.min(1, t / 0.55)));
       }
-      if (g.back) u = -u - TOE;  // backpedalling: the same path mirrored, on a foot that still points forward, the ankle passing under the hip
-      legIK(u, y, h, pitch);
-      tg[k ? HR : HL] = LEG[0] * walk;
-      tg[k ? KR : KL] = LEG[1] * walk;
-      tg[k ? AR : AL] = LEG[2] * walk;
+      legIK(w, u, y, h, pitch);
+      tg[k ? HR : HL] = LEG[0] * g.walk;
+      tg[k ? KR : KL] = LEG[1] * g.walk;
+      tg[k ? AR : AL] = LEG[2] * g.walk;
+      tg[k ? HRZ : HLZ] = LEG[3] * g.walk;
+      tg[k ? ARZ : ALZ] = LEG[4] * g.walk;
+      tg[k ? ARY : ALY] = LEG[5] * g.walk;
     }
+  }
+
+  /* Ease a figure toward the pose in tg at rate k. A stride that has settled is followed almost exactly: easing it
+     would round off the very positions that keep the feet planted. */
+  function easePose(f, tg, k, striding, dt) {
+    f.gaitT = striding ? f.gaitT + dt : 0;
+    const kLeg = lerp(k, Math.max(k, 1 - Math.exp(-dt * 150)), clamp(f.gaitT / 0.2, 0, 1));
+    for (let i = 0; i < NPOSE; i++) f.cur[i] += (tg[i] - f.cur[i]) * (i === PELY || i >= HL ? kLeg : k);
   }
 
   /* Stand a set pose on the turf: both soles flat, the hips moved up or down until the lower foot rests exactly on
@@ -656,13 +705,9 @@
   function poseRef(f, r, sig, bx, by, dt) {
     const tg = TG;
     tg.fill(0);
-    const sp = Math.hypot(r.vx, r.vy), run = Math.min(1, sp / 6), ph = r.anim * 2.4, sn = Math.sin(ph), cs = Math.cos(ph);
-    tg[PELY] = HIP - 0.03 * run + Math.abs(cs) * 0.04 * run;
+    const sp = Math.hypot(r.vx, r.vy), run = Math.min(1, sp / 6), gait = stridePhase(f, r.vx, r.vy, dt), sn = Math.sin(f.ph);  // his legs are on the players' stride
+    tg[PELY] = gait ? lerp(HIP, gait.h, gait.walk) : HIP;
     tg[CHRX] = -0.05 - 0.15 * run;
-    tg[HL] = sn * 0.8 * run;
-    tg[HR] = -sn * 0.8 * run;
-    tg[KL] = -(0.15 + Math.max(0, cs)) * run;
-    tg[KR] = -(0.15 + Math.max(0, -cs)) * run;
     tg[SLX] = -sn * 0.6 * run;
     tg[SRX] = sn * 0.6 * run;
     tg[EL] = 0.3 + run;
@@ -693,15 +738,36 @@
         tg[EL] = 0.1;
         tg[ER] = 0.1;
       }
+    if (gait) strideLegs(tg, gait, tg[PELY]);
     let d = Math.atan2(-hx, hy) - f.heading;
     d = Math.atan2(Math.sin(d), Math.cos(d));
     f.heading += f.snap ? d : d * (1 - Math.exp(-dt * 8));
-    const k = f.snap ? 1 : 1 - Math.exp(-dt * 16);
-    for (let i = 0; i < NPOSE; i++) f.cur[i] += (tg[i] - f.cur[i]) * k;
+    easePose(f, tg, f.snap ? 1 : 1 - Math.exp(-dt * 16), !!gait, dt);
     f.snap = false;
     applyPose(f);
     f.root.position.set(r.x, 0, -r.y);
     f.root.rotation.y = f.heading;
+  }
+
+  /* one of the chain crew, moving at v yards a second along the sideline: he walks facing the way he is going, on the
+     players' stride, and stands facing the field, his stick held out in one hand */
+  function poseCrew(f, v, dt) {
+    const tg = TG, run = Math.min(1, Math.abs(v) / 5), want = run > 0.15 ? (v > 0 ? 0 : Math.PI) : -Math.PI / 2;
+    let d = want - f.heading;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    f.heading += f.snap ? d : d * (1 - Math.exp(-dt * 8));
+    const gait = stridePhase(f, 0, v, dt), sn = Math.sin(f.ph);
+    tg.fill(0);
+    tg[PELY] = gait ? lerp(HIP, gait.h, gait.walk) : HIP;
+    tg[CHRX] = -0.05 - 0.12 * run;
+    tg[SLX] = -sn * 0.5 * run;
+    tg[EL] = 0.3 + run * 0.6;
+    tg[SRX] = 1.2;  // the stick, held out in front
+    tg[ER] = 0.45;
+    if (gait) strideLegs(tg, gait, tg[PELY]);
+    easePose(f, tg, f.snap ? 1 : 1 - Math.exp(-dt * 20), !!gait, dt);
+    f.snap = false;
+    applyPose(f);
   }
 
   /* a reserve on the sideline: stands and breathes, some with hands on hips or arms folded, and jumps when his team scores */
@@ -750,8 +816,7 @@
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
     /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
        ground actually covered. That keeps the feet moving at the pace of the turf instead of skating over it. */
-    f.ph += sp * dt * Math.PI / stepOf(sp);
-    const sn = Math.sin(f.ph);
+    const gait = stridePhase(f, p.vx, p.vy, dt), sn = Math.sin(f.ph);
     let striding = false;
     const carrier = ps.carrier === p && !ps.air, inPocket = carrier && p === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open;
     const winding = s.charge >= 0 && carrier && p === ps.qb && !ps.thrown;  // the user is holding a receiver's letter: the power bar is filling
@@ -1004,7 +1069,7 @@
       hy = p.team === ps.offTeam ? s.dir : -s.dir;
     } else {
       /* on the move, or standing */
-      let facing = sp > 1 ? 1 : 0;
+      let facing = sp > 1 ? 1 : 0, look = null;
       if (sp > 1) {
         hx = p.vx;
         hy = p.vy;
@@ -1015,23 +1080,45 @@
         hy = s.dir;
         facing = p.vy * s.dir >= 0 ? 1 : -1;
       } else if (cover) {
+        /* Eyes on the quarterback. At a jog he stays square to him and shuffles or backpedals. When he has real
+           ground to cover across the field (or is being run off deep) he turns his hips and runs with it, looking
+           back over his shoulder: nobody shuffles at a sprint. */
         hx = ps.qb.x - p.x;
         hy = ps.qb.y - p.y;
-        facing = p.vx * hx + p.vy * hy >= 0 ? 1 : -1;
-      }  // eyes on the quarterback
+        const toQb = (p.vx * hx + p.vy * hy) / ((Math.hypot(hx, hy) || 1) * (sp || 1));  // 1 closing on him, -1 backing straight away
+        f.turned = sp > (toQb < -0.8 ? 6.4 : 4.6) - (f.turned ? 1 : 0) && toQb < 0.8;
+        if (f.turned) {
+          look = Math.atan2(-hx, hy);
+          hx = p.vx;
+          hy = p.vy;
+        } else facing = toQb >= 0 ? 1 : -1;
+      } else f.turned = false;
       const back = facing < 0, dirn = back ? -1 : 1, moving = Math.min(1, run * 3);
       /* legs: the stride (see above) gives each foot a place on the turf; the hips ride at the height it asks for */
-      const walk = clamp((sp - 0.25) / 0.5, 0, 1), gait = walk > 0 ? gaitOf(f, sp, run, clamp((p.vy * Math.cos(f.heading) - p.vx * Math.sin(f.heading)) / sp, -1, 1)) : null;
-      /* arms: opposite the legs, elbows held near a right angle, hands driving from hip to chin */
-      const arm = (0.2 + 0.8 * run) * moving;
+      const lat = gait ? gait.base / 0.22 : 0;  // how much of this is a sideways shuffle
+      /* arms: opposite the legs, elbows held near a right angle, hands driving from hip to chin; quieter in a shuffle */
+      const arm = (0.2 + 0.8 * run) * moving * (1 - 0.6 * lat);
       tg[SLX] = (-sn * 0.95 + 0.12) * arm * dirn;
       tg[SRX] = (sn * 0.95 + 0.12) * arm * dirn;
       tg[EL] = 0.3 + (1.25 - sn * 0.3) * run;
       tg[ER] = 0.3 + (1.25 + sn * 0.3) * run;
+      if (lat > 0.05) {
+        /* shuffling: elbows bent and a little out, hands ready in front of him */
+        tg[SLX] = lerp(tg[SLX], 0.4, lat);
+        tg[SRX] = lerp(tg[SRX], 0.4, lat);
+        tg[SLZ] = -0.22 * lat;
+        tg[SRZ] = 0.22 * lat;
+        tg[EL] = lerp(tg[EL], 1.25, lat);
+        tg[ER] = lerp(tg[ER], 1.25, lat);
+      }
       tg[CHRY] = sn * 0.2 * run * dirn;  // the shoulders turn against the hips
-      tg[CHRX] = back ? 0.04 : -(0.08 + 0.28 * run);
+      if (look !== null) {
+        const rel = look - f.heading;
+        tg[CHRY] += clamp(Math.atan2(Math.sin(rel), Math.cos(rel)), -0.95, 0.95);  // running one way, chest and helmet turned back to the quarterback
+      }
+      tg[CHRX] = lerp(back ? 0.04 : -(0.08 + 0.28 * run), -0.2, lat);
       tg[HEADRX] = -tg[CHRX] * 0.6;
-      tg[PELY] = gait ? lerp(HIP, gait.h, walk) : HIP;  // the body rises between plants
+      tg[PELY] = gait ? lerp(HIP, gait.h, gait.walk) : HIP;  // the body rises between plants
       tg[PELRZ] = f.lean;  // and leans into a cut
       if (sp < 0.5) {
         // standing: breathe, and some rest hands on hips
@@ -1161,10 +1248,8 @@
         snap = true;
       } else if (gait) {
         /* last, so the legs reach the turf from wherever the hips have ended up (lower when he drops a shoulder) */
-        strideLegs(tg, gait, tg[PELY], walk);
+        strideLegs(tg, gait, tg[PELY]);
         striding = true;
-        if (gait.back !== f.back) f.gaitT = 0;  // turning from a backpedal to a run: ease across
-        f.back = gait.back;
       }
     }
     /* A forward lean comes partly from the hips: the seat goes back and the jersey stays tucked in,
@@ -1185,12 +1270,8 @@
       f.lean += ((f.snap ? 0 : clamp(d * 0.9 * run, -0.32, 0.32)) - f.lean) * (1 - Math.exp(-dt * 9));
     } else f.lean *= Math.exp(-dt * 9);
     if (p.spinT > 0) f.heading += dt * Math.PI * 2 / 0.5;
-    /* ease the pose. A stride that has settled is followed almost exactly: easing it would round off the very
-       positions that keep the feet planted. */
     if (!(p.thrT > 0) && !winding) f.wind = 0;
-    f.gaitT = striding ? f.gaitT + dt : 0;
-    const k = f.snap || snap ? (f.snap ? 1 : 1 - Math.exp(-dt * 60)) : 1 - Math.exp(-dt * 28), kLeg = lerp(k, Math.max(k, 1 - Math.exp(-dt * 150)), clamp(f.gaitT / 0.2, 0, 1));
-    for (let i = 0; i < NPOSE; i++) f.cur[i] += (tg[i] - f.cur[i]) * (i === PELY || i >= HL ? kLeg : k);
+    easePose(f, tg, f.snap || snap ? (f.snap ? 1 : 1 - Math.exp(-dt * 60)) : 1 - Math.exp(-dt * 28), striding, dt);
     f.snap = false;
     applyPose(f);
     f.root.position.set(p.x, 0, -p.y);
@@ -1759,7 +1840,6 @@
       r.vy += ((d > 0.01 ? dy / d * want : 0) - r.vy) * k;
       r.x += r.vx * dt;
       r.y += r.vy * dt;
-      r.anim += Math.hypot(r.vx, r.vy) * dt * 0.65;
       r.fdDir = off;
       f.root.visible = true;
       poseRef(f, r, sig === 'fd' && i > 0 ? null : sig, bx, by, dt);
@@ -1786,28 +1866,7 @@
       }
       c.v = clamp((ty - c.y) * 2.4, -7, 7);
       c.y += c.v * dt;
-      c.anim += Math.abs(c.v) * dt * 0.65;
-      const tg = TG, run = Math.min(1, Math.abs(c.v) / 5), sn = Math.sin(c.anim * 2.4), cs = Math.cos(c.anim * 2.4);
-      tg.fill(0);
-      tg[PELY] = HIP - 0.03 * run + Math.abs(cs) * 0.04 * run;
-      tg[CHRX] = -0.05 - 0.12 * run;
-      tg[HL] = sn * 0.75 * run;
-      tg[HR] = -sn * 0.75 * run;
-      tg[KL] = -(0.15 + Math.max(0, cs)) * run;
-      tg[KR] = -(0.15 + Math.max(0, -cs)) * run;
-      tg[SLX] = -sn * 0.5 * run;
-      tg[EL] = 0.3 + run * 0.6;
-      tg[SRX] = 1.2;  // the stick, held out in front
-      tg[ER] = 0.45;
-      /* walking: he faces along the sideline; standing: he faces the field */
-      const want = run > 0.15 ? (c.v > 0 ? 0 : Math.PI) : -Math.PI / 2;
-      let d = want - f.heading;
-      d = Math.atan2(Math.sin(d), Math.cos(d));
-      f.heading += f.snap ? d : d * (1 - Math.exp(-dt * 8));
-      const k = f.snap ? 1 : 1 - Math.exp(-dt * 20);
-      for (let j = 0; j < NPOSE; j++) f.cur[j] += (tg[j] - f.cur[j]) * k;
-      f.snap = false;
-      applyPose(f);
+      poseCrew(f, c.v, dt);
       /* standing, he is a step behind his stick; walking, beside it */
       const x = (i === 2 ? BOX_X : CREW_X) - 0.75;
       f.root.position.set(x, 0, -c.y);
@@ -2272,42 +2331,50 @@
   const runner = (speed, how) => {
     /* a player and a play that take poseFor down the "on the move" branch: running forward, or covering (facing a
        quarterback far behind him, or far to one side) so that the same speed is a backpedal or a shuffle */
-    const p = { x: 26, y: 30, vx: 0, vy: speed, role: 'WR', team: how ? 1 : 0, asg: 'zone' };
-    const ps = { carrier: null, air: null, mode: 'pass', offTeam: 0, runner: null, los: 20, qb: how === 'back' ? { x: 26, y: -4000 } : how === 'side' ? { x: -4000, y: 30 } : null };
+    const p = { x: 26, y: 30, vx: 0, vy: speed, role: 'WR', team: how ? 1 : 0, asg: 'zone' }, far = { back: [26, -4000], side: [-4000, 30], diag: [-4000, 4030], backdiag: [-4000, -3970] }[how];
+    const ps = { carrier: null, air: null, mode: 'pass', offTeam: 0, runner: null, los: 20, qb: far ? { x: far[0], y: far[1] } : null };
     return { p, s: { ps, G: { state: 'live' }, pre: false, live: true, dir: 1, celeb: null } };
   };
   let testFig = null;
+  const FACING = { back: Math.PI, side: Math.PI / 2, diag: Math.PI / 4, backdiag: Math.PI * 0.75 };  // the heading each of those settles at
 
   function gaitTest(speed, opts) {
     const o = opts || {}, f = testFig || (testFig = makeFigure()), dt = 1 / (o.fps || 120), { p, s } = runner(speed, o.how), v = new T.Vector3(), cm = 91.44;
     setBuild(f, BUILD[o.build || 'slim']);
     f.snap = true;
     f.ph = 0;
-    f.heading = o.how === 'back' ? Math.PI : o.how === 'side' ? Math.PI / 2 : 0;
+    f.heading = FACING[o.how] || 0;
     f.gaitT = 0;
     const feet = [{ j: f.ankL, down: 0, n: 0, slips: [], at: null, knee: 0 }, { j: f.ankR, down: 0, n: 0, slips: [], at: null, knee: 0 }];
     let low = 9, high = 0, hipLo = 9, hipHi = 0;
     for (let t = 0; t < (o.seconds || 3); t += dt) {
       p.y += p.vy * dt;
-      poseFor(f, p, s, dt);
+      if (o.who === 'ref') poseRef(f, p, null, p.x, p.y + 30, dt);  // an official jogging up the field
+      else if (o.who === 'crew') {
+        poseCrew(f, speed, dt);
+        f.root.position.set(p.x, 0, -p.y);
+        f.root.rotation.y = f.heading;
+      } else poseFor(f, p, s, dt);
       f.root.updateMatrixWorld(true);
       if (t < 0.7) continue;  // let the pose settle first
       hipLo = Math.min(hipLo, f.cur[PELY]);
       hipHi = Math.max(hipHi, f.cur[PELY]);
       feet.forEach((ft, k) => {
-        const toe = ft.j.localToWorld(v.set(0, -SOLE, -TOE)), by = toe.y, bz = -toe.z, lowest = Math.min(by, ft.j.localToWorld(v.set(0, -SOLE, 0.06)).y);  // the toe, and the heel
+        const toe = ft.j.localToWorld(v.set(0, -SOLE, -TOE)), by = toe.y, bz = -toe.z, bx = toe.x, lowest = Math.min(by, ft.j.localToWorld(v.set(0, -SOLE, 0.06)).y);  // the toe, and the heel
         low = Math.min(low, lowest);
         high = Math.max(high, by);
         ft.n++;
         if (lowest < 0.006) {
           // within half a centimetre of the turf: down
           ft.down++;
-          if (!ft.at) ft.at = [bz, bz];
+          if (!ft.at) ft.at = [bz, bz, bx, bx];
           ft.at[0] = Math.min(ft.at[0], bz);
           ft.at[1] = Math.max(ft.at[1], bz);
+          ft.at[2] = Math.min(ft.at[2], bx);
+          ft.at[3] = Math.max(ft.at[3], bx);
           ft.knee = Math.max(ft.knee, -f.cur[k ? KR : KL]);
         } else if (ft.at) {
-          ft.slips.push(ft.at[1] - ft.at[0]);
+          ft.slips.push(Math.hypot(ft.at[1] - ft.at[0], ft.at[3] - ft.at[2]));  // how far it moved over the turf while it was down, in any direction
           ft.at = null;
         }
       });
@@ -2330,9 +2397,9 @@
     st.floor.visible = true;
     f.snap = true;
     f.ph = 0;
-    f.heading = o.how === 'back' ? Math.PI : o.how === 'side' ? Math.PI / 2 : 0;
+    f.heading = FACING[o.how] || 0;
     f.gaitT = 0;
-    const T2 = speed > 0.01 ? 2 * stepOf(speed) / speed : 1, steps = Math.round(T2 / n / dt);
+    const lat = o.how === 'side' ? 1 : /diag/.test(o.how || '') ? 0.7 : 0, T2 = speed > 0.01 ? 2 * lerp(stepOf(speed), 0.5 + 0.06 * speed, lat) / speed : 1, steps = Math.round(T2 / n / dt);  // one cycle of two steps
     const sim = k => {
       for (let i = 0; i < k; i++) {
         f.root.scale.setScalar(PSCALE);  // the stride is worked out at the size he has on the field
@@ -2345,7 +2412,7 @@
       sim(steps);
       f.root.scale.setScalar(1);
       f.root.position.set(0, 0, 0);
-      f.root.rotation.y = o.view === 'front' ? Math.PI : o.view === 'back' ? 0 : (o.how === 'back' ? Math.PI / 2 : -Math.PI / 2);  // from the side, running left to right
+      f.root.rotation.y = o.view === 'front' ? Math.PI : o.view === 'back' ? 0 : o.how === 'back' ? Math.PI / 2 : -Math.PI / 2;  // from the side, running left to right; or from in front
       shoot(st, x, i * cell, 0, cell);
     }
     st.floor.visible = false;

@@ -38,7 +38,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   a crowd that chants, boos a flag on the home team and builds a wall of noise on third down, the referee's call
   echoing over the speakers, the crowd finishing the announcer's "first down", a band in the stands and a halftime show.
 - Players run on feet that stay where they land: the legs are solved each frame so a planted foot neither slides nor
-  sinks, and linemen crouch with their soles flat on the turf. The quarterback winds up as the power bar fills.
+  sinks, forward, backward or in a sideways shuffle, and linemen crouch with their soles flat on the turf. A defender
+  with ground to cover turns and runs, looking back at the quarterback. The quarterback winds up as the power bar fills.
 - Every control has a touch area of at least 44 by 44 pixels, however small it is drawn, and the layout is checked from
   320-pixel phones up to a desktop window. A phone held sideways is asked to turn upright.
 
@@ -113,7 +114,8 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
   stadium for (a referee's call, a boo, the halftime show), so the hooks can be checked without sound.
 
 `PG.r3d.gait(8)` runs a figure at eight yards a second and measures its feet (how far a planted foot slides, how deep
-it sinks, how long it is down); `PG.r3d.strip(8)` returns a picture of one stride from the side.
+it sinks, how long it is down); `{ how: 'side' }` makes it a shuffle, `{ who: 'ref' }` an official.
+`PG.r3d.strip(8)` returns a picture of one stride from the side (`{ view: 'front' }` from in front).
 
 `tools/audit.js` is the interface audit. Load it the same way after the harness, then run
 `await A.menus(); A.play('exh'); A.play('career'); A.play('camp'); A.report()` at a phone size such as 320 by 568.

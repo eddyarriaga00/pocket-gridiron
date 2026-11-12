@@ -139,7 +139,9 @@ what is next. Update it after every item.
 - [x] README refresh
 
 ### Stretch
-- [ ] Offline install with a service worker (weather, time of day, the announcer and career trophies are done)
+- [x] Offline play: `sw.js` is network first with the cache as a fallback, so a new push is never hidden by an old copy.
+      Registered only on https. Not tested offline on a phone.
+- [x] The game watches its own frame rate and drops the glow pass, then sharpness, then shadows if a device cannot keep up
 
 ## Log
 
@@ -176,8 +178,8 @@ what is next. Update it after every item.
 ### Round 3 (planned at 03:49; the owner's top request is better models and animation, so that goes first)
 - [x] Models: body types by position, pant stripes, wristbands, glossy helmets; real body-shaped shadows on the turf
 - [x] Reviewed by eye: day, dusk, rain and snow all look right
-- [ ] Still to look at up close: the handoff pose, officials' signals, truck, stiff arm, hit stick and strip (one celebration and
-      the hurdle were checked by screenshot)
+- [ ] Still to look at up close: the handoff pose, truck, stiff arm, hit stick and strip (a celebration, the hurdle and an
+      official's touchdown signal were checked by screenshot)
 - [x] Shader pass (GLSL, `js/shaders.js`): turf with blade detail, view-dependent mowing stripes and wet reflections; sky dome with
       sun, stars and clouds; a crowd drawn seat by seat that hops when it cheers; rim light on players; a finishing pass with glow,
       vignette and color (Settings can turn it off)

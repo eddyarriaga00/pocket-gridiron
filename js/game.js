@@ -3154,12 +3154,39 @@
     }
   }
 
-  let last = 0;
+  let last = 0, slow = 0;
+
+  /* Nobody can test every phone, so the game watches its own frame rate. If play stays under about 40 frames a
+     second for a few seconds it gives up the most expensive effect that is still on: first the glow pass, then
+     the sharpness, then the shadows. Each step is saved, and Settings can turn any of them back on. */
+  function watchSpeed(raw) {
+    if (!R3 || AUTO || window.PG_TEST || G.paused || document.hidden || raw > 0.25 || (G.state !== 'live' && G.state !== 'pre')) return;
+    slow = raw > 1 / 40 ? slow + 1 : Math.max(0, slow - 2);
+    if (slow < 150) return;
+    slow = 0;
+    let what = '';
+    if (SET.fx !== false) {
+      SET.fx = false;
+      what = 'glow pass off';
+    } else if (SET.px !== 'bal') {
+      SET.px = 'bal';
+      resize();
+      what = 'sharpness lowered';
+    } else if (SET.shad !== false) {
+      SET.shad = false;
+      what = 'shadows off';
+    }
+    if (what) {
+      save('pg.settings', SET);
+      toast('Smoother play: ' + what);
+    }
+  }
 
   function frame(ts) {
-    const dt = Math.min(0.034, (ts - last) / 1000 || 0.016);
+    const raw = (ts - last) / 1000 || 0.016, dt = Math.min(0.034, raw);
     last = ts;
     FDT = dt;
+    watchSpeed(raw);
     const n = window.FAST || 1;
     try {
       for (let i = 0; i < n; i++) step(dt);

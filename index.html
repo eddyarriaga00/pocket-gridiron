@@ -28,6 +28,10 @@
 <script src="js/league.js"></script>
 <script src="js/career.js"></script>
 <script src="js/season.js"></script>
-<script>PG.boot();</script>
+<script>
+PG.boot();
+/* offline play: only on the real site, never on a local test server */
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
 </body>
 </html>

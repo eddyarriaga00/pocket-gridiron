@@ -285,6 +285,16 @@ what is next. Update it after every item.
   away kits) and the Career card. With 3D switched off the portraits are simply absent. The four menu shots were not
   watched in motion. `H.fingerprint()` unchanged.
 
+- 08:14 Career difficulty, measured with the bot (which plays your player the way the computer would; a scripted QB also throws
+  worse than a person). 21 games per position on teams rated 85, 82 and 80.
+  Before: average game grade in points was QB 4.9, RB 6.3, WR 6.2, LB 3.1, CB 3.1 against a neutral point of 4.5 for coach
+  trust, so backs and receivers became starters just by showing up and defenders sank to the bench (trust 5) while winning.
+  A running back's team won 5 of 21 because the coach called runs 60% of the time.
+  Changes: harder goals and a lower stat scale for RB and WR, a higher stat scale for LB and CB, a neutral point per position
+  (`NEUTRAL`), run calls for a back cut to 50%, and a difficulty choice in the Career hub (All-Pro pays 20% more XP).
+  After: grades RB 5.4, WR 5.1, LB 2.8 to 3.6, CB 3.2 to 4.1; trust ends both above and below its start at every position;
+  wins RB 8/21, WR 13/21, LB 10/21, CB 6/21. Samples are small and noisy. `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -309,7 +319,9 @@ what is next. Update it after every item.
       (a first down at the spot); Settings has a Penalties switch that turns every flag off
 - [x] Menu: four slow camera shots behind the menus (high orbit, sideline, behind the posts, a crane onto midfield), and 3D
       uniform portraits on the Exhibition and Season team pickers and on the Career player card
-- [ ] Career difficulty: measure with scripted seasons and tune so an average player wins about half
+- [x] Career difficulty: measured with scripted seasons and rebalanced (grades, goals, coach trust per position, less
+      run-heavy play-calling for a running back), and Career now has a Rookie / Pro / All-Pro choice. Whether an average
+      *person* wins about half is still unknown: the script only plays like the computer
 
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.

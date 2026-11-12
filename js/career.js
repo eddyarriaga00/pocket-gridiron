@@ -43,7 +43,9 @@
   const roleOf = tr => ROLES.find(r => (tr === undefined ? C.trust : tr) >= r[0]);
   const share = () => roleOf()[2];
   const PICK_TRUST = [78, 70, 62, 56, 50, 44, 38, 32], PICK_XP = [1500, 1200, 1000, 800, 650, 500, 400, 300];
-  const WORK_TARGET = { QB: 300, RB: 220, WR: 220, LB: 140, CB: 130 };  // drill production that earns a grade of 85
+  const WORK_TARGET = { QB: 300, RB: 220, WR: 220, LB: 140, CB: 130 };
+  const NEUTRAL = { QB: 4.6, RB: 4.9, WR: 4.9, LB: 4.0, CB: 3.7 };  // the game grade (in points) at which coach trust stays put
+  const DIFFS = ['Rookie', 'Pro', 'All-Pro'];  // drill production that earns a grade of 85
   const persist = () => save(KEY, C);
   const ovrOf = (pos, a) => Math.round(POS[pos].attrs.reduce((s, [k], i) => s + a[k] * POS[pos].w[i], 0));
   const ovr = () => ovrOf(C.pos, C.attrs);
@@ -153,8 +155,8 @@
     const k = ql / 120, r10 = v => Math.max(10, Math.round(v * k / 10) * 10), n = v => Math.max(1, Math.round(v * k));
     return {
       QB: [{ d: `Throw for ${r10(80)}+ yards`, t: m => m.pyd >= r10(80) }, { d: `Throw ${n(1.2)} touchdown pass${n(1.2)>1?'es':''}`, t: m => m.ptd >= n(1.2) }, { d: 'Throw no interceptions', t: m => m.att >= 4 && m.pint === 0 }, { d: 'Complete 60% of your passes', t: m => m.att >= 5 && m.comp / m.att >= 0.6 }],
-      RB: [{ d: `Rush for ${r10(40)}+ yards`, t: m => m.ryd >= r10(40) }, { d: 'Score a rushing touchdown', t: m => m.rtd >= 1 }, { d: 'Average 4+ yards a carry', t: m => m.car >= 4 && m.ryd / m.car >= 4 }, { d: 'Catch 2 passes', t: m => m.rec >= 2 }],
-      WR: [{ d: `Catch ${n(2)} pass${n(2)>1?'es':''}`, t: m => m.rec >= n(2) }, { d: `Gain ${r10(40)}+ receiving yards`, t: m => m.recyd >= r10(40) }, { d: 'Score a receiving touchdown', t: m => m.rectd >= 1 }],
+      RB: [{ d: `Rush for ${r10(55)}+ yards`, t: m => m.ryd >= r10(55) }, { d: 'Score a rushing touchdown', t: m => m.rtd >= 1 }, { d: 'Average 4+ yards a carry', t: m => m.car >= 4 && m.ryd / m.car >= 4 }, { d: `Catch ${n(2)} passes`, t: m => m.rec >= n(2) }],
+      WR: [{ d: `Catch ${n(2.6)} pass${n(2.6)>1?'es':''}`, t: m => m.rec >= n(2.6) }, { d: `Gain ${r10(55)}+ receiving yards`, t: m => m.recyd >= r10(55) }, { d: 'Score a receiving touchdown', t: m => m.rectd >= 1 }],
       LB: [{ d: `Make ${n(2)} tackle${n(2)>1?'s':''}`, t: m => m.tkl >= n(2) }, { d: 'Get a sack', t: m => m.sack >= 1 }, { d: 'Break up or intercept a pass', t: m => m.pbu + m.int >= 1 }],
       CB: [{ d: 'Break up or intercept a pass', t: m => m.pbu + m.int >= 1 }, { d: 'Grab an interception', t: m => m.int >= 1 }, { d: `Make ${n(1.4)} tackle${n(1.4)>1?'s':''}`, t: m => m.tkl >= n(1.4) }] }[pos];
   }
@@ -221,7 +223,7 @@
 
   /* a game grade from goals met, the result and the stat line, scaled so every position can reach an A */
   function gradeOf(m, won, met) {
-    const scale = { QB: 1, RB: 1, WR: 1.25, LB: 2.3, CB: 2.8 }[C.pos], k = C.ql / 120 * share();  // a part-time player is judged on part-time numbers
+    const scale = { QB: 1, RB: 0.8, WR: 1, LB: 3.6, CB: 4.4 }[C.pos], k = C.ql / 120 * share();  // a part-time player is judged on part-time numbers
     const stat = xpFor(m, false).filter(([l]) => l !== 'Game played').reduce((t, [, v]) => t + v, 0) * scale / k;
     const pts = met * 2 + (won ? 1 : 0) + (stat >= 650 ? 3 : stat >= 380 ? 2 : stat >= 170 ? 1 : 0);
     return [pts, ['F', 'D', 'C', 'C+', 'B', 'B+', 'A-', 'A', 'A', 'A+', 'A+'][Math.min(10, pts)]];
@@ -610,6 +612,8 @@
   ${nextCard()}
   <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
   ${tab==='up'?tabUp():tab==='season'?tabSeason():tabStats()}
+  <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
+  <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
   <div class="stack"><button class="btn2 warn" id="ret">Retire</button></div></div>`;
       $('#bk').onclick = PG.showMenu;
@@ -643,6 +647,11 @@
       });
       const pr = $('#prac');
       if (pr) pr.onclick = practice;
+      scr.querySelectorAll('#hd button').forEach(b => b.onclick = () => {
+        C.diff = +b.dataset.d;
+        persist();
+        keepScroll(draw);
+      });
       scr.querySelectorAll('#hq button').forEach(b => b.onclick = () => {
         C.ql = +b.dataset.q;
         pickGoals();
@@ -687,7 +696,7 @@
   function play() {
     const opp = nextOpp();
     PG.snd('whistle');
-    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: 1, share: share(),
+    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(),
       mustWin: C.phase !== 'reg', env: PG.envFor(C.season, C.week + (C.phase === 'reg' ? 0 : C.phase === 'semi' ? 8 : 9), C.phase !== 'reg' || C.week >= 5), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
@@ -726,7 +735,8 @@
     const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', gl = goals().map(g => ({ d: g.d, ok: !!g.t(m) }));
     const star = r.potg && r.potg.team === 0 && r.potg.role === POS[C.pos].role;  // you were the player of the game
     const beatRival = won && !!C.rival && C.rival.team === opp;
-    const items = xpFor(m, won).concat(star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP, [pts, grade] = gradeOf(m, won, met);
+    const base = xpFor(m, won), hard = (C.diff ?? 1) === 2 ? [['All-Pro bonus', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.2)]] : [];
+    const items = base.concat(hard, star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP, [pts, grade] = gradeOf(m, won, met);
     for (const k in m) {
       C.stats[k] = (C.stats[k] || 0) + m[k];
       C.career[k] = (C.career[k] || 0) + m[k];
@@ -737,7 +747,9 @@
     C.xpTotal += xp;
     /* the coach's view of that game: a B is neutral, better earns trust, worse costs it */
     const role0 = roleOf()[1], t0 = C.trust;
-    C.trust = clamp(Math.round(C.trust + (pts - 4.5) * 3 + (won ? 1 : 0)), 5, 100);
+    /* NEUTRAL is what a computer-level player at each position averages (measured with scripted seasons), plus a little:
+       play like the computer and trust holds or slips slowly, play better and it climbs. */
+    C.trust = clamp(Math.round(C.trust + (pts - NEUTRAL[C.pos]) * 3 + (won ? 1 : 0)), 5, 100);
     const role1 = roleOf()[1], dTrust = C.trust - t0;
     const moved = role1 === role0 ? '' : ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) ? ` The coach moves you up: ${role1.toLowerCase()}.` : ` The coach moves you down: ${role1.toLowerCase()}.`;
     const wk = LG.short(C);

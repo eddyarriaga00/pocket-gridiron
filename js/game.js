@@ -1799,7 +1799,7 @@
     if (G.down >= 3 && G.togo > 4) pr = 0.12;
     // career: the coach leans on the user's position so they stay involved
     const star = G.lock && t === 0 && !AUTO ? G.lock : null;
-    if (star === 'RB') pr = Math.max(pr, G.down >= 3 && G.togo > 6 ? 0.35 : 0.6);
+    if (star === 'RB') pr = Math.max(pr, G.down >= 3 && G.togo > 6 ? 0.3 : 0.5);  // measured: at 0.6 a back's team scored too little to win
     else if (star === 'X') pr *= G.drill ? 0 : 0.5;
     const foe = G.lock && t === 1 && !AUTO ? G.lock : null;  // and the opponent tests a defender
     if (foe === 'MLB') pr = Math.min(0.75, pr + 0.15);

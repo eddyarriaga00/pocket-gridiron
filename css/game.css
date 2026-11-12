@@ -115,6 +115,7 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .card{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:9px;overflow:hidden;padding:0 0 7px;min-width:0}
 .card:active{border-color:var(--acc)}
+.card.sug{border-color:var(--acc)}
 .card canvas{width:100%;aspect-ratio:7/5;display:block}
 .card b{font-family:var(--display);font-size:12px;font-weight:700;padding:6px 8px 0;line-height:1.15}
 .card small{color:var(--mute);padding:2px 8px 0;font-size:10px;line-height:1.25}

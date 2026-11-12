@@ -3033,8 +3033,30 @@
   }
 
   /* side: 'off' (exhibition offense), 'def' (exhibition defense), 'qb' (career quarterback: coach sends three plays) */
+  /* What a coach would call here. It only marks one card on the sheet as "Suggested" (and opens the sheet on that
+     card's tab); the call is still yours. Plain rules and no dice, so it never disturbs a seeded run. */
+  function suggestOff() {
+    const toGoal = 100 - G.los, ahead = G.score[0] - G.score[1];
+    if (G.try2 != null) return 'Slants';
+    if (G.q === 4 && ahead > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1]) * 40) return 'QB Kneel';
+    if (G.down === 4) return toGoal <= 35 ? 'Field Goal' : G.togo <= 1 && toGoal < 60 ? 'QB Sneak' : G.q >= 4 && ahead < 0 && G.clock < 100 ? 'Four Verticals' : 'Punt';
+    if (G.q >= 4 && ahead < 0 && G.clock < 90) return toGoal > 25 ? 'Four Verticals' : 'Smash';
+    if (G.togo <= 1) return 'QB Sneak';
+    if (G.togo <= 3) return 'Inside Zone';
+    if (G.down >= 3) return G.togo >= 9 ? 'Dagger' : 'Slants';
+    if (G.togo >= 12) return 'Curl Flat';
+    return G.down === 1 || toGoal <= 12 ? 'Off Tackle' : 'Stick';
+  }
+
+  function suggestDef() {
+    if (G.togo <= 1.5 || G.los <= 3) return 'Goal Line';
+    if (G.down >= 3) return G.togo >= 12 ? 'Prevent' : G.togo >= 7 ? 'Cover 4' : 'Cover 1 Man';
+    return G.togo >= 10 && G.down === 2 ? 'Cover 3' : 'Cover 2';
+  }
+
   function showCall(side) {
-    let cat = G.down === 4 ? 'special' : 'run';
+    const sug = side === 'off' ? suggestOff() : side === 'def' ? suggestDef() : null, sugPlay = side === 'off' && OFF.find(p => p.n === sug);
+    let cat = sugPlay ? sugPlay.cat : G.down === 4 ? 'special' : 'run';
     const cats = [['run', 'Run'], ['short', 'Short'], ['deep', 'Deep'], ['special', 'Special']].filter(c => G.try2 == null || c[0] !== 'special');  // no kicks on a two-point try
     let qb = null;
     if (side === 'qb') {
@@ -3043,7 +3065,7 @@
     }
     const draw = () => {
       const list = side === 'off' ? OFF.filter(p => p.cat === cat) : side === 'qb' ? qb : DEF;
-      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card">${side==='qb'&&i===0?'<em>Coach’s pick</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
+      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card${p.n===sug?' sug':''}">${side==='qb'&&i===0?'<em>Coach’s pick</em>':p.n===sug?'<em>Suggested</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
       scr.querySelectorAll('.card').forEach((el, i) => {
         drawArt(el.querySelector('canvas'), list[i], side === 'def');
         el.onclick = () => {

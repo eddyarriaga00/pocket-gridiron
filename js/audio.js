@@ -719,7 +719,7 @@
     } else {
       chain(src('pink'), filter(c, 'bandpass', 430, 0.5), gain(c, 0.5), n.bed);
       chain(src('pink', 0.71), filter(c, 'bandpass', 1150, 0.7), gain(c, 0.3), n.bed);
-      far.connect(filter(c, 'bandpass', 1300, 0.9)).connect(n.roar);
+      chain(far, filter(c, 'bandpass', 1300, 0.9), n.roar);
     }
     return n;
   }

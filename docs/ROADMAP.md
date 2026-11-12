@@ -414,6 +414,11 @@ what is next. Update it after every item.
   it, and the near goal post is hidden during play when the camera is behind it (its uprights used to stand in front
   of your quarterback on your own goal line at any zoom). `H.fingerprint()` unchanged.
 
+- 13:50 Suggested plays. `suggestOff()` and `suggestDef()` are plain rules with no dice. Seen in a scripted game: 1st and 10
+  Off Tackle, 2nd and 9 Stick, 3rd and 5 Slants, 3rd and 15 Dagger, 3rd and 2 Inside Zone, 4th and 1 QB Sneak; on defense
+  Cover 2, Cover 3 on 2nd and long, Cover 4 on 3rd and 7. The test player now takes the suggestion, and its exhibition
+  scores went from losing by about twenty to 7-0, 7-14, 6-7 and 3-14. `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -503,7 +508,9 @@ what is next. Update it after every item.
 - [x] Camera zoom (asked for at 13:44: "make it so u can zoom in more or out of view ... different players have diff
       preferences"): ten steps from 60% to 180%, on − and + buttons under the scoreboard, the mouse wheel, the minus and
       equals keys, and a stepper in Settings. It replaces the three-way camera choice
-- [ ] Interface polish, a little
+- [x] Interface, a little: the play-call sheet marks one card "Suggested" for the down and distance (offense and defense)
+      and opens on its tab; the scoreboard row carries the zoom buttons; Settings gained Volume and the zoom stepper; the
+      throw power bar and the ring on the receiver's letter are new
 - [ ] Still open from before: a person plays it on a phone; contract years could matter more; animation checked in motion
 
 ### Next ideas (nothing here is started)

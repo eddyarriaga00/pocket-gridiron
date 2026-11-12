@@ -366,6 +366,9 @@ what is next. Update it after every item.
   `H.fingerprint()` run counts no games and is unchanged. Title and camp milestones are reported by their own screens and
   were not triggered in a test.
 
+- 09:14 Catch and get-up poses (render only; `H.fingerprint()` unchanged). The session's usage limit was reached here: the
+  next three Round 7 items are untouched.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -425,7 +428,9 @@ what is next. Update it after every item.
       button on the menu that shows the count
 
 ### Round 7 (queued at 09:09; work through these in order)
-- [ ] Animation: the receiver's arms go to the ball before a catch, and a tackled player gets up instead of lying still
+- [x] Animation: at the catch the chest turns to the ball and both hands go out to it (up and back for a ball over the
+      shoulder), a defender at the catch point gets a hand up, and after the whistle fallen players rise to a knee and stand.
+      A pass is now drawn at the height of the figures' hands. Checked in three close-up stills, not in motion
 - [ ] Stadium life: pylons at the goal lines, a chain crew with the down marker on the sideline
 - [ ] Season mode: awards when the season ends (most valuable player, best offense and defense) and a playoff bracket
 - [ ] Career: a contract (years and salary) from the draft and in free agency, shown on the hub

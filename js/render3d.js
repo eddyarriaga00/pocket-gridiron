@@ -31,6 +31,12 @@
   const PELY = 0, PELRX = 1, PELRZ = 2, CHRX = 3, CHRY = 4, HEADRX = 5, SLX = 6, SLZ = 7, EL = 8, SRX = 9, SRZ = 10, ER = 11, HL = 12, KL = 13, HR = 14, KR = 15, NPOSE = 16;
   const TG = new Float32Array(NPOSE);
 
+  /* two poses a fallen player passes through on his way up: one knee down with the other foot planted, then standing */
+  const KNEEL = new Float32Array(NPOSE), STAND = new Float32Array(NPOSE);
+
+  for (const [i, v] of [[PELY, 0.56], [CHRX, -0.35], [HEADRX, 0.3], [SLX, 0.55], [SRX, 0.95], [EL, 0.4], [ER, 0.7], [HL, 1.5], [KL, -1.55], [HR, -0.1], [KR, -1.6]]) KNEEL[i] = v;
+  for (const [i, v] of [[PELY, 1], [CHRX, -0.05], [EL, 0.25], [ER, 0.25]]) STAND[i] = v;
+
   /* ---------- geometry ---------- */
   const cap = (r, len, y) => new T.CapsuleGeometry(r, len, 3, 8).translate(0, y, 0);
 
@@ -451,6 +457,10 @@
       : { jersey: '#f1f1f1', pants: t.c1, helmet: t.c1, stripe: '#f1f1f1', trim: t.c1, sock: t.c1, number: t.c1, skin, glove: '#f1f1f1', shoe: '#1b1b1f', mask: '#aeb6c2', visor: '#14161c' };
   }
 
+  /* The height a pass is drawn at. The engine throws from 1.8 yards up to 1.2; the figures are drawn 1.6 times life
+     size, so both ends are lifted to match (out of the hand by the ear, in at the numbers) and the arc is left alone. */
+  const passZ = a => a.z + (PSCALE - 1) * lerp(1.8, 1.2, Math.min(1, a.t / a.T));
+
   /* ---------- animation: fill TG with the pose this player wants ---------- */
   function stanceOf(p, s) {
     if (s.ps.mode === 'ko') return 'wide';
@@ -704,6 +714,13 @@
       tg[KL] = -0.4;
       tg[HR] = -0.1;
       tg[KR] = -0.15;
+      /* After the whistle nobody stays down: up onto a knee, then to his feet. The tackler goes first and the man
+         underneath a beat later. */
+      const up = s.G.state === 'dead' && !flat ? clamp(((ps.after || 0) - (p.down ? 0.85 : 0.55)) / 0.75, 0, 1) : 0;
+      if (up > 0) {
+        const a1 = Math.min(1, up * 2), a2 = Math.max(0, up * 2 - 1), e1 = a1 * a1 * (3 - 2 * a1), e2 = a2 * a2 * (3 - 2 * a2);
+        for (let i = 0; i < NPOSE; i++) tg[i] = lerp(lerp(tg[i], KNEEL[i], e1), STAND[i], e2);
+      }
       if (wrap && ps.carrier && ps.carrier.down) {
         hx = ps.carrier.x - p.x;
         hy = ps.carrier.y - p.y;
@@ -789,8 +806,8 @@
       tg[SRX] = 3.05;
       tg[SRZ] = 0.25 + Math.sin(time * 9) * 0.22;
       tg[ER] = 0.1;
-      tg[HEADRX] = -0.35;
-      tg[CHRX] = -0.08;
+      tg[HEADRX] = 0.4;
+      tg[CHRX] = 0.04;
     } else if (p.thrT > 0) {
       // throwing motion: cock, then whip through
       const u = 1 - p.thrT / 0.32;
@@ -969,14 +986,28 @@
             tg[SRZ] = -0.2;
           }  // arms make a pocket
       }
-      if (ps.air && ps.air.target === p && ps.air.T - ps.air.t < 0.45) {
-        tg[SLX] = 2.7;
-        tg[SRX] = 2.7;
-        tg[SLZ] = -0.15;
-        tg[SRZ] = 0.15;
-        tg[EL] = 0.35;
-        tg[ER] = 0.35;
-        tg[HEADRX] = 0.35;
+      if (ps.air && !ps.air.kick && ps.air.T - ps.air.t < 0.5) {
+        const a = ps.air, bx = a.x - p.x, by = a.y - p.y;
+        if (a.target === p) {
+          /* The catch: the chest turns to the ball and both hands go out to meet it, as high as the ball is.
+             A ball dropping in over the shoulder is taken with the arms up and the head back. */
+          let rel = Math.atan2(-bx, by) - f.heading;
+          rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+          const over = Math.abs(rel) > 1.9, elev = Math.atan2(passZ(a) - 2.5, Math.max(0.8, Math.hypot(bx, by))), reach = over ? 2.7 : clamp(1.45 + elev, 1.2, 2.8);
+          tg[SLX] = reach;
+          tg[SRX] = reach;
+          tg[SLZ] = over ? -0.15 : 0.22;
+          tg[SRZ] = over ? 0.15 : -0.22;
+          tg[EL] = 0.35;
+          tg[ER] = 0.35;
+          tg[CHRY] = over ? 0 : clamp(rel, -1.1, 1.1);
+          tg[HEADRX] = over ? 0.4 : clamp(elev * 0.7, -0.05, 0.45);
+        } else if (p.team !== ps.offTeam && a.T - a.t < 0.32 && Math.hypot(p.x - a.x1, p.y - a.y1) < 2.4) {
+          // a defender at the catch point gets a hand up
+          tg[SRX] = 2.75;
+          tg[ER] = 0.15;
+          tg[HEADRX] = 0.35;
+        }
       }
       if (p.juke > 0 && !(p.spinT > 0)) tg[PELRZ] = clamp(-p.vx * Math.cos(f.heading) * 0.06, -0.4, 0.4);
       if (p.truck > 0) {
@@ -1713,7 +1744,7 @@
       if (a) {
         bx = a.x;
         by = a.y;
-        bz = a.z;
+        bz = a.kick ? a.z : passZ(a);
         const u = Math.min(1, a.t / a.T), vz = a.kick ? a.h * 4 * (1 - 2 * u) / a.T : (-0.6 + a.h * 4 * (1 - 2 * u)) / a.T;
         dirV.set((a.x1 - a.x0) / a.T, vz, -(a.y1 - a.y0) / a.T).normalize();
         ball.quaternion.setFromUnitVectors(zAxis, dirV);

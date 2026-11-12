@@ -126,6 +126,7 @@
   }
 
   function downTxt() {
+    if (G.try2 != null) return 'Two-point try';
     const goal = G.poss === 0 ? G.fd >= 99.9 : G.fd <= 0.1;
     return `${ORD[Math.min(3,G.down-1)]} & ${goal?'Goal':Math.max(1,Math.round(G.togo))} · ${spotTxt(G.los)}`;
   }
@@ -138,7 +139,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
@@ -881,7 +882,7 @@
 
   function tick(dt) {
     ps.t += dt;
-    if (!G.drill) G.clock = Math.max(0, G.clock - dt);
+    if (!G.drill && G.try2 == null) G.clock = Math.max(0, G.clock - dt);  // no clock in practice or on a two-point try
     const off = ps.offTeam;
     if (ps.mode === 'run' && !ps.handoff) {
       const rn = ps.runner, dl = G.op.run.delay || 0;
@@ -1245,8 +1246,118 @@
     }
   }
 
+  /* the usual chart, late in the game: go for two when one point would leave you a score short */
+  function wantsTwo(t) {
+    if (G.q < 4 || G.clock > G.ql * 0.6) return false;
+    return [-2, -5, -10, -13, 1, 5, 12].includes(G.score[t] - G.score[1 - t]);
+  }
+
+  /* After your touchdown: kick for one, or play a single snap from the two-yard line for two */
+  function showPat() {
+    const t = G.pat;
+    G.state = 'call';
+    P = [];
+    ps = null;
+    G.celeb = null;
+    setBrief('');
+    scr.innerHTML = `<div class="sheet"><div class="shd"><b>After the touchdown</b><span>${ab(0)} ${G.score[0]} · ${ab(1)} ${G.score[1]}</span></div>
+  <button class="go" id="p1">Kick the extra point</button><button class="btn2" id="p2" style="margin-top:8px">Go for two · one play from the 2-yard line</button></div>`;
+    $('#p1').onclick = () => {
+      G.pat = null;
+      scr.innerHTML = '';
+      const ok = rnd() < 0.96;
+      if (ok) G.score[t]++;
+      snd(ok ? 'chime' : 'whistle');
+      toast(ok ? 'Extra point is good' : 'Extra point missed');
+      say(ok ? 'The extra point is good.' : 'He missed the extra point!');
+      hudKey = '';
+      updHud();
+      next();
+    };
+    $('#p2').onclick = () => {
+      G.pat = null;
+      G.try2 = t;
+      G.pendKO = null;
+      setBall(t, t === 0 ? 98 : 2, FW / 2);
+      hudKey = '';
+      startCall();
+    };
+  }
+
+  /* how a two-point try ends: in the end zone or not. No yards, no clock, then the kickoff. */
+  function finishTry(kind) {
+    const off = ps.offTeam, c = ps.carrier, good = kind === 'td' && !!c && c.team === off;
+    if (good) G.score[off] += 2;
+    G.try2 = null;
+    for (const p of P) {
+      p.eng = null;
+      p.block = null;
+    }
+    kickoff(1 - off);
+    G.last = good ? 'Two points!' : 'No good';
+    G.sig = good ? 'td' : 'inc';
+    G.rp = false;
+    G.runoff = 0;
+    ps.after = 0;
+    if (good) {
+      G.celeb = { team: off, who: c };
+      react(off, 1.1, 3);
+      if (off === 0) snd('chime');
+    } else react(1 - off, 0.8, 2);
+    snd('whistle');
+    G.state = 'dead';
+    G.deadT = 2;
+    banner(G.last, good ? `${tname(off)} convert the try` : 'The try fails', 1800);
+    say(good ? 'The two-point try is good!' : 'No good on the try.', true);
+    hudKey = '';
+    updHud();
+  }
+
+  /* down by two scores or less, late in the fourth quarter: the kicking team needs the ball back */
+  const lateAndBehind = k => G.q >= 4 && G.clock < Math.min(80, G.ql * 0.27) && G.score[k] < G.score[1 - k] && G.score[1 - k] - G.score[k] <= 16;
+
+  function onside(k) {
+    const got = rnd() < 0.13;
+    G.pendKO = null;
+    setBall(got ? k : 1 - k, k === 0 ? 46 : 54, FW / 2);
+    G.clock = Math.max(0, G.clock - 3);
+    G.last = 'Onside kick';
+    G.rp = false;
+    G.runoff = 0;
+    P = [];
+    ps = null;
+    G.state = 'dead';
+    G.deadT = 1.9;
+    banner('Onside kick', got ? `${tname(k)} recover!` : `${tname(1-k)} fall on it`, 1700);
+    if (!AUTO && !QUIET) {
+      snd('kick');
+      react(got ? k : 1 - k, got ? 1.2 : 0.6, 2.5);
+      say(got ? `Onside kick, and the ${tname(k)} recover it!` : `Onside kick. ${tname(1-k)} recover.`, true);
+    }
+    hudKey = '';
+    updHud();
+  }
+
+  function showOnside(k) {
+    G.state = 'call';
+    const s = Math.ceil(G.clock);
+    scr.innerHTML = `<div class="sheet"><div class="shd"><b>Kickoff</b><span>${Math.floor(s/60)}:${String(s%60).padStart(2,'0')} left · down by ${G.score[1-k]-G.score[k]}</span></div>
+  <button class="go" id="k1">Kick it deep</button><button class="btn2" id="k2" style="margin-top:8px">Onside kick · about 1 in 8 comes back to you</button></div>`;
+    $('#k1').onclick = () => {
+      scr.innerHTML = '';
+      const t = G.pendKO;
+      G.pendKO = null;
+      beginKickoff(t);
+    };
+    $('#k2').onclick = () => {
+      scr.innerHTML = '';
+      onside(k);
+    };
+  }
+
   function finish(kind, arg) {
     if (G.state !== 'live' && G.state !== 'kicka') return;
+    if (G.try2 != null) return finishTry(kind);
     const off = ps.offTeam, dir = G.dir, c = ps.carrier, los = ps.los, me = QUIET ? null : G.me;
     let big = '', sub = '', stop = false, score = false, rpGain = 0;
     if (kind === 'inc') {
@@ -1260,14 +1371,25 @@
     } else if (kind === 'td') {
       const t = c.team;
       G.score[t] += 6;
-      const xp = rnd() < 0.96;
-      if (xp) G.score[t]++;
+      /* the try: when you run the whole team you choose after the celebration; everyone else decides right here */
+      let tryTxt = '';
+      if (t === 0 && !AUTO && !QUIET && !G.lock && !G.drill) G.pat = t;
+      else if (wantsTwo(t)) {
+        const ok = rnd() < 0.45;
+        if (ok) G.score[t] += 2;
+        tryTxt = ok ? ' · two-point try is good' : ' · two-point try fails';
+      } else {
+        const xp = rnd() < 0.96;
+        if (xp) G.score[t]++;
+        tryTxt = xp ? ' · extra point is good' : ' · extra point missed';
+      }
       big = 'Touchdown!';
       G.sig = 'td';
-      sub = tname(t) + (xp ? ' · extra point is good' : ' · extra point missed');
+      sub = tname(t) + (ps.mode === 'ko' ? ' · kick return' : '') + tryTxt;
       score = true;
-      if (ps.mode === 'ko') sub = tname(t) + ' · kick return' + (xp ? ', extra point is good' : ', extra point missed');
-      else if (t === off) addYds(off, Math.round(((t === 0 ? 100 : 0) - los) * dir), true);
+      if (ps.mode === 'ko') {
+        /* a return: no yards from scrimmage, nobody's turnover */
+      } else if (t === off) addYds(off, Math.round(((t === 0 ? 100 : 0) - los) * dir), true);
       else {
         G.stats[off].to++;
         if (!ps.fum) {
@@ -1506,6 +1628,7 @@
       G.score = [0, 0];
       return startCall();
     }  // practice: same spot every rep
+    if (G.pat != null) return showPat();  // your touchdown: one point or two?
     if (advance()) return endGame();
     if (G.half) {
       G.half = false;
@@ -1650,7 +1773,8 @@
     updHud();
     setBrief('');
     if (G.pendKO != null) {
-      const t = G.pendKO;
+      const t = G.pendKO, k = 1 - t;  // t receives, k kicks
+      if (!G.drill && lateAndBehind(k)) return k === 0 && !AUTO && !G.lock ? showOnside(k) : onside(k);  // your call, or the computer's (it always tries)
       G.pendKO = null;
       if (!AUTO && !G.lock && !G.drill) return beginKickoff(t);
     }
@@ -1757,7 +1881,7 @@
       p.jog = 0;
     }
     if (ps.mode === 'kick') return doKick(rnd(0.55, 1));
-    if (!G.drill) {
+    if (!G.drill && G.try2 == null) {
       // once in a long while somebody jumps
       const r = rnd();
       if (r < 0.011) return flag('False start', ps.offTeam);
@@ -2609,7 +2733,7 @@
   /* side: 'off' (exhibition offense), 'def' (exhibition defense), 'qb' (career quarterback: coach sends three plays) */
   function showCall(side) {
     let cat = G.down === 4 ? 'special' : 'run';
-    const cats = [['run', 'Run'], ['short', 'Short'], ['deep', 'Deep'], ['special', 'Special']];
+    const cats = [['run', 'Run'], ['short', 'Short'], ['deep', 'Deep'], ['special', 'Special']].filter(c => G.try2 == null || c[0] !== 'special');  // no kicks on a two-point try
     let qb = null;
     if (side === 'qb') {
       const rest = OFF.filter(p => p.cat !== 'special' && p !== G.op);
@@ -2736,7 +2860,7 @@
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause.</li></ul></div>`;

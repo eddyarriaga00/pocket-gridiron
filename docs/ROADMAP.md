@@ -252,6 +252,13 @@ what is next. Update it after every item.
   the snap works afterwards, the defense steps from Cover 2 to Cover 3) and by a screenshot of the three-button pad.
   `H.fingerprint()` unchanged.
 
+- 07:56 Two-point tries and onside kicks. `G.pat` holds a pending choice, `G.try2` marks the try play (no clock, no flags, no kicks
+  on the call sheet), `finishTry` scores it. Scripted: touchdown, choice sheet, try from the 2, "Two points!", 8-0, kickoff;
+  and an onside kick when down 12 with 25 seconds left. Three 16-game simulations: 32 to 34 points a game (one sample of 40),
+  no errors. The computer tries an onside kick in about two games out of three: its trailing teams score late often, and
+  after such a score an onside kick is the right call. The window is the last 27% of the fourth quarter.
+  `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -262,7 +269,8 @@ what is next. Update it after every item.
       teammate (Sprint and Dive). Out of bounds or three seconds untouched and it stays with the team that lost it
 - [x] Audibles at the line: on offense Audible steps through four standby plays and Flip mirrors the play; on defense
       Audible steps through the coverage calls. Players slide to their new spots (keys V and X)
-- [ ] Two-point conversions and onside kicks when trailing late
+- [x] Two-point tries (you choose after your own touchdown and play one snap from the 2; the computer follows the usual chart)
+      and onside kicks in the last minute when trailing by 16 or less (about 1 in 8 is recovered)
 - [ ] Run cycle with a proper foot plant and arm drive; a two-man tackle animation (wrap and take down)
 - [ ] Career: a coach who reacts to your last game in the hub, and a rival player at your position to chase on the leaders board
 - [ ] Season mode: roster screen with names and ratings, and stat leaders

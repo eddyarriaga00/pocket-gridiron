@@ -24,8 +24,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Tap a receiver for a bullet pass, hold for a lob.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
-- Fumbles, interceptions, sacks, safeties, overtime, timeouts, false starts and offsides. Rain and snow make the
-  ball harder to catch and hold.
+- Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, false
+  starts and offsides. Rain and snow make the ball harder to catch and hold.
 - Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
 
 ## Controls

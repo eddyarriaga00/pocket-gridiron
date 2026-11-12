@@ -23,7 +23,7 @@ window.H = (() => {
       if (r) r.click();
     }  // the game pauses itself when the page is hidden, which the test pane often is
     if (G.state === 'call') {
-      const c = q('.card') || q('#h2');
+      const c = q('.card') || q('#h2') || q('#p1') || q('#k1');  // a play card, the second-half button, the extra point, a deep kickoff
       if (c) c.click();
       else throw new Error('call state without cards');
     } else if (G.state === 'pre' && (G.pad === 'snap' || G.pad === 'ready')) key('Space', ' ');

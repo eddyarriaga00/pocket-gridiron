@@ -4,6 +4,7 @@
    H.exh(2,120)    exhibition with a scripted "user" (exercises kickoffs, play calling, passing)
    H.career('WR',2) new test career at a position, n games; returns stat lines
    H.careerSeasons('QB',2)  whole seasons, with trophies
+   H.camp('run',4) one training-camp drill ('pass', 'run', 'tackle') played n times by a simple test player
    H.fingerprint() a repeatable seeded run, for checking that a refactor changed nothing
    H.fps(3)        average frames per second over n seconds (needs the pane visible)
    Everything steps the game synchronously through PG.dbg, so nothing here waits on real time. */
@@ -53,8 +54,76 @@ window.H = (() => {
     if (going()) throw new Error('game did not finish');
   }
 
+  /* held keys for the camp bot: arrows toward a target, Space to sprint */
+  const held = {};
+  const hold = (code, on) => {
+    if (!!held[code] === !!on) return;
+    held[code] = on;
+    dispatchEvent(new KeyboardEvent(on ? 'keydown' : 'keyup', { code, key: code }));
+  };
+  const steer = (p, tx, ty) => {
+    hold('ArrowRight', tx - p.x > 0.5);
+    hold('ArrowLeft', tx - p.x < -0.5);
+    hold('ArrowUp', ty - p.y > 0.5);
+    hold('ArrowDown', ty - p.y < -0.5);
+  };
+  const letGo = () => ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Space'].forEach(c => hold(c, false));
+
+  /* A plain, attentive player for the training-camp drills: throws to the most open receiver, runs upfield and
+     away from the nearest defender, and on defense chases the ball and dives when close. `skill` 0 stands still
+     after the snap (what a player who does nothing gets), 1 plays as described. */
+  function campBot(skill = 1) {
+    const D = d(), G = D.G, ps = D.ps;
+    bot();
+    if (G.state !== 'live' || !ps || !skill) return letGo();
+    const c = ps.carrier;
+    if (G.pad === 'carry' && c) {
+      let near = null, nd = 7;
+      for (const p of D.P) if (p.team !== c.team && !p.down && p.y > c.y - 1) {
+        const dd = Math.hypot(p.x - c.x, p.y - c.y);
+        if (dd < nd) {
+          nd = dd;
+          near = p;
+        }
+      }
+      steer(c, c.x + (near ? (near.x > c.x ? -4 : 4) : 0), c.y + 6);
+      hold('Space', true);
+      if (near && nd < 2.2) key('KeyJ', 'j');
+    } else if ((G.pad === 'def' || G.pad === 'deflock') && G.sel && c) {
+      const s = G.sel;
+      steer(s, c.x + c.vx * 0.35, c.y + c.vy * 0.35);
+      hold('Space', true);
+      if (Math.hypot(s.x - c.x, s.y - c.y) < 2.1) key('KeyE', 'e');
+    } else letGo();
+  }
+
   return {
-    bot, run,
+    bot, run, campBot,
+    /* one training-camp drill ('pass', 'run' or 'tackle') played n times by the camp bot */
+    camp(id, n = 4, skill = 1) {
+      const D = d(), out = [], errs = [], dr = PG.camp.DRILLS.find(x => x.id === id);
+      for (let i = 0; i < n; i++) {
+        try {
+          PG.camp.start(id);
+          const going = () => D.G.state !== 'over' && D.G.state !== 'menu';
+          let k = 0;
+          while (going() && k++ < 200000) {
+            campBot(skill);
+            D.step(0.02);
+          }
+          letGo();
+          if (going()) throw new Error('drill did not finish');
+          if (!q('#nx')) throw new Error('no result sheet');
+          const reps = D.G.drill.reps, score = dr.score(reps);
+          out.push({ score, stars: dr.marks.filter(m => score >= m).length, reps: reps.map(r => dr.rep(r)[1]) });
+        } catch (e) {
+          errs.push(String(e.stack).slice(0, 300));
+        }
+      }
+      PG.toMenu();
+      PG.showMenu();
+      return { out, errs };
+    },
     sim(games = 8, ql = 180) {
       const D = d();
       D.auto(true);

@@ -17,6 +17,9 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - **Season.** Take one team through seven weeks and a four-team playoff, calling and playing every snap. Your roster
   keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.
+- **Training camp.** Three short guided drills (passing, running, tackling), five plays each. A coaching card before
+  every snap says what to try, and each drill is scored with one to three stars. The game offers it the first time
+  you open it.
 
 ## On the field
 
@@ -61,6 +64,7 @@ js/audio.js             synthesized sound: effects, crowd, music, weather, and t
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode
 js/season.js            Season mode
+js/camp.js              Training camp: drill scripts, scoring and screens
 docs/ROADMAP.md         what is done, what is next, and a log of how each part was checked
 tools/                  local server, test harness, formatter, bundler, icon generator
 ```
@@ -87,6 +91,7 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 
 - `H.sim(12, 180)` plays computer against computer and reports yards per carry, completion rate and so on.
 - `H.exh(2, 120)`, `H.career('QB', 2)`, `H.careerSeasons('WR', 2)` play scripted games in each mode.
+- `H.camp('run', 4)` plays a training-camp drill (`'pass'`, `'run'` or `'tackle'`) with a simple test player.
 - `H.fingerprint()` is a seeded run. After a change that should not alter behaviour it must return the same string.
 - `PG.dbg.seed(n)` makes any run repeatable; `PG.audio.spoken` lists what the announcer has said.
 

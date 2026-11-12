@@ -143,7 +143,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
@@ -166,10 +166,10 @@
       navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {});
     } catch (_) {}
     if (G.drill) {
-      const t = G.lockSide === 'off' ? 0 : 1;
+      const t = G.drill.side === 'off' ? 0 : 1;
       setBall(t, t === 0 ? 30 : 70, FW / 2);
       G.pendKO = null;
-      banner('Practice', G.drill.n + ' reps', 1500);
+      banner(G.drill.title, G.drill.n + ' reps', 1500);
     } else if (!AUTO) {
       /* a few seconds over the stadium with the matchup on screen; a tap skips it */
       const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
@@ -1089,6 +1089,7 @@
           o.fell = 1;
           o.vx = o.vy = 0;
           ps.tackler = o;
+          ps.userTkl = AUTO || o.team !== 0 || !G.sel ? 0 : o === G.sel ? 2 : G.sel.team === 0 && !G.sel.down && dist(G.sel, c2) < 2.6 ? 1 : 0;
           snd('hit', { power: pw });
           if (userP(c2) || o === G.sel || pw > 1.05) buzz(Math.round(14 + pw * 22));  // you feel the ones you are in, and the big ones
           if (pw > 1.05 && !QUIET && !AUTO && PG.audio) PG.audio.crowd.ooh(0.6);
@@ -1554,7 +1555,7 @@
       react(1 - off, 0.9, 2.5);
     }
     if ((kind === 'tackle' || kind === 'oob') && ps.fum) sub += ' · fumble, recovered';
-    G.runoff = !stop && !score ? Math.min(13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle
+    G.runoff = !stop && !score && !G.drill ? Math.min(13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle (there is no clock in practice)
     G.clock -= G.runoff;
     cpuTimeout();
     if (G.ot && score) G.final = true;
@@ -1579,6 +1580,12 @@
           : sack ? `${ps.tackler ? ps.tackler.name : 'The defense'}, sack` : `${c.name}, ${gain}-yard ${how}`;
         G.hl = { score: sc, text };
       }
+    }
+    if (G.drill) {
+      /* what this rep came to, for whoever scores the drill */
+      const own = !!c && c.team === off, td = kind === 'td' && own;
+      G.drill.reps.push({ play: G.op.n, big, gain: td ? Math.round(((off === 0 ? 100 : 0) - los) * dir) : rpGain, caught: own && !!ps.caught, td,
+        takeaway: big === 'Interception!' || (kind === 'td' && !own) || (kind === 'fumble' && arg.team !== off), tkl: ps.userTkl || 0 });
     }
     G.state = 'dead';
     G.deadT = score ? 2.6 : 1.7;
@@ -1745,7 +1752,7 @@
     }
     if (G.drill) {
       if (--G.drill.left <= 0) return endGame();
-      const t = G.lockSide === 'off' ? 0 : 1;
+      const t = G.drill.side === 'off' ? 0 : 1;
       setBall(t, t === 0 ? 30 : 70, FW / 2);
       G.pendKO = null;
       G.score = [0, 0];
@@ -1859,7 +1866,7 @@
       } else if (w < 0) snd('lose');
       say(w === 0 ? `It ends in a tie, ${G.score[0]} all.` : `${tname(w > 0 ? 0 : 1)} win it, ${Math.max(G.score[0], G.score[1])} to ${Math.min(G.score[0], G.score[1])}.`, true);
     }
-    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml() });
+    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), drill: G.drill });
     else showFinal();
   }
 
@@ -1892,6 +1899,7 @@
   }
 
   const DEFN = n => DEF.find(d => d.n === n);
+  const drillStep = () => G.drill.script[(G.drill.n - G.drill.left) % G.drill.script.length];
 
   /* the computer's coverage: goal line when a yard or the goal is at stake, deep shells on long yardage, otherwise one of the five base calls */
   function cpuDef() {
@@ -1915,6 +1923,12 @@
       if (!G.drill && lateAndBehind(k)) return k === 0 && !AUTO && !G.lock ? showOnside(k) : onside(k);  // your call, or the computer's (it always tries)
       G.pendKO = null;
       if (!AUTO && !G.lock && !G.drill) return beginKickoff(t);
+    }
+    if (G.drill && G.drill.script) {
+      /* a guided drill: its script names the play for each rep */
+      G.op = OFF.find(p => p.n === drillStep().p) || cpuOff(G.poss);
+      G.dp = DEFN(G.drill.dcall) || cpuDef();
+      return begin();
     }
     if (AUTO) {
       G.op = cpuOff(G.poss);
@@ -2224,6 +2238,10 @@
 
   function briefTxt() {
     const me = G.me;
+    if (G.drill && G.drill.script && !AUTO) {
+      const s = drillStep();
+      return `<b>${s.h || (G.poss === 0 ? G.op.n : 'Defense')}</b><span>${s.say}</span>`;
+    }
     if (!G.lock || !me) return '';
     let t;
     if (ps.offTeam === 0) {
@@ -2446,13 +2464,16 @@
   function tip(kind) {
     const el = $('#tip'), t = TIPS[kind];
     clearTimeout(tipT);
-    if (!t || AUTO || (SET.tips && SET.tips[kind] >= 2)) {
+    const coached = !!(G.drill && G.drill.script);
+    if (!t || AUTO || (!coached && SET.tips && SET.tips[kind] >= 2)) {
       el.hidden = true;
       return;
     }
-    SET.tips = SET.tips || {};
-    SET.tips[kind] = (SET.tips[kind] || 0) + 1;
-    save('pg.settings', SET);
+    if (!coached) {
+      SET.tips = SET.tips || {};
+      SET.tips[kind] = (SET.tips[kind] || 0) + 1;
+      save('pg.settings', SET);
+    }
     el.textContent = t;
     el.hidden = false;
     tipT = setTimeout(() => {
@@ -2534,6 +2555,9 @@
       spr();
       B('Dive', '', () => act('dive'));
     }
+    /* three buttons side by side reach further across the screen: the tip box and the play card give them room */
+    const bs = [...pad.children];
+    app.classList.toggle('pad3', bs.length > 2 && Math.max(...bs.map(b => b.offsetLeft + b.offsetWidth)) - Math.min(...bs.map(b => b.offsetLeft)) > 150);
   }
 
   addEventListener('keydown', e => {
@@ -2743,7 +2767,7 @@
 
   function updHud() {
     if (!G.ros) return;
-    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my) : '', k = [G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left, G.to].join();
+    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my, G.drill) : '', k = [G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left, G.drill && G.drill.reps.length, G.to].join();
     if (k === hudKey) return;
     hudKey = k;
     const mine = $('#mine');
@@ -2752,7 +2776,7 @@
     $('#s0').textContent = G.score[0];
     $('#s1').textContent = G.score[1];
     $('#qt').textContent = G.q > 4 ? 'OT' : ORD[G.q - 1];
-    $('#clk').textContent = G.drill ? (G.drill.n - G.drill.left + 1) + '/' + G.drill.n : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    $('#clk').textContent = G.drill ? Math.min(G.drill.n, G.drill.n - G.drill.left + 1) + '/' + G.drill.n : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     if (G.drill) $('#qt').textContent = 'Rep';
     G.dnTxt = ko ? (ps.punt ? 'Punt return' : 'Kickoff') : downTxt();
     $('#dn').textContent = G.dnTxt;
@@ -2771,6 +2795,7 @@
     FX.length = 0;
     $('#hud').hidden = true;
     pad.innerHTML = '';
+    app.classList.remove('pad3');
     scr.innerHTML = '';
     setBrief('');
     $('#banner').classList.remove('on');
@@ -2786,8 +2811,8 @@
     ov.hidden = false;
     const draw = sure => {
       ov.innerHTML = sure
-        ? `<div class="dlg"><h3>Leave game?</h3><p>${G.mode!=='exh'?'This game will not count. You can play it again.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">Leave game</button><button class="btn2" id="pk">Keep playing</button></div>`
-        : `<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pan">Announcer: ${SET.ann!==false?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
+        ? `<div class="dlg"><h3>${G.drill?'Leave drill?':'Leave game?'}</h3><p>${G.drill?'This drill will not count. You can start it again.':G.mode!=='exh'?'This game will not count. You can play it again.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">${G.drill?'Leave drill':'Leave game'}</button><button class="btn2" id="pk">Keep playing</button></div>`
+        : `<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pan">Announcer: ${SET.ann!==false?'on':'off'}</button><button class="btn2 warn" id="pq">${G.drill?'Leave drill':'Leave game'}</button></div>`;
       const on = (id, f) => {
         const el = $('#' + id);
         if (el) el.onclick = f;
@@ -2950,19 +2975,27 @@
   function showMenu() {
     if (G.state === 'menu') G.env = null;  // the stadium behind the menus is always a clear night
     toMenu();
-    const cs = PG.career && PG.career.summary();
+    const cs = PG.career && PG.career.summary(), camp = PG.camp, offer = !!camp && camp.fresh() && !cs && !(PG.season && PG.season.summary());
     scr.innerHTML = `<div class="menu"><h1>Pocket<br><em>Gridiron</em></h1><p class="tag">Full 11-on-11 football, built for one hand.</p>
+  ${offer?'<div class="offer"><b>First time here?</b><span>Training camp teaches passing, running and tackling in three short drills.</span><div class="row2"><button class="go sm" id="oY">Start camp</button><button class="btn2" id="oN">Not now</button></div></div>':''}
   <button class="mode main" id="mC"><b>Career</b><span>${cs||'Create a player, lock in at your position, and build a legacy one season at a time.'}</span><i>›</i></button>
   <button class="mode" id="mSe"><b>Season</b><span>${(PG.season&&PG.season.summary())||'Take one team through seven games and the playoffs.'}</span><i>›</i></button>
   <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and play one game.</span><i>›</i></button>
+  ${camp?`<button class="mode" id="mT"><b>Training camp</b><span>${camp.summary()}</span><i>›</i></button>`:''}
   <div class="row2"><button class="btn2" id="mS">Settings</button><button class="btn2" id="mH">How to play</button></div></div>`;
-    $('#mC').onclick = () => {
-      PG.career ? PG.career.open() : showExh();
+    /* the offer is for the first look at the menu: any choice here answers it */
+    const go = f => () => {
+      if (camp) camp.seen();
+      f();
     };
-    $('#mSe').onclick = () => {
-      PG.season ? PG.season.open() : showExh();
-    };
-    $('#mE').onclick = showExh;
+    $('#mC').onclick = go(() => PG.career ? PG.career.open() : showExh());
+    $('#mSe').onclick = go(() => PG.season ? PG.season.open() : showExh());
+    $('#mE').onclick = go(showExh);
+    if (camp) $('#mT').onclick = go(camp.open);
+    if (offer) {
+      $('#oY').onclick = go(camp.open);
+      $('#oN').onclick = go(showMenu);
+    }
     $('#mS').onclick = showSettings;
     $('#mH').onclick = showHow;
   }
@@ -3056,7 +3089,7 @@
 
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
-  <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
+  <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
   <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
@@ -3653,7 +3686,7 @@
       } else {
         /* the computer snaps for itself, and for the user when their player is not the quarterback */
         const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1);
-        if (auto && G.preT > (AUTO ? 0.3 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2)) snap();
+        if (auto && G.preT > (AUTO ? 0.3 : G.drill && G.drill.script ? 5 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2)) snap();
       }
     } else if (st === 'replay') replayStep(dt);
     else if (st === 'live') {

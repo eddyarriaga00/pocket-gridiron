@@ -39,6 +39,7 @@ what is next. Update it after every item.
      interceptions 1-3%, about 25-35 points per game combined, `errs` empty.
    - `H.exh(2,120)` scripted user in exhibition (exercises play calling, kicks, kickoffs). `errs` empty.
    - `H.career('QB',2)`, and RB, WR, LB, CB. `errs` empty, stats non-zero.
+   - `H.camp('pass',4)`, and 'run', 'tackle': a training-camp drill played by a simple test player. `errs` empty.
    - `await H.fps(3)` with the pane visible, during a live play. Target 55+ in the pane.
 4. Screenshot the menu, a pre-snap view, a live play, the career hub. Synchronous stepping does not repaint,
    so wait a second before a screenshot.
@@ -53,6 +54,7 @@ what is next. Update it after every item.
   drive simulation. Exposes `window.PG`. `PG.dbg` has `auto(v)`, `seed(n)`, `step(dt)`, `render()`, `G`, `ps`, `P`.
 - `js/league.js` schedule, standings, playoffs. `js/season.js` Season mode.
 - `js/career.js` career mode: save (`localStorage` key `pg.career.v1`), league, XP, hub screens.
+- `js/camp.js` training camp: drill scripts, star marks, screens (`pg.camp.v1` keeps the best result of each drill).
 - Coordinates are yards. x 0..53.33 across, y 0..100 between goal lines, end zones to -10 and 110.
   Team 0 is the user and attacks +y. `G` is game state, `ps` the current play, `P` the 22 players.
 - `js/audio.js` sound engine (`PG.audio`). `js/render3d.js` three.js renderer (`PG.r3d`); the 2D canvas stays on top as a
@@ -320,6 +322,20 @@ what is next. Update it after every item.
   class on the app) and the hall-of-fame card. One screenshot with both settings on shows the button bottom left and the
   closer view; a two-season bot career scores 8, "A short stay in the league". `H.fingerprint()` unchanged.
 
+- 08:44 Training camp (`js/camp.js`). The engine side is small: a drill can now be scripted (`PG.startGame({ drill, side,
+  script, dcall })`), each rep is logged in `G.drill.reps`, and `ps.userTkl` records whether the player you steer made the
+  tackle (2) or was within 2.6 yards of it (1). Control tips always show in a guided drill and do not use up the two showings
+  a real game gets. The star marks came from test players (`H.camp(id, n)`, a bot that throws to the most open man, runs
+  upfield around the nearest defender and jukes, or chases the ball and dives):
+  passing, completions out of 5: the computer's own quarterback 3.1 (1 to 5, 16 drills), marks 2 / 3 / 4;
+  running, yards on 5 carries: nobody touching the screen (the computer runs for you) median 31 to 35, the bot median 90,
+  marks 20 / 45 / 75; tackling, tackles you are in on out of 5: the bot 3.0 (2 to 4), nobody steering 0.8, marks 2 / 3 / 4.
+  The first version of the running drill used Cover 3 every rep and gave up 10.5 yards a carry, so it now faces the computer's
+  normal mix of calls. No person has played the drills yet, so the marks may be off for real hands.
+  Also fixed on the way: the rep counter read 6/5 on a drill's final screen, the stadium clock ran during practice, and the
+  tip box ran under the receiver buttons. Regression: `H.fingerprint()` unchanged; sims, exhibition, career (QB, LB, WR, with
+  practice) and a season game finish with no errors.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -358,7 +374,9 @@ what is next. Update it after every item.
 - [x] Live punt returns in Exhibition and Season: the free safety drops back, the coverage runs down, and the catch turns
       the play into a return you play (or cover) like a kickoff return. No fair catches or muffs
 - [x] Camera choice in Settings (standard, close, high)
-- [ ] Training camp: three guided drills (passing, running, tackling) with medals, offered on first launch
+- [x] Training camp: three guided drills (passing, running, tackling), five plays each, with a coaching card before every
+      snap and one to three stars per drill (stars in the accent color rather than gold medals: the owner dislikes yellow).
+      On the menu, and offered in a card the first time the game is opened with no saves
 - [x] Left-handed layout: Settings moves the buttons to the left and the play notes to the right
 - [x] A hall-of-fame score and verdict on the retirement screen (titles, honors, career XP, overall, trophies; about 100 is first ballot)
 

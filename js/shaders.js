@@ -1,7 +1,7 @@
 /* Pocket Gridiron: GLSL shaders for the 3D renderer.
    render3d.js asks this file for four things: the turf, the sky dome, the crowd in the stands and a rim light
    that is patched into the players' materials. Everything is procedural, so there are still no image files.
-
+   
    Colors given as uniforms are THREE.Color (linear working space); every shader converts to the screen's
    color space at the end with three's own colorspace chunk. */
 (() => {
@@ -10,7 +10,7 @@
   if (!T) return;
 
   /* shared noise: a cheap hash, value noise and a three-octave fractal sum */
-  const NOISE = /* glsl */`
+  const NOISE = /* glsl */ `
     float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
     float noise(vec2 p) {
       vec2 i = floor(p), f = fract(p);
@@ -32,7 +32,7 @@
         map: { value: null }, uTint: { value: new T.Color(1, 1, 1) }, uWet: { value: 0 }, uSnow: { value: 0 }, uLamp: { value: 1 },
         uSky: { value: new T.Color(0.1, 0.13, 0.2) }, uTowers: { value: [new T.Vector3(), new T.Vector3(), new T.Vector3(), new T.Vector3()] },
       }]),
-      vertexShader: /* glsl */`
+      vertexShader: /* glsl */ `
         varying vec2 vUv; varying vec3 vWorld;
         #include <fog_pars_vertex>
         void main() {
@@ -43,7 +43,7 @@
           gl_Position = projectionMatrix * mvPosition;
           #include <fog_vertex>
         }`,
-      fragmentShader: /* glsl */`
+      fragmentShader: /* glsl */ `
         uniform sampler2D map; uniform vec3 uTint; uniform float uWet; uniform float uSnow; uniform float uLamp; uniform vec3 uSky; uniform vec3 uTowers[4];
         varying vec2 vUv; varying vec3 vWorld;
         #include <common>
@@ -80,7 +80,7 @@
           #include <fog_fragment>
         }`,
     });
-    m.uniforms.map.value = map;      // set after the merge above, which would have cloned the texture
+    m.uniforms.map.value = map;  // set after the merge above, which would have cloned the texture
     return m;
   }
 
@@ -95,10 +95,10 @@
         uSunDir: { value: new T.Vector3(0, 1, 0) }, uSunCol: { value: new T.Color(0, 0, 0) }, uCloudCol: { value: new T.Color(1, 1, 1) },
         uStars: { value: 1 }, uCloud: { value: 0.3 }, uTime: { value: 0 },
       },
-      vertexShader: /* glsl */`
+      vertexShader: /* glsl */ `
         varying vec3 vDir;
         void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: /* glsl */`
+      fragmentShader: /* glsl */ `
         uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHorizon; uniform vec3 uSunDir; uniform vec3 uSunCol; uniform vec3 uCloudCol;
         uniform float uStars; uniform float uCloud; uniform float uTime;
         varying vec3 vDir;
@@ -141,7 +141,7 @@
         uA1: { value: new T.Color() }, uA2: { value: new T.Color() }, uB1: { value: new T.Color() },
         uCheer: { value: 0 }, uBase: { value: 0.6 }, uTime: { value: 0 },
       }]),
-      vertexShader: /* glsl */`
+      vertexShader: /* glsl */ `
         varying vec2 vUv;
         #include <fog_pars_vertex>
         void main() {
@@ -150,7 +150,7 @@
           gl_Position = projectionMatrix * mvPosition;
           #include <fog_vertex>
         }`,
-      fragmentShader: /* glsl */`
+      fragmentShader: /* glsl */ `
         uniform vec3 uA1; uniform vec3 uA2; uniform vec3 uB1; uniform float uCheer; uniform float uBase; uniform float uTime;
         varying vec2 vUv;
         #include <common>
@@ -195,6 +195,7 @@
      lifts the figures off the turf. It is added to three's own Lambert and Phong shaders rather than replacing them,
      so instancing, per-player colors and fog keep working. All materials share one uniform. */
   const rimColor = { value: new T.Color(0.4, 0.45, 0.55) };
+
   function rim(material) {
     material.onBeforeCompile = shader => {
       shader.uniforms.uRim = rimColor;
@@ -218,7 +219,7 @@
     try {
       const target = (w, h, opts) => {
         const rt = new T.WebGLRenderTarget(w, h, Object.assign({ depthBuffer: false, stencilBuffer: false }, opts));
-        rt.texture.colorSpace = T.SRGBColorSpace;      // stored gamma-encoded, so dark night scenes keep their gradation in 8 bits
+        rt.texture.colorSpace = T.SRGBColorSpace;  // stored gamma-encoded, so dark night scenes keep their gradation in 8 bits
         return rt;
       };
       const full = target(4, 4, { depthBuffer: true, stencilBuffer: true, samples: 4 }), a = target(2, 2), b = target(2, 2);
@@ -228,13 +229,13 @@
       stage.add(tri);
       const VS = 'varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }';
       const pass = (fragmentShader, uniforms) => new T.ShaderMaterial({ vertexShader: VS, fragmentShader, uniforms, depthTest: false, depthWrite: false });
-      const bright = pass(/* glsl */`
+      const bright = pass( /* glsl */ `
         uniform sampler2D tex; varying vec2 vUv;
         void main() {
           vec3 c = texture2D(tex, vUv).rgb;
           gl_FragColor = vec4(c * smoothstep(0.88, 1.0, max(c.r, max(c.g, c.b))), 1.0);
         }`, { tex: { value: null } });
-      const blur = pass(/* glsl */`
+      const blur = pass( /* glsl */ `
         uniform sampler2D tex; uniform vec2 uDir; varying vec2 vUv;
         void main() {
           vec3 c = texture2D(tex, vUv).rgb * 0.227;
@@ -242,7 +243,7 @@
           c += (texture2D(tex, vUv + uDir * 3.231).rgb + texture2D(tex, vUv - uDir * 3.231).rgb) * 0.070;
           gl_FragColor = vec4(c, 1.0);
         }`, { tex: { value: null }, uDir: { value: new T.Vector2() } });
-      const out = pass(/* glsl */`
+      const out = pass( /* glsl */ `
         uniform sampler2D tex; uniform sampler2D glow; uniform float uGlow; uniform float uVignette; varying vec2 vUv;
         void main() {
           vec3 c = texture2D(tex, vUv).rgb + texture2D(glow, vUv).rgb * uGlow;
@@ -252,7 +253,11 @@
           gl_FragColor = vec4(max(c, 0.0), 1.0);
           #include <colorspace_fragment>
         }`, { tex: { value: null }, glow: { value: null }, uGlow: { value: 0.8 }, uVignette: { value: 0.32 } });
-      const run = (material, to) => { tri.material = material; renderer.setRenderTarget(to); renderer.render(stage, cam); };
+      const run = (material, to) => {
+        tri.material = material;
+        renderer.setRenderTarget(to);
+        renderer.render(stage, cam);
+      };
       const size = new T.Vector2();
       return {
         glow: out.uniforms.uGlow,
@@ -261,16 +266,26 @@
           if (full.width !== size.x || full.height !== size.y) {
             full.setSize(size.x, size.y);
             const w = Math.max(2, size.x >> 2), h = Math.max(2, size.y >> 2);
-            a.setSize(w, h); b.setSize(w, h);
+            a.setSize(w, h);
+            b.setSize(w, h);
           }
-          renderer.setRenderTarget(full); renderer.render(scene, camera);
-          bright.uniforms.tex.value = full.texture; run(bright, a);
-          for (let i = 0; i < 2; i++) {                    // two rounds of a separable blur, the second one wider
+          renderer.setRenderTarget(full);
+          renderer.render(scene, camera);
+          bright.uniforms.tex.value = full.texture;
+          run(bright, a);
+          for (let i = 0; i < 2; i++) {
+            // two rounds of a separable blur, the second one wider
             const r = 1 + i * 1.6;
-            blur.uniforms.tex.value = a.texture; blur.uniforms.uDir.value.set(r / a.width, 0); run(blur, b);
-            blur.uniforms.tex.value = b.texture; blur.uniforms.uDir.value.set(0, r / a.height); run(blur, a);
+            blur.uniforms.tex.value = a.texture;
+            blur.uniforms.uDir.value.set(r / a.width, 0);
+            run(blur, b);
+            blur.uniforms.tex.value = b.texture;
+            blur.uniforms.uDir.value.set(0, r / a.height);
+            run(blur, a);
           }
-          out.uniforms.tex.value = full.texture; out.uniforms.glow.value = a.texture; run(out, null);
+          out.uniforms.tex.value = full.texture;
+          out.uniforms.glow.value = a.texture;
+          run(out, null);
         },
       };
     } catch (e) {

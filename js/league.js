@@ -9,7 +9,10 @@
   /* circle method: every team meets every other once */
   function schedule() {
     const n = TEAMS.length, ids = [...Array(n).keys()];
-    for (let i = n - 1; i > 0; i--) { const j = Math.floor(rnd(i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(rnd(i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
     const rounds = [];
     for (let r = 0; r < n - 1; r++) {
       const week = [];
@@ -23,15 +26,30 @@
   /* a new season: ratings drift a little from the last one */
   function start(L) {
     L.ovrs = L.ovrs ? L.ovrs.map(o => clamp(o + Math.round(rnd(-3, 3)), 76, 93)) : TEAMS.map(t => t.ovr);
-    L.week = 0; L.phase = 'reg'; L.sched = schedule();
+    L.week = 0;
+    L.phase = 'reg';
+    L.sched = schedule();
     L.tab = TEAMS.map(() => ({ w: 0, l: 0, t: 0, pf: 0, pa: 0 }));
-    L.po = null; L.around = [];
+    L.po = null;
+    L.around = [];
   }
 
   function record(L, a, b, sa, sb) {
     const A = L.tab[a], B = L.tab[b];
-    A.pf += sa; A.pa += sb; B.pf += sb; B.pa += sa;
-    if (sa > sb) { A.w++; B.l++; } else if (sb > sa) { B.w++; A.l++; } else { A.t++; B.t++; }
+    A.pf += sa;
+    A.pa += sb;
+    B.pf += sb;
+    B.pa += sa;
+    if (sa > sb) {
+      A.w++;
+      B.l++;
+    } else if (sb > sa) {
+      B.w++;
+      A.l++;
+    } else {
+      A.t++;
+      B.t++;
+    }
   }
 
   /* a simulated final score, on the same scale as played games */
@@ -40,13 +58,20 @@
     const w = pick([10, 13, 14, 17, 17, 20, 21, 24, 27, 31]), l = Math.max(0, w - pick([1, 3, 3, 4, 7, 7, 10, 10, 14]));
     return aWins ? [w, l] : [l, w];
   }
-  const simWinner = (L, a, b) => { const [x, y] = simScore(L, a, b); return x > y ? a : b; };
+
+  const simWinner = (L, a, b) => {
+    const [x, y] = simScore(L, a, b);
+    return x > y ? a : b;
+  };
 
   const seeds = L => TEAMS.map((_, i) => i).sort((a, b) => {
     const A = L.tab[a], B = L.tab[b];
     return (B.w + B.t / 2) - (A.w + A.t / 2) || (B.pf - B.pa) - (A.pf - A.pa);
   });
-  const recTxt = (L, i) => { const r = L.tab[i]; return `${r.w}-${r.l}${r.t ? '-' + r.t : ''}`; };
+  const recTxt = (L, i) => {
+    const r = L.tab[i];
+    return `${r.w}-${r.l}${r.t ? '-' + r.t : ''}`;
+  };
   const label = L => L.phase === 'reg' ? `Week ${L.week + 1} of ${L.sched.length}` : L.phase === 'semi' ? 'Playoffs · Semifinal' : 'Championship game';
   const short = L => L.phase === 'reg' ? `Wk ${L.week + 1}` : L.phase === 'semi' ? 'Semifinal' : 'Final';
 
@@ -59,27 +84,41 @@
   /* The user's game is over: record it, simulate the rest, move the season on.
      Returns how the season ended ('Champion', 'Runner-up', 'Semifinalist', 'Missed the playoffs') or null if it goes on. */
   function advance(L, opp, us, them) {
-    const won = us > them, end = finish => { L.po.finish = finish; L.phase = 'done'; return finish; };
+    const won = us > them, end = finish => {
+      L.po.finish = finish;
+      L.phase = 'done';
+      return finish;
+    };
     if (L.phase === 'reg') {
       record(L, L.team, opp, us, them);
       L.around = [];
       for (const [a, b] of L.sched[L.week]) {
         if (a === L.team || b === L.team) continue;
         const [sa, sb] = simScore(L, a, b);
-        record(L, a, b, sa, sb); L.around.push([a, sa, b, sb]);
+        record(L, a, b, sa, sb);
+        L.around.push([a, sa, b, sb]);
       }
       L.week++;
       if (L.week < L.sched.length) return null;
       const s = seeds(L).slice(0, 4), i = s.indexOf(L.team);
       L.po = { seeds: s };
-      if (i < 0) { L.po.champ = simWinner(L, simWinner(L, s[0], s[3]), simWinner(L, s[1], s[2])); return end('Missed the playoffs'); }
+      if (i < 0) {
+        L.po.champ = simWinner(L, simWinner(L, s[0], s[3]), simWinner(L, s[1], s[2]));
+        return end('Missed the playoffs');
+      }
       const rest = [0, 1, 2, 3].filter(k => k !== i && k !== 3 - i);
-      L.phase = 'semi'; L.po.opp = s[3 - i]; L.po.other = [s[rest[0]], s[rest[1]]];
+      L.phase = 'semi';
+      L.po.opp = s[3 - i];
+      L.po.other = [s[rest[0]], s[rest[1]]];
       return null;
     }
     if (L.phase === 'semi') {
       const other = simWinner(L, L.po.other[0], L.po.other[1]);
-      if (won) { L.phase = 'final'; L.po.opp = other; return null; }
+      if (won) {
+        L.phase = 'final';
+        L.po.opp = other;
+        return null;
+      }
       L.po.champ = simWinner(L, opp, other);
       return end('Semifinalist');
     }

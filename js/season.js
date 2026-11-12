@@ -7,6 +7,7 @@
   const DIFF = ['Rookie', 'Pro', 'All-Pro'];
   const ZERO = () => ({ g: 0, pf: 0, pa: 0, pass: 0, rush: 0, to: 0, take: 0 });
   const full = i => `${TEAMS[i].city} ${TEAMS[i].name}`;
+
   /* the roster: one set of players for the whole season, with what each has done so far */
   const POSN = { QB: 'QB', RB: 'RB', FB: 'FB', TE: 'TE', X: 'WR', Z: 'WR', S: 'WR', S2: 'WR', LT: 'OL', LG: 'OL', C: 'OL', RG: 'OL', RT: 'OL',
     DE1: 'DE', DE2: 'DE', DT1: 'DT', DT2: 'DT', OLB1: 'LB', MLB: 'LB', OLB2: 'LB', CB1: 'CB', CB2: 'CB', FS: 'S', SS: 'S' };
@@ -20,6 +21,7 @@
     if (!S.roster) S.roster = PG.mkRoster(S.team, 0, S.ovrs ? S.ovrs[S.team] : undefined);
     if (!S.ps) S.ps = {};
   }
+
   /* between seasons every player's rating moves a little, mostly up */
   function ageRoster() {
     ensureRoster();
@@ -30,6 +32,7 @@
     }
     S.ps = {};
   }
+
   function statLine(role) {
     const m = S.ps[role] || {}, out = [];
     if (m.att) out.push(`${m.comp || 0}/${m.att}, ${m.pyd || 0} yds, ${m.ptd || 0} TD`);
@@ -41,11 +44,15 @@
     if (m.int) out.push(`${m.int} INT`);
     return out.join(' · ');
   }
+
   function tabRoster() {
     ensureRoster();
     const top = (label, f, unit) => {
       let best = null;
-      for (const role in S.ps) { const v = S.ps[role][f] || 0; if (v > 0 && (!best || v > best[1])) best = [role, v]; }
+      for (const role in S.ps) {
+        const v = S.ps[role][f] || 0;
+        if (v > 0 && (!best || v > best[1])) best = [role, v];
+      }
       return best ? `<tr><td>${label}</td><td>${S.roster[best[0]].name} · ${best[1]}${unit}</td></tr>` : '';
     };
     const lead = top('Passing', 'pyd', ' yds') + top('Rushing', 'ryd', ' yds') + top('Receiving', 'recyd', ' yds') + top('Tackles', 'tkl', '') + top('Sacks', 'sack', '') + top('Interceptions', 'int', '');
@@ -69,12 +76,25 @@
         <h2>Quarter length</h2><div class="seg" id="sq">${[60, 120, 180, 300].map(q => `<button data-q="${q}" class="${q === st.ql ? 'on' : ''}">${q / 60} min</button>`).join('')}</div>
         <button class="go" id="sgo">Start season</button></div>`;
       $('#bk').onclick = PG.showMenu;
-      scr.querySelectorAll('#st button').forEach(b => b.onclick = () => { st.team = +b.dataset.i; draw(); });
-      scr.querySelectorAll('#sd button').forEach(b => b.onclick = () => { st.diff = +b.dataset.d; draw(); });
-      scr.querySelectorAll('#sq button').forEach(b => b.onclick = () => { st.ql = +b.dataset.q; draw(); });
+      scr.querySelectorAll('#st button').forEach(b => b.onclick = () => {
+        st.team = +b.dataset.i;
+        draw();
+      });
+      scr.querySelectorAll('#sd button').forEach(b => b.onclick = () => {
+        st.diff = +b.dataset.d;
+        draw();
+      });
+      scr.querySelectorAll('#sq button').forEach(b => b.onclick = () => {
+        st.ql = +b.dataset.q;
+        draw();
+      });
       $('#sgo').onclick = () => {
         S = { v: 1, team: st.team, diff: st.diff, ql: st.ql, year: 1, titles: 0, log: [], stats: ZERO() };
-        LG.start(S); ensureRoster(); persist(); PG.snd('whistle'); hub('table');
+        LG.start(S);
+        ensureRoster();
+        persist();
+        PG.snd('whistle');
+        hub('table');
       };
     };
     draw();
@@ -92,6 +112,7 @@
       <p>${S.ovrs[o]} OVR, ${LG.recTxt(S, o)} · You are ${LG.recTxt(S, S.team)}</p>
       <button class="go sm" id="play">Play game</button></div>`;
   }
+
   function tabSchedule() {
     const rows = S.log.map(g => `<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${full(g.opp)}</td></tr>`);
     if (S.phase === 'reg') for (let w = S.week; w < S.sched.length; w++) {
@@ -100,6 +121,7 @@
     }
     return `<table class="lg">${rows.join('')}</table>`;
   }
+
   function tabTeam() {
     const s = S.stats, g = Math.max(1, s.g), per = v => (v / g).toFixed(1);
     const row = (l, v) => `<tr><td>${l}</td><td>${v}</td><td>${per(v)}</td></tr>`;
@@ -107,6 +129,7 @@
       ${row('Passing yards', s.pass)}${row('Rushing yards', s.rush)}${row('Giveaways', s.to)}${row('Takeaways', s.take)}</table>
       ${s.g ? '' : '<p class="note">Team numbers show up after your first game.</p>'}`;
   }
+
   function hub(tab) {
     tab = tab || 'table';
     const t = TEAMS[S.team];
@@ -121,12 +144,33 @@
         ${tab === 'table' ? LG.standingsHtml(S) : tab === 'sched' ? tabSchedule() : tab === 'roster' ? tabRoster() : tabTeam()}
         <div class="stack"><button class="btn2 warn" id="ret">${sure ? 'Tap again to erase this season' : 'Start over'}</button></div></div>`;
       $('#bk').onclick = PG.showMenu;
-      scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; sure = false; draw(); });
-      const pl = $('#play'); if (pl) pl.onclick = play;
-      const ns = $('#nxs'); if (ns) ns.onclick = () => { S.year++; S.log = []; S.stats = ZERO(); LG.start(S); ageRoster(); persist(); hub('table'); };
+      scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+        tab = b.dataset.t;
+        sure = false;
+        draw();
+      });
+      const pl = $('#play');
+      if (pl) pl.onclick = play;
+      const ns = $('#nxs');
+      if (ns) ns.onclick = () => {
+        S.year++;
+        S.log = [];
+        S.stats = ZERO();
+        LG.start(S);
+        ageRoster();
+        persist();
+        hub('table');
+      };
       $('#ret').onclick = () => {
-        if (!sure) { sure = true; draw(); return; }
-        S = null; try { localStorage.removeItem(KEY); } catch (_) {}
+        if (!sure) {
+          sure = true;
+          draw();
+          return;
+        }
+        S = null;
+        try {
+          localStorage.removeItem(KEY);
+        } catch (_) {}
         showNew();
       };
     };
@@ -141,29 +185,44 @@
       env: PG.envFor(S.year + 50, S.week + (S.phase === 'reg' ? 0 : S.phase === 'semi' ? 8 : 9), S.phase !== 'reg' || S.week >= 5),
       onEnd: r => gameEnd(r, opp), onQuit: () => hub('table') });
   }
+
   function gameEnd(r, opp) {
     let us = r.score[0], them = r.score[1];
-    if (S.phase !== 'reg' && us === them) { if (PG.rnd() < 0.5) us += 3; else them += 3; }   // a playoff game cannot end level
+    if (S.phase !== 'reg' && us === them) {
+      if (PG.rnd() < 0.5) us += 3;
+      else them += 3;
+    }  // a playoff game cannot end level
     const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', wk = LG.short(S), table = PG.statTable();
     S.log.push({ wk, opp, us, them, res });
     ensureRoster();
-    for (const k in (r.box || {})) {                       // every player's line from this game goes on his season
+    for (const k in (r.box || {})) {
+      // every player's line from this game goes on his season
       const b = r.box[k];
       if (b.team !== 0 || !S.roster[b.role]) continue;
       const t = S.ps[b.role] || (S.ps[b.role] = {});
       for (const f of STATS) if (b[f]) t[f] = (t[f] || 0) + b[f];
     }
     const s = S.stats;
-    s.g++; s.pf += us; s.pa += them; s.pass += r.stats[0].pass; s.rush += r.stats[0].rush; s.to += r.stats[0].to; s.take += r.stats[1].to;
+    s.g++;
+    s.pf += us;
+    s.pa += them;
+    s.pass += r.stats[0].pass;
+    s.rush += r.stats[0].rush;
+    s.to += r.stats[0].to;
+    s.take += r.stats[1].to;
     const fin = LG.advance(S, opp, us, them);
     if (fin === 'Champion') S.titles++;
     persist();
-    const show = () => {                                   // drawn again after watching the play of the game
+    const show = () => {
+      // drawn again after watching the play of the game
       scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>${won ? 'Victory' : res === 'T' ? 'Tie game' : 'Final'}</b><span>${wk} vs ${TEAMS[opp].ab}</span></div>
         <div class="sc">${us} – ${them}</div>${table}${r.potgHtml || ''}${r.potdHtml || ''}
         ${fin ? `<p class="note">${fin === 'Champion' ? 'Champions. The title is yours.' : 'Season over: ' + fin.toLowerCase() + '.'}</p>` : ''}
         <button class="go" id="rc">Continue</button></div>`;
-      $('#rc').onclick = () => { PG.toMenu(); hub('table'); };
+      $('#rc').onclick = () => {
+        PG.toMenu();
+        hub('table');
+      };
       if ($('#potd')) $('#potd').onclick = () => PG.watchPotd(show);
     };
     show();
@@ -171,12 +230,18 @@
   }
 
   PG.season = {
-    open() { PG.toMenu(); if (S) hub('table'); else showNew(); },
+    open() {
+      PG.toMenu();
+      if (S) hub('table');
+      else showNew();
+    },
     summary() {
       if (!S) return null;
       const ph = S.phase === 'reg' ? `week ${S.week + 1}` : S.phase === 'semi' ? 'semifinal' : S.phase === 'final' ? 'championship game' : 'offseason';
       return `Continue: ${TEAMS[S.team].name} · ${LG.recTxt(S, S.team)} · season ${S.year}, ${ph}`;
     },
-    get data() { return S; },
+    get data() {
+      return S;
+    },
   };
 })();

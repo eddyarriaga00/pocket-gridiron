@@ -149,7 +149,7 @@ function showHub(tab){tab=tab||'up';const t=team(C.team);let sure=false;
   <div class="stack"><button class="btn2 warn" id="ret">${sure?'Tap again to erase this career':'Retire and start over'}</button></div></div>`;
   $('#bk').onclick=PG.showMenu;
   scr.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;sure=false;draw()});
-  scr.querySelectorAll('.at button').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=cost(C.attrs[k]);if(C.xp<c||C.attrs[k]>=99)return;C.xp-=c;C.attrs[k]++;persist();PG.snd('catch');keepScroll(draw)});
+  scr.querySelectorAll('.at button').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=cost(C.attrs[k]);if(C.xp<c||C.attrs[k]>=99)return;C.xp-=c;C.attrs[k]++;persist();PG.snd('buy');keepScroll(draw)});
   scr.querySelectorAll('#hq button').forEach(b=>b.onclick=()=>{C.ql=+b.dataset.q;pickGoals();persist();keepScroll(draw)});
   const pl=$('#play');if(pl)pl.onclick=play;
   const ns=$('#nxs');if(ns)ns.onclick=()=>{C.season++;initSeason();persist();showHub('up')};

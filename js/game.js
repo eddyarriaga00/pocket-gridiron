@@ -26,7 +26,7 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v,hyp=Math.hypot,lerp=(a,b,t)=>a+(b-a)*t;
 const dist=(a,b)=>hyp(a.x-b.x,a.y-b.y),pick=a=>a[Math.floor(rnd(a.length))];
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(_){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}}
-const SET=Object.assign({snd:true,ql:180,diff:1,me:0,opp:5,acc:'blue'},load('pg.settings',{}));
+const SET=Object.assign({snd:true,mus:true,ql:180,diff:1,me:0,opp:5,acc:'blue'},load('pg.settings',{}));
 /* the one accent color, picked in the menu: CSS reads it as --acc, the canvas as ACC */
 const ACCENTS={blue:'#4c9aff',red:'#ff5a6b',orange:'#ff8437',teal:'#2fd6c1',violet:'#a58bff',white:'#eef2f8'};
 let ACC=ACCENTS.blue;
@@ -118,7 +118,7 @@ function startGame(o){
   sel:null,me:null,preT:0,meter:0,lock,lockSide:lock?(OFFR.includes(lock)?'off':'def'):null,first,mustWin:!!o.mustWin,onEnd:o.onEnd||null,onQuit:o.onQuit||null,paused:false,last:'',
   my:{att:0,comp:0,pyd:0,ptd:0,pint:0,car:0,ryd:0,rtd:0,rec:0,recyd:0,rectd:0,tgt:0,tkl:0,sack:0,int:0,pbu:0}};
  if(lock&&o.hero)G.ros[0][lock]=o.hero;
- kickoff(first);P=[];ps=null;camUpd(0,true);hudKey='';scr.innerHTML='';FX.length=0;CONF.length=0;
+ kickoff(first);P=[];ps=null;camUpd(0,true);hudKey='';scr.innerHTML='';FX.length=0;CONF.length=0;if(PG.audio)PG.audio.scene('game');
  $('#hud').hidden=false;$('#a0').textContent=ab(0);$('#a1').textContent=ab(1);
  $('#sd0').style.setProperty('--c',TEAMS[o.a].c1);$('#sd1').style.setProperty('--c',TEAMS[o.b].c1);
  try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(_){}
@@ -319,8 +319,8 @@ function tick(dt){
    let pr=0.76+((o.tkl??o.rt)-75)*0.006-((c2.brk??c2.rt)-75)*0.005;if(o.eng)pr*=0.5;if(o.dive>0)pr+=0.2;
    for(const q of P)if(q.team===o.team&&q!==o&&!q.down&&q.stun<=0&&dist(q,c2)<2.2)pr+=0.15;
    if(c2.juke>0)pr*=0.22;if(c2===ps.qb&&ps.mode==='pass'&&!ps.thrown&&!ps.open)pr=0.93;if(o===G.sel&&uod)pr+=0.1;
-   if(rnd()<clamp(pr,0.08,0.97)){c2.down=true;ps.tackler=o;snd('hit');hitFx(c2.x,c2.y);finish('tackle');return}
-   release(o);o.stun=0.9;o.dive=0;c2.vx*=0.7;c2.vy*=0.7;if(userP(c2))toast('Broken tackle!')}
+   if(rnd()<clamp(pr,0.08,0.97)){const pw=clamp(0.45+hyp(o.vx-c2.vx,o.vy-c2.vy)/14,0.5,1.3);c2.down=true;ps.tackler=o;snd('hit',{power:pw});if(pw>1.05&&!QUIET&&!AUTO&&PG.audio)PG.audio.crowd.ooh(0.6);hitFx(c2.x,c2.y);finish('tackle');return}
+   release(o);o.stun=0.9;o.dive=0;c2.vx*=0.7;c2.vy*=0.7;snd('hit',{power:0.45});if(userP(c2))toast('Broken tackle!')}
   if(c2.team===0?c2.y>=100:c2.y<=0)finish('td');
   else if(c2.x<0||c2.x>FW)finish('oob');
   else if(c2.y<-10||c2.y>110||ps.t>30)finish('tackle')}}
@@ -332,30 +332,31 @@ function addYds(t,g,td,sack){if(ps.caught)G.stats[t].pass+=g;else G.stats[t].rus
 function finish(kind,arg){
  if(G.state!=='live'&&G.state!=='kicka')return;
  const off=ps.offTeam,dir=G.dir,c=ps.carrier,los=ps.los,me=QUIET?null:G.me;let big='',sub='',stop=false,score=false;
- if(kind==='inc'){big=arg||'Incomplete';stop=true;G.down++;G.stats[off].att++}
+ if(kind==='inc'){big=arg||'Incomplete';stop=true;G.down++;G.stats[off].att++;react(1-off,0.35,1.4)}
  else if(kind==='td'){const t=c.team;G.score[t]+=6;const xp=rnd()<0.96;if(xp)G.score[t]++;
   big='Touchdown!';sub=tname(t)+(xp?' · extra point is good':' · extra point missed');score=true;
-  if(t===off)addYds(off,Math.round(((t===0?100:0)-los)*dir),true);else G.stats[off].to++;kickoff(1-t);snd('cheer');confetti(t)}
+  if(t===off)addYds(off,Math.round(((t===0?100:0)-los)*dir),true);else G.stats[off].to++;kickoff(1-t);confetti(t);if(t===0){snd('horn');snd('fanfare')}react(t,1.4,5.5)}
  else if(kind==='tackle'||kind==='oob'){const t=c.team,y=c.y,x=c.x;
   if(me&&ps.tackler===me)G.my.tkl++;
-  if(t!==off){stop=true;big='Interception!';sub=tname(t)+' ball';G.stats[off].to++;G.stats[off].att++;
+  if(t!==off){stop=true;big='Interception!';sub=tname(t)+' ball';G.stats[off].to++;G.stats[off].att++;react(t,1.2,3);
    const ez=t===0?y<=0:y>=100;setBall(t,ez?(t===0?20:80):y,x)}
-  else if(off===0?y<=0:y>=100){G.score[1-off]+=2;big='Safety!';sub=tname(1-off)+' +2';score=true;setBall(1-off,off===0?65:35,FW/2)}
+  else if(off===0?y<=0:y>=100){G.score[1-off]+=2;big='Safety!';sub=tname(1-off)+' +2';score=true;react(1-off,1.2,3);setBall(1-off,off===0?65:35,FW/2)}
   else{const g=(y-los)*dir,gi=Math.round(g),sack=c===ps.qb&&ps.mode==='pass'&&!ps.thrown&&g<0;
    addYds(off,gi,false,sack);stop=kind==='oob';if(sack&&me&&ps.tackler===me)G.my.sack++;
    sub=`${c.name} #${c.num}${ps.caught?' · catch':''}${kind==='oob'?' · out of bounds':''}`;
-   if((y-ps.fd)*dir>=0){setBall(off,y,x);big='First down';sub=`${gi}-yard ${ps.caught?'catch':'run'} · ${c.name}`}
+   if(sack)react(1-off,0.9,2.2);else if(gi>=15)react(off,0.6+Math.min(0.6,gi/50),2.6);else if(gi<0)react(1-off,0.4,1.5);
+   if((y-ps.fd)*dir>=0){setBall(off,y,x);big='First down';sub=`${gi}-yard ${ps.caught?'catch':'run'} · ${c.name}`;if(off===0){snd('chime');if(gi<15)react(0,0.45,1.8)}}
    else{G.down++;G.los=clamp(y,1,99);G.bx=hash(x);G.togo=(ps.fd-G.los)*dir;
     big=sack?'Sack!':gi>0?`+${gi} yard${gi>1?'s':''}`:gi===0?'No gain':`Loss of ${-gi}`}}}
  else if(kind==='fg'){const d=ps.kick.dist|0;
-  if(arg){G.score[off]+=3;big='It’s good!';sub=`${d}-yard field goal`;score=true;kickoff(1-off);snd('cheer')}
-  else{big='No good';sub=`${d}-yard attempt`;stop=true;setBall(1-off,off===0?Math.min(los,80):Math.max(los,20),FW/2)}}
+  if(arg){G.score[off]+=3;big='It’s good!';sub=`${d}-yard field goal`;score=true;kickoff(1-off);if(off===0)snd('chime');react(off,0.9,3)}
+  else{big='No good';sub=`${d}-yard attempt`;stop=true;react(1-off,0.7,2);setBall(1-off,off===0?Math.min(los,80):Math.max(los,20),FW/2)}}
  else if(kind==='punt'){big='Punt';sub=arg.tb?'Touchback':`${arg.d} yards · ${tname(1-off)} ball at ${spotTxt(arg.y)}`;stop=true;setBall(1-off,arg.y,arg.x)}
- if(G.poss===off&&G.down>4&&!score){setBall(1-off,G.los,G.bx);sub='Turnover on downs';stop=true}
+ if(G.poss===off&&G.down>4&&!score){setBall(1-off,G.los,G.bx);sub='Turnover on downs';stop=true;react(1-off,0.9,2.5)}
  if(!stop&&!score)G.clock=Math.max(0,G.clock-13);
  if(G.ot&&score)G.final=true;
  G.last=sub==='Turnover on downs'?sub:big;
- if(kind!=='td'&&kind!=='fg')snd('whistle');
+ if(kind!=='td')snd('whistle');
  G.state='dead';G.deadT=score?2.6:1.7;banner(big,sub,G.deadT*1000-150);updHud()}
 /* Quarter and game-end bookkeeping. Returns true when the game is over. */
 function advance(){
@@ -367,6 +368,7 @@ function advance(){
  return false}
 function next(){if(advance())return endGame();startCall()}
 function endGame(){G.state='over';P=[];ps=null;G.me=null;setBrief('');setPad('none');
+ if(!AUTO){const w=G.score[0]-G.score[1];snd('whistle',{long:true});if(w>0){snd('fanfare');react(0,1.2,5)}else if(w<0)snd('lose')}
  if(G.onEnd)G.onEnd({score:G.score.slice(),my:G.my,stats:G.stats,ot:G.ot});else showFinal()}
 
 /* ---------- play calling ---------- */
@@ -398,14 +400,14 @@ function begin(){scr.innerHTML='';setupPlay();G.preT=0;
  if(G.op.cat==='special'){const fg=G.op.n==='Field Goal',d=Math.round(((G.poss===0?100:0)-G.los)*G.dir+17);
   if(G.poss===0&&!AUTO&&!G.lock){G.state='kickm';G.meter=rnd(3);$('#mtxt').textContent=fg?`${d}-yard field goal · stop in the green`:'Punt · stop in the green';return}
   toast(fg?`${d}-yard field goal attempt`:tname(G.poss)+' punt')}
- G.state='pre';setBrief(briefTxt())}
-function snap(){setBrief('');if(ps.mode==='kick')return doKick(rnd(0.55,1));G.state='live';ps.t=0;snd('snap')}
+ G.state='pre';setBrief(briefTxt());if(!AUTO&&PG.audio&&G.poss===1&&G.down>=3&&ps.mode!=='kick')PG.audio.crowd.clapBuild(2.4)}
+function snap(){setBrief('');if(PG.audio)PG.audio.crowd.stopClaps();if(ps.mode==='kick')return doKick(rnd(0.55,1));G.state='live';ps.t=0;snd('snap')}
 function doKick(acc){const off=G.poss,dir=G.dir,los=ps.los,k=ps.qb;let x1,y1,T,h;
  if(G.op.n==='Field Goal'){const d=((off===0?100:0)-los)*dir+17,thr=clamp(0.22+Math.max(0,d-22)*0.019,0.22,0.96),good=acc>=thr&&d<=63,sg=rnd()<.5?-1:1;
   x1=FW/2+sg*(good?(1-acc)*3.5:4.4+rnd(3));y1=(off===0?110:-10)+dir*10;T=1.5+d*0.014;h=7+d*0.07;ps.kick={type:'fg',arg:good,dist:d}}
  else{const d=30+acc*20+rnd(-3,3),y=los+dir*d,x=clamp(ps.bx+rnd(-12,12),4,FW-4),tb=off===0?y>=99:y<=1;
   const fy=tb?(off===0?80:20):clamp(y-dir*rnd(0,9),2,98);x1=x;y1=tb?(off===0?104:-4):y;T=2.4+d*0.02;h=13;ps.kick={type:'punt',arg:{y:fy,x,d:Math.round(d),tb}}}
- ps.air={x0:k.x,y0:k.y,x1,y1,t:0,T,h,kick:true,x:k.x,y:k.y,z:0};ps.carrier=null;G.state='kicka';snd('hit')}
+ ps.air={x0:k.x,y0:k.y,x1,y1,t:0,T,h,kick:true,x:k.x,y:k.y,z:0};ps.carrier=null;G.state='kicka';snd('kick')}
 function kickTick(dt){const a=ps.air;a.t+=dt;const s=Math.min(1,a.t/a.T);a.x=lerp(a.x0,a.x1,s);a.y=lerp(a.y0,a.y1,s);a.z=0.3+a.h*4*s*(1-s);
  if(s>=1){const k=ps.kick;ps.air=null;finish(k.type,k.arg)}}
 /* Career: play the snaps the user's unit is not on the field for, headless, until their unit is back on. */
@@ -423,7 +425,7 @@ function simDrives(){
  else if(pts===3){big=mine?'Field goal':`${ab(t)} field goal`;sub=`${tname(t)} · ${plays}-play drive`}
  else if(other>0){big=mine?'Turnover':'Defense scores!';sub=`${tname(1-t)} +${other}`}
  else{big=mine?'Drive stalls':'Defense holds';sub=G.last||''}
- G.state='dead';G.deadT=2.3;banner(big,sub,2100);updHud();if(pts>=6&&mine){snd('cheer');confetti(0)}}
+ G.state='dead';G.deadT=2.3;banner(big,sub,2100);updHud();if(pts>=6&&mine){confetti(0);snd('fanfare');react(0,1.2,4)}else if(pts>=6)react(1,1,3);else if(pts===0&&!mine)react(0,0.5,2)}
 function briefTxt(){const me=G.me;if(!G.lock||!me)return '';let t;
  if(ps.offTeam===0){if(me===ps.qb)return '';
   if(ps.mode==='run')t=me===ps.runner?'You get the ball. Follow your blocks.':me.route?'Sell the route, then block downfield.':'Lead the way and block.';
@@ -498,14 +500,14 @@ function readInput(){let x=stick.x,y=stick.y;
  inp.x=x;inp.y=y;inp.manual=hyp(x,y)>0.18;inp.sprint=!!(G.sprintBtn||keys.ShiftLeft||(keys.Space&&G.state==='live'))}
 
 /* ---------- sound and feedback ---------- */
-let AC=null;
-function snd(type){if(AUTO||!SET.snd)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime,g=AC.createGain();g.connect(AC.destination);
- const noise=(dur,freq,vol,q)=>{const b=AC.createBuffer(1,AC.sampleRate*dur,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-  const s=AC.createBufferSource();s.buffer=b;const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=freq;f.Q.value=q||0.7;s.connect(f);f.connect(g);
-  g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+dur*0.25);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);s.start(t)};
- const tone=(f,dur,vol,ty)=>{const o=AC.createOscillator();o.type=ty||'square';o.frequency.value=f;o.connect(g);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.start(t);o.stop(t+dur)};
- if(type==='whistle')tone(2300,0.35,0.05);else if(type==='hit')noise(0.14,220,0.5,1);else if(type==='cheer')noise(2.2,1100,0.35,0.4);
- else if(type==='snap')tone(180,0.08,0.12,'triangle');else if(type==='throw')noise(0.18,1800,0.12,2);else if(type==='catch')tone(520,0.07,0.08,'triangle');else if(type==='juke')noise(0.1,900,0.1,2)}catch(_){}}
+/* sounds are synthesized in audio.js */
+function snd(type,opts){if(AUTO||QUIET)return;const a=PG.audio;if(a)a.play(type,opts)}
+/* the home crowd is on the user's side: it cheers what is good for team 0 and groans at the rest */
+function react(goodFor,size,dur){if(AUTO||QUIET)return;const a=PG.audio;if(!a)return;if(goodFor===0)a.crowd.cheer(size,dur);else if(size>=0.7)a.crowd.groan(size*0.9);else a.crowd.ooh(size)}
+function crowdLevel(){if(!G.ros||G.state==='over')return 0.25;let v=0.3;const toGoal=G.poss===0?100-G.los:G.los;
+ if(toGoal<20)v+=0.2;if(G.down>=3)v+=0.15;if(G.q>=4&&Math.abs(G.score[0]-G.score[1])<=8)v+=0.2;
+ if(G.state==='live')v+=0.15;else if(G.poss===1&&G.state==='pre')v+=0.1;   // loud when the home defense is out there
+ return Math.min(1,v)}
 function hitFx(x,y){if(QUIET)return;FX.push({x,y,t:0});if(!RM)shake=0.2;try{if(navigator.vibrate&&navigator.userActivation&&navigator.userActivation.hasBeenActive)navigator.vibrate(20)}catch(_){}}
 function confetti(team){if(QUIET||RM)return;const t=TEAMS[G.tm[team]];
  for(let i=0;i<80;i++)CONF.push({x:rnd(W),y:rnd(-H*0.35,0),vx:rnd(-30,30),vy:rnd(140,340),a:rnd(6.3),c:pick([t.c1,t.c2,ACC,'#ffffff'])})}
@@ -519,14 +521,15 @@ function updHud(){if(!G.ros)return;const s=Math.ceil(G.clock),k=[G.score,G.q,s,G
  $('#s0').textContent=G.score[0];$('#s1').textContent=G.score[1];$('#qt').textContent=G.q>4?'OT':ORD[G.q-1];
  $('#clk').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');$('#dn').textContent=downTxt();
  $('#sd0').classList.toggle('has',G.poss===0);$('#sd1').classList.toggle('has',G.poss===1)}
-function toMenu(){G=menuState(G.tm);P=[];ps=null;FX.length=0;$('#hud').hidden=true;pad.innerHTML='';scr.innerHTML='';setBrief('');$('#banner').classList.remove('on');$('#meter').hidden=true;CONF.length=0}
+function toMenu(){if(PG.audio)PG.audio.scene('menu');G=menuState(G.tm);P=[];ps=null;FX.length=0;$('#hud').hidden=true;pad.innerHTML='';scr.innerHTML='';setBrief('');$('#banner').classList.remove('on');$('#meter').hidden=true;CONF.length=0}
 function openPause(){if(!G.ros||G.state==='over'||G.paused)return;G.paused=true;const ov=$('#ov');ov.hidden=false;
  const draw=sure=>{ov.innerHTML=sure
   ?`<div class="dlg"><h3>Leave game?</h3><p>${G.mode==='career'?'This game will not count. You can play it again from your career.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">Leave game</button><button class="btn2" id="pk">Keep playing</button></div>`
-  :`<div class="dlg"><h3>Paused</h3><button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
+  :`<div class="dlg"><h3>Paused</h3><button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pmu">Music: ${SET.mus?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
   const on=(id,f)=>{const el=$('#'+id);if(el)el.onclick=f};
   on('pr',closePause);on('pk',()=>draw(false));on('pq',()=>draw(true));
-  on('psn',()=>{SET.snd=!SET.snd;save('pg.settings',SET);draw(false)});
+  on('psn',()=>{SET.snd=!SET.snd;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();draw(false)});
+  on('pmu',()=>{SET.mus=!SET.mus;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();draw(false)});
   on('pq2',()=>{const cb=G.onQuit;closePause();toMenu();cb?cb():showMenu()})};
  draw(false)}
 function closePause(){$('#ov').hidden=true;$('#ov').innerHTML='';G.paused=false}
@@ -568,11 +571,13 @@ function showMenu(){toMenu();const cs=PG.career&&PG.career.summary();
   <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and control the whole roster.</span><i>›</i></button>
   <h2>Settings</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
-  <div class="opt"><span>Sound</span><button class="chip" id="msn">${SET.snd?'On':'Off'}</button></div>
+  <div class="opt"><span>Sound effects and crowd</span><button class="chip" id="msn">${SET.snd?'On':'Off'}</button></div>
+  <div class="opt"><span>Music</span><button class="chip" id="mmu">${SET.mus?'On':'Off'}</button></div>
   <details class="how"><summary>How to play</summary><ul><li>Drag anywhere on the field to move your player.</li><li>Passing: tap a lettered receiver, or the matching button.</li><li>Ball in hand: Sprint, Juke, Spin. On defense: Dive, Sprint.</li><li>Keyboard: arrows, Space to snap, 1–5 to pass, J/K juke and spin, Q/E switch and dive, C to call for the ball, P to pause.</li></ul></details></div>`;
  $('#mC').onclick=()=>{snd('snap');PG.career?PG.career.open():showExh()};$('#mE').onclick=()=>{snd('snap');showExh()};
  scr.querySelectorAll('#acc button').forEach(b=>b.onclick=()=>{SET.acc=b.dataset.a;save('pg.settings',SET);applyTheme();showMenu()});
- $('#msn').onclick=()=>{SET.snd=!SET.snd;save('pg.settings',SET);showMenu()}}
+ $('#msn').onclick=()=>{SET.snd=!SET.snd;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();showMenu()};
+ $('#mmu').onclick=()=>{SET.mus=!SET.mus;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();showMenu()}}
 function showExh(){let me=SET.me,opp=SET.opp,ql=SET.ql,diff=SET.diff;if(opp===me)opp=(me+1)%TEAMS.length;
  const draw=()=>{G.tm=[me,opp];scr.innerHTML=`<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Exhibition</h1>
   <h2>Your team</h2><div class="teams" id="tms">${TEAMS.map((t,i)=>tmBtn(t,i,i===me)).join('')}</div>
@@ -698,6 +703,7 @@ function step(dt){if(G.paused)return;readInput();
   case 'kickm':G.meter+=dt;break;
   case 'kicka':kickTick(dt);break;
   case 'dead':G.deadT-=dt;if(G.deadT<=0)next();break}
+ if(G.ros&&!AUTO&&PG.audio){const lv=crowdLevel();if(Math.abs(lv-(G.crowdLv||0))>0.04){G.crowdLv=lv;PG.audio.crowd.set(lv)}}
  camUpd(dt);if(G.ros){updHud();setPad(padKind());const s=pad.querySelector('.spr');if(s)s.style.setProperty('--st',G.stam)}}
 let last=0;
 function frame(ts){const dt=Math.min(0.034,(ts-last)/1000||0.016);last=ts;FDT=dt;const n=window.FAST||1;

@@ -560,11 +560,24 @@
   }
 
   /* the end of a career: one last look, then a clean slate */
+  /* The hall-of-fame case: titles, honors, how much you did (career XP), how good you became and your trophies.
+     About 100 is a first-ballot career. */
+  function fameCase() {
+    const have = Object.keys(C.troph || {}).length, honors = (C.awards || []).length;
+    const parts = [['Titles', C.rings * 14], ['Honors', honors * 6], ['Career XP', C.xpTotal / 1500], ['Overall rating', Math.max(0, (ovr() - 75) * 1.2)], ['Trophies', have * 1.5]].map(([l, v]) => [l, Math.round(v)]);
+    const score = parts.reduce((t, [, v]) => t + v, 0);
+    const verdict = score >= 95 ? 'First-ballot hall of famer' : score >= 70 ? 'Hall of famer' : score >= 48 ? 'Team legend' : score >= 28 ? 'Respected veteran' : score >= 12 ? 'Solid pro' : 'A short stay in the league';
+    return { score, verdict, parts };
+  }
+
   function showRetire() {
-    const m = C.career;
+    const m = C.career, fame = fameCase();
     scr.innerHTML = `<div class="menu solid"><h1 class="sm">Career <em>so far</em></h1>
   <div class="pc" style="--c:${team(C.team).c1};margin-top:14px"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label}<br>${C.season} season${C.season>1?'s':''} · ${m.g} games · ${rank()}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="nx"><small>Career totals</small><h4>${line(m)}</h4><p>${C.rings} title${C.rings===1?'':'s'} · ${(C.awards||[]).length} honor${(C.awards||[]).length===1?'':'s'} · ${fmt(C.xpTotal)} XP earned</p></div>
+  <div class="nx"><small>Hall of fame case</small><h4>${fame.verdict}</h4>
+  <div class="trust" style="margin:8px 0 6px"><span>Score · 100 is a first-ballot career</span><b>${fame.score}</b><div class="bar"><i style="width:${Math.min(100,fame.score)}%"></i></div></div>
+  <p>${fame.parts.map(([l,v])=>`${l} ${v}`).join(' · ')}</p></div>
   ${trophiesHtml()}
   <button class="go" id="keep">Keep playing</button><div class="stack"><button class="btn2 warn" id="nc">Erase and start a new career</button></div>
   <p class="note">A new career replaces this one. It cannot be undone.</p></div>`;

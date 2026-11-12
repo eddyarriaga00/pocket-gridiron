@@ -316,6 +316,10 @@ what is next. Update it after every item.
   sample, though one turned up in an earlier single try. Career games, practice and simulations keep the simulated return.
   `H.fingerprint()` unchanged.
 
+- 08:27 Camera choice (`SET.camv` scales the gameplay camera's height and distance by 0.8 or 1.25), left-handed layout (a `lefty`
+  class on the app) and the hall-of-fame card. One screenshot with both settings on shows the button bottom left and the
+  closer view; a two-season bot career scores 8, "A short stay in the league". `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -353,10 +357,10 @@ what is next. Update it after every item.
       calls goal line on short yardage and deep shells on long yardage. The run game was rebalanced play by play
 - [x] Live punt returns in Exhibition and Season: the free safety drops back, the coverage runs down, and the catch turns
       the play into a return you play (or cover) like a kickoff return. No fair catches or muffs
-- [ ] Camera choice in Settings (standard, close, high)
+- [x] Camera choice in Settings (standard, close, high)
 - [ ] Training camp: three guided drills (passing, running, tackling) with medals, offered on first launch
-- [ ] Left-handed layout: the buttons on the left
-- [ ] A hall-of-fame score and verdict on the retirement screen
+- [x] Left-handed layout: Settings moves the buttons to the left and the play notes to the right
+- [x] A hall-of-fame score and verdict on the retirement screen (titles, honors, career XP, overall, trophies; about 100 is first ballot)
 
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.

@@ -944,8 +944,9 @@
       /* once a ball carrier is in the open field the camera closes in on him */
       const chase = ps && ps.carrier && !ps.air && (ps.open || ps.mode === 'ko') && (G.state === 'live' || G.state === 'dead');
       zoom += ((chase ? 0.68 : 1) - zoom) * (1 - Math.exp(-dt * 2.4));
-      const up = cm.up, back = (up ? 40 : 46) * zoom, ahead = (up ? 10 : 3) * zoom + (1 - zoom) * 8, tx = lerp(FW / 2, cm.fx, 0.75 + (1 - zoom) * 0.6);
-      v3.set(tx, 24 * zoom, -(cm.fy - back)); v3b.set(tx, 0, -(cm.fy + ahead));
+      const view = s.camv === 'close' ? 0.8 : s.camv === 'high' ? 1.25 : 1;      // the camera choice in Settings: nearer and lower, or further and higher
+      const up = cm.up, back = (up ? 40 : 46) * zoom * view, ahead = (up ? 10 : 3) * zoom + (1 - zoom) * 8, tx = lerp(FW / 2, cm.fx, 0.75 + (1 - zoom) * 0.6);
+      v3.set(tx, 24 * zoom * view, -(cm.fy - back)); v3b.set(tx, 0, -(cm.fy + ahead));
       if (G.state === 'pre' && ps && ps.mode !== 'ko' && !s.plain) {     // start close behind the formation, then pull out
         let e = clamp((G.preT - 0.1) / 1.15, 0, 1); e = e * e * (3 - 2 * e);
         v3.x = lerp(cm.fx + 2.5, v3.x, e); v3.y = lerp(7.5, v3.y, e); v3.z = lerp(-(cm.fy - (up ? 15 : 24)), v3.z, e);

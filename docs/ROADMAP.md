@@ -72,14 +72,14 @@ what is next. Update it after every item.
 - [x] Crowd bed that follows the game: level from situation, roar on big plays, groan on turnovers, clap build on third down
 - [x] Effects: whistle, pads collision (power from closing speed), kick, catch, snap bark, throw, UI ticks, horn, fanfare
 - [x] Menu music: procedural 8-bar drumline with bass and brass (100 BPM)
-- [ ] Later: between-play cadence, ball bounce, footsteps, announcer voice
+- [x] Round 2 (see below): announcer, chant, organ riff, rain and wind. Not done: quarterback cadence, footsteps
 
 ### 3. 3D renderer
 - [x] three.js scene (`js/render3d.js`) behind a Graphics setting, automatic fallback to 2D when WebGL or the library is unavailable
 - [x] Field texture (stripes, lines, hashes, numbers, end zones, midfield logo), goal posts, pylons, first-down marker
 - [x] Stadium: two decks of crowd, ribbon boards with team names, light towers with glow, benches, sideline figures
 - [x] Camera matched to the portrait framing (fov 76, 24 yd high, 40 back); overlay canvas projects through the 3D camera
-- [ ] Polish: calmer crowd texture (moire at distance), scoreboard, menu camera path
+- [x] Polish: the crowd is a shader now (no moire), video boards show the score. The menu camera path is unchanged
 
 ### 4. Player models and animation
 - [x] Procedural low-poly rig: helmet with stripe, visor and facemask, pads, jersey numbers front and back, arms, legs, shoes.
@@ -87,7 +87,7 @@ what is next. Update it after every item.
 - [x] Poses: line, under-center, two-point and wide stances; run cycle; backpedal with eyes on the quarterback; pocket carry;
       tucked carry; throw; catch reach; block; dive; stumble; fall; celebration and heads-down
 - [x] Blob shadows, user ring, pass target ring in 3D
-- [ ] Verify fall and celebration close up; kicker leg swing; jog to the line; referee
+- [ ] Look at up close: the fall and the kicker's leg swing (celebration and officials are done)
 
 ### 5. Game feel
 - [x] Break-the-huddle jog to formation; the ball travels from the turf to the quarterback on the snap
@@ -95,13 +95,13 @@ what is next. Update it after every item.
 - [x] Instant replay of touchdowns, interceptions and 28+ yard plays: half speed, low camera, tap to skip, setting to turn off
 - [x] Stadium video boards with score, clock, down and distance, "TOUCHDOWN" on scores
 - [x] Cinematic cameras: push-out before the snap, orbit around the scorer
-- [ ] Referee signals, handoff motion, celebration variety
+- [x] Referee signals, handoff motion, celebration variety
 
 ### 6. Gameplay
 - [x] Live kickoffs and returns in exhibition (touchbacks when the kick reaches the end zone); career and simulations use the 25
 - [x] Computer tuning after the 3D pass: `H.sim(14,180)` gives 4.1 ypc, 62% completions, 2% sacks, 0.9% INT, 28 pts/game
-- [ ] Lob and bullet passes (hold vs tap)
-- [ ] Penalties and fumbles (rare), timeouts
+- [x] Lob and bullet passes (hold vs tap)
+- [ ] Penalties and timeouts (fumbles are in)
 
 ### 7. Career depth
 - [x] Abilities: slots open at 74, 80 and 87 overall; four per position; they boost the ratings the engine plays with
@@ -116,7 +116,7 @@ what is next. Update it after every item.
 - [x] Settings screen: accent, graphics, sharpness, pre-snap camera, replays, sound, music, tips. How-to-play screen.
 - [x] Auto-pause when the app is hidden (the test pane triggers this; the harness bot resumes)
 - [x] Halftime report with team stats and the career stat line
-- [ ] Final presentation: player of the game, drive chart
+- [x] Final presentation: player of the game, drive summary after touchdowns
 
 ### 9. Optimization
 - [x] Measured: simulation 0.013 ms per step, render 0.5 ms of CPU per frame, 68 draw calls, 151k triangles, about 1 KB of garbage per frame. Pixel ratio is capped (Sharpness setting). Body parts are instanced.
@@ -139,7 +139,7 @@ what is next. Update it after every item.
 - [x] README refresh
 
 ### Stretch
-- [ ] Weather and time of day, announcer voice, achievements, offline install
+- [ ] Offline install with a service worker (weather, time of day, the announcer and career trophies are done)
 
 ## Log
 

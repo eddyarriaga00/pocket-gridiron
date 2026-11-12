@@ -380,6 +380,15 @@ what is next. Update it after every item.
 - [x] Left-handed layout: Settings moves the buttons to the left and the play notes to the right
 - [x] A hall-of-fame score and verdict on the retirement screen (titles, honors, career XP, overall, trophies; about 100 is first ballot)
 
+### Round 6 (queued at 08:50; work through these in order)
+- [ ] Player models, pass 4: a detailed model for close views (replays, the flyover, celebrations, portraits) with shaped
+      thighs and calves, knees and elbows that meet cleanly, hands with fingers and a thumb, cleats, shoulder-pad caps and
+      a collar; soft contact shading baked into the vertices of both levels of detail. The far model stays for speed
+- [ ] Touchdown celebrations: more than one, picked per player, shown by the close camera
+- [ ] Career history: a season-by-season table (team, record, stat line, average grade, honors) on the hub and at retirement
+- [ ] Fair catches and muffed punts on live punt returns
+- [ ] Milestones outside Career: a short list across all modes, shown from the menu
+
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.
 - Play on a real phone: touch feel, frame rate with shadows and the glow pass on, button reach with five buttons on the pad.

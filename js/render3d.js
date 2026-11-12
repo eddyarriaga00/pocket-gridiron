@@ -52,8 +52,14 @@
   }
 
   /* every geometry is modelled in the space of the joint it hangs from */
-  /* a surface of revolution from [radius, y] pairs: tapered limbs and a chest that narrows to the waist */
-  const lathe = (pts, seg) => new T.LatheGeometry(pts.map(([r, y]) => new T.Vector2(r, y)), seg || 12);
+  /* a surface of revolution from [radius, y] pairs: tapered limbs and a chest that narrows to the waist.
+     three.js faces a lathe outward only when its profile climbs, so a profile written top-down is turned round here.
+     (Until 2026-11-12 the limbs were written top-down and drawn inside-out: you saw the far wall of each arm and leg,
+     lit as if from the other side, and an arm could sink into the chest it was held in front of.) */
+  const lathe = (pts, seg, phi0, phiLen) => {
+    const up = pts[0][1] <= pts[pts.length - 1][1] ? pts : pts.slice().reverse();
+    return new T.LatheGeometry(up.map(([r, y]) => new T.Vector2(r, y)), seg || 12, phi0 || 0, phiLen || Math.PI * 2);
+  };
   const GEO = {
     torso: lathe([[0.01, -0.05], [0.178, -0.04], [0.188, 0.14], [0.215, 0.32], [0.235, 0.47], [0.2, 0.6], [0.09, 0.67]]).scale(1, 1, 0.74),  // the hem hangs just over the pants
     pads: new T.SphereGeometry(0.22, 14, 8).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
@@ -79,7 +85,7 @@
     wrist: new T.CylinderGeometry(0.053, 0.049, 0.055, 10).translate(0, -0.215, 0),
     hand: new T.SphereGeometry(0.064, 8, 6).scale(1, 1.15, 0.85).translate(0, -0.3, 0),
     /* a stripe down both sides of the thigh, following its taper */
-    pantStripe: merge([Math.PI / 2, Math.PI * 1.5].map(a => new T.LatheGeometry([[0.112, -0.03], [0.108, -0.2], [0.09, -0.455]].map(([r, y]) => new T.Vector2(r, y)), 3, a - 0.2, 0.4))),
+    pantStripe: merge([Math.PI / 2, Math.PI * 1.5].map(a => lathe([[0.112, -0.03], [0.108, -0.2], [0.09, -0.455]], 3, a - 0.2, 0.4))),
     thigh: merge([lathe([[0.01, 0.05], [0.108, 0], [0.104, -0.2], [0.086, -0.46]], 12), new T.SphereGeometry(0.09, 12, 8).translate(0, -0.49, 0)]),
     shin: lathe([[0.01, 0.03], [0.07, 0], [0.084, -0.13], [0.062, -0.34], [0.052, -0.46], [0.01, -0.49]], 12),
     foot: new T.CapsuleGeometry(0.058, 0.15, 2, 8).rotateX(Math.PI / 2).scale(1.05, 0.72, 1).translate(0, -0.465, -0.07),

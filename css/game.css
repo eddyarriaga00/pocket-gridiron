@@ -212,6 +212,16 @@ tr.me td{color:var(--acc);font-weight:700}
 .nx ul{list-style:none;margin:0 0 12px;padding:0;font-size:12px;line-height:1.45}
 .nx ul li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--line)}
 .nx ul b{color:var(--acc);font-weight:700;white-space:nowrap}
+.nx ul.aw small{display:block;margin-top:1px;font-family:inherit;font-weight:400;font-size:11px;letter-spacing:0;text-transform:none}
+.nx ul.aw b{white-space:normal;text-align:right}
+.brk{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:8px;align-items:center}
+.brk>div{display:flex;flex-direction:column;gap:6px}
+.brk small{font-family:var(--display);font-weight:700;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.gm{background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.gm span{display:block;padding:6px 8px;font-size:11.5px;line-height:1.25;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gm span+span{border-top:1px solid var(--line)}
+.gm span.w{color:var(--ink);font-weight:700}
+.gm span.me{box-shadow:inset 3px 0 0 var(--acc)}
 .at{display:grid;grid-template-columns:1fr auto auto;gap:5px 10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
 .at b{font-size:13px;font-weight:600}
 .at u{text-decoration:none;font-family:var(--display);font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;min-width:24px;text-align:right}

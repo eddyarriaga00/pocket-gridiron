@@ -375,6 +375,12 @@ what is next. Update it after every item.
   `H.fingerprint()` unchanged; exhibition, career and camp bots clean. The scheduled autopilot ended at noon (job cancelled
   at 12:12); work after that was at the owner's request.
 
+- 12:18 Bracket and awards. `league.js` records `po.games` ({s1, s2, f} as [team, team, winner]) with the same simulated
+  games in the same order as before, so seeded results did not move (`H.fingerprint()` unchanged, and the scripted
+  quarterback career repeats its 2-5 season). Checked two scripted seasons: one with the score rigged to win it all (the
+  bracket filled in after each round, the title milestone fired) and one played straight that missed the playoffs (the
+  whole bracket appears at once). A season saved before today has no bracket until its next playoffs.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -440,7 +446,9 @@ what is next. Update it after every item.
 - [x] Stadium life: a chain crew on the home sideline (two sticks ten yards apart with a chain, a down box that shows the
       down, three men in orange who walk to the next marks after the whistle); the pylons, which were already there, are
       larger so they show beside the oversized players
-- [ ] Season mode: awards when the season ends (most valuable player, best offense and defense) and a playoff bracket
+- [x] A playoff bracket on the Standings tab of Season and Career (semifinals, final, champion; it fills in as the games
+      are played), and Season awards on the season-complete card: your most valuable player, the league's best offense and
+      best defense. The other teams are simulated, so only your roster has players to honor
 - [ ] Career: a contract (years and salary) from the draft and in free agency, shown on the hub
 
 ### Next ideas (nothing here is started)

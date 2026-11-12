@@ -100,11 +100,30 @@
     draw();
   }
 
+  /* End-of-season honors. The league's best attack and defense come from the standings (the other teams are simulated,
+     so they have scores but no players); the most valuable player is yours, from the season's stat lines. */
+  function awards() {
+    const games = i => Math.max(1, S.tab[i].w + S.tab[i].l + (S.tab[i].t || 0)), ids = TEAMS.map((_, i) => i), per = (i, k) => S.tab[i][k] / games(i);
+    const off = ids.slice().sort((a, b) => per(b, 'pf') - per(a, 'pf'))[0], def = ids.slice().sort((a, b) => per(a, 'pa') - per(b, 'pa'))[0];
+    let mvp = null, top = 0;
+    for (const role in S.ps || {}) {
+      const m = S.ps[role], n = k => m[k] || 0;
+      const v = n('pyd') / 25 + n('ptd') * 4 - n('pint') * 2 + (n('ryd') + n('recyd')) / 10 + n('td') * 6 + n('rec') * 0.5 + n('tkl') + n('sack') * 4 + n('int') * 6 + (n('ff') + n('fr')) * 3;
+      if (v > top && S.roster && S.roster[role]) {
+        top = v;
+        mvp = role;
+      }
+    }
+    return [mvp ? ['Your most valuable player', `${S.roster[mvp].name} · ${POSN[mvp]}`, statLine(mvp)] : null,
+      ['Best offense', TEAMS[off].name, per(off, 'pf').toFixed(1) + ' points a game'], ['Best defense', TEAMS[def].name, per(def, 'pa').toFixed(1) + ' allowed a game']].filter(Boolean);
+  }
+
   function nextCard() {
     if (S.phase === 'done') {
       const po = S.po;
       return `<div class="nx"><small>Season ${S.year} complete</small><h4>${po.finish}</h4>
         <p>${full(S.team)} finished ${LG.recTxt(S, S.team)}. ${po.champ === S.team ? 'You are the champions.' : `Champion: ${full(po.champ)}.`}</p>
+        <ul class="aw">${awards().map(([l, who, why]) => `<li><span>${l}<small>${why}</small></span><b>${who}</b></li>`).join('')}</ul>
         <button class="go sm" id="nxs">Start season ${S.year + 1}</button></div>`;
     }
     const o = LG.nextOpp(S);

@@ -101,9 +101,14 @@
       L.week++;
       if (L.week < L.sched.length) return null;
       const s = seeds(L).slice(0, 4), i = s.indexOf(L.team);
-      L.po = { seeds: s };
+      /* games: the bracket as [team, team, winner], 1 v 4 and 2 v 3, then the final; null until it is known */
+      L.po = { seeds: s, games: { s1: [s[0], s[3], null], s2: [s[1], s[2], null], f: [null, null, null] } };
       if (i < 0) {
-        L.po.champ = simWinner(L, simWinner(L, s[0], s[3]), simWinner(L, s[1], s[2]));
+        const w1 = simWinner(L, s[0], s[3]), w2 = simWinner(L, s[1], s[2]);
+        L.po.champ = simWinner(L, w1, w2);
+        L.po.games.s1[2] = w1;
+        L.po.games.s2[2] = w2;
+        L.po.games.f = [w1, w2, L.po.champ];
         return end('Missed the playoffs');
       }
       const rest = [0, 1, 2, 3].filter(k => k !== i && k !== 3 - i);
@@ -112,29 +117,49 @@
       L.po.other = [s[rest[0]], s[rest[1]]];
       return null;
     }
+    const gm = L.po.games;  // a season saved before the bracket was recorded has none
     if (L.phase === 'semi') {
       const other = simWinner(L, L.po.other[0], L.po.other[1]);
+      if (gm) {
+        const mine = gm.s1.includes(L.team) ? gm.s1 : gm.s2, theirs = mine === gm.s1 ? gm.s2 : gm.s1;
+        mine[2] = won ? L.team : opp;
+        theirs[2] = other;
+        gm.f = [gm.s1[2], gm.s2[2], null];
+      }
       if (won) {
         L.phase = 'final';
         L.po.opp = other;
         return null;
       }
       L.po.champ = simWinner(L, opp, other);
+      if (gm) gm.f[2] = L.po.champ;
       return end('Semifinalist');
     }
     L.po.champ = won ? L.team : opp;
+    if (gm) gm.f[2] = L.po.champ;
     return end(won ? 'Champion' : 'Runner-up');
+  }
+
+  /* the playoff bracket, once the regular season has set it: two semifinals, the final, the champion */
+  function bracketHtml(L) {
+    const gm = L.po && L.po.games;
+    if (!gm) return '';
+    const slot = (t, w) => t == null ? '<span>To be decided</span>'
+      : `<span class="${w === t ? 'w' : ''}${t === L.team ? ' me' : ''}">${L.po.seeds.indexOf(t) + 1} · ${TEAMS[t].name}</span>`;
+    const game = g => `<div class="gm">${slot(g[0], g[2])}${slot(g[1], g[2])}</div>`;
+    return `<h2>Playoffs</h2><div class="brk"><div><small>Semifinals</small>${game(gm.s1)}${game(gm.s2)}</div><div><small>Final</small>${game(gm.f)}</div>
+      <div><small>Champion</small><div class="gm">${gm.f[2] == null ? '<span>To be decided</span>' : slot(gm.f[2], gm.f[2])}</div></div></div>`;
   }
 
   /* standings and last week's scores, shared by both hubs */
   function standingsHtml(L) {
     const full = i => `${TEAMS[i].city} ${TEAMS[i].name}`;
-    return `<table class="lg"><tr><th>Team</th><th>W-L</th><th>PF</th><th>PA</th></tr>${seeds(L).map((i, n) =>
+    return `${bracketHtml(L)}${L.po && L.po.games ? '<h2>Final standings</h2>' : ''}<table class="lg"><tr><th>Team</th><th>W-L</th><th>PF</th><th>PA</th></tr>${seeds(L).map((i, n) =>
       `<tr class="${i === L.team ? 'me' : ''}"><td>${n + 1}. ${full(i)}</td><td>${recTxt(L, i)}</td><td>${L.tab[i].pf}</td><td>${L.tab[i].pa}</td></tr>`).join('')}</table>
       <p class="note">Top four make the playoffs.</p>
       ${L.around.length ? `<h2>Around the league</h2><table class="lg">${L.around.map(([a, sa, b, sb]) =>
         `<tr><td>${TEAMS[a].name} ${sa}, ${TEAMS[b].name} ${sb}</td></tr>`).join('')}</table>` : ''}`;
   }
 
-  PG.league = { start, record, simScore, simWinner, seeds, recTxt, label, short, nextOpp, advance, standingsHtml };
+  PG.league = { start, record, simScore, simWinner, seeds, recTxt, label, short, nextOpp, advance, standingsHtml, bracketHtml };
 })();

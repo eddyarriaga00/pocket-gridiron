@@ -91,6 +91,7 @@
     const opp = LG.nextOpp(S);
     PG.snd('whistle');
     PG.startGame({ a: S.team, b: opp, ql: S.ql, diff: S.diff, mode: 'season', ovr: [S.ovrs[S.team], S.ovrs[opp]], mustWin: S.phase !== 'reg',
+      env: PG.envFor(S.year + 50, S.week + (S.phase === 'reg' ? 0 : S.phase === 'semi' ? 8 : 9), S.phase !== 'reg' || S.week >= 5),
       onEnd: r => gameEnd(r, opp), onQuit: () => hub('table') });
   }
   function gameEnd(r, opp) {

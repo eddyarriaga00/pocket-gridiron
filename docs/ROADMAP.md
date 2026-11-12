@@ -178,6 +178,16 @@ what is next. Update it after every item.
 - [ ] Presentation: pre-game intro, player of the game, drive summary
 - [ ] README refresh, final regression, morning summary
 
+- 04:01 Round 3, first part, committed in a working but only partly checked state (the usage limit arrived here).
+  In: body types by position, pant stripes, wristbands, glossy helmets, body-shaped shadows (four from the light towers at
+  night, one from the sun by day; `SHADOW_GEO` keeps them cheap; Settings has a switch), time of day (day, dusk, night) and
+  weather (rain, snow) chosen in Exhibition and picked per week in Career and Season, three officials who signal
+  touchdowns, first downs and incompletions, reserves that jump when their team scores, more celebrations, a handoff
+  pose, the ball on the turf before the snap. 228k triangles, 133 to 157 draw calls.
+  Checked: night view by screenshot; day, dusk-rain and night-snow run with no errors; exhibition and career bot games
+  finish; `H.fingerprint()` unchanged. NOT yet looked at: screenshots of day, dusk, rain and snow; the celebrations, the
+  handoff pose and the officials' signals up close; weather has no effect on play yet. Do that first on resuming.
+
 ## Morning hand-off
 
 - Ask the owner whether to merge `ui-refresh` into `main` and deploy.

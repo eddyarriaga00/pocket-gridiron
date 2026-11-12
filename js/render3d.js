@@ -11,15 +11,18 @@
   if (!T) return;
 
   const FW = 53.33, HIP = 1.0, PSCALE = 1.6;
-  const SIDELINE = 20, MAXP = 22, CAP = SIDELINE + MAXP;       // sideline figures come first, players after
+  const SIDELINE = 20, MAXP = 22, REFS = 3, CAP = SIDELINE + MAXP + REFS;   // sideline figures first, then the players, then the officials
   const lerp = (a, b, t) => a + (b - a) * t, clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-  const v3 = new T.Vector3(), v3b = new T.Vector3(), col = new T.Color(), zAxis = new T.Vector3(0, 0, 1);
+  const v3 = new T.Vector3(), v3b = new T.Vector3(), col = new T.Color(), col2 = new T.Color(), zAxis = new T.Vector3(0, 0, 1);
 
   let renderer, scene, camera, W = 1, H = 1;
   let fieldTex, fieldCanvas, crowdTex, crowdCanvas, crowdMat, ribbonTex, ribbonCanvas, boardTex, boardCanvas, boardKey = '';
-  let parts = [], figs = [], shadows, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
+  let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
+  let hemiLight, sunLight, fillLight, skyCanvas, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
+  const shadowSets = [], towerGlow = [], towerPanels = [], refs = [];
   let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null;
   const FLASHES = 48, flashLife = new Float32Array(FLASHES);
+  const TOWERS = [[-70, -78], [FW + 70, -78], [-70, 178], [FW + 70, 178]];   // the four light towers, as field [x, y]
   const posts = [];
   const camPos = new T.Vector3(FW / 2, 30, 20), camLook = new T.Vector3(FW / 2, 0, -50);
 
@@ -47,7 +50,7 @@
     torso: lathe([[0.01, -0.05], [0.178, -0.04], [0.188, 0.14], [0.215, 0.32], [0.235, 0.47], [0.2, 0.6], [0.09, 0.67]]).scale(1, 1, 0.74),   // the hem hangs just over the pants
     pads: new T.SphereGeometry(0.22, 14, 8).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
     neck: new T.CylinderGeometry(0.068, 0.08, 0.12, 10).translate(0, 0.69, 0),
-    hips: lathe([[0.01, -0.3], [0.12, -0.27], [0.168, -0.15], [0.166, -0.01], [0.01, 0.0]]).scale(1, 1, 0.76),   // tops out inside the jersey
+    hips: lathe([[0.01, -0.24], [0.11, -0.215], [0.166, -0.11], [0.17, -0.02], [0.13, 0.04], [0.01, 0.06]]).scale(1, 1, 0.78),   // a rounded top that stays inside the jersey
     helmet: new T.SphereGeometry(0.17, 16, 12).scale(1, 1.02, 1.12),
     stripe: new T.TorusGeometry(0.177, 0.016, 4, 14, Math.PI).rotateY(Math.PI / 2).scale(2.2, 1.02, 1.12),
     logo: merge([-1, 1].map(side => new T.CylinderGeometry(0.058, 0.058, 0.012, 12).rotateZ(Math.PI / 2).translate(side * 0.168, 0.01, 0.01))),
@@ -65,18 +68,63 @@
     sleeveCap: lathe([[0.01, 0.045], [0.084, 0.01], [0.082, -0.13], [0.07, -0.135]], 10),
     sleeve: new T.TorusGeometry(0.08, 0.013, 4, 12).rotateX(Math.PI / 2).translate(0, -0.13, 0),
     foreArm: lathe([[0.01, 0.02], [0.054, 0], [0.056, -0.08], [0.044, -0.25], [0.01, -0.27]], 10),
+    wrist: new T.CylinderGeometry(0.053, 0.049, 0.055, 10).translate(0, -0.215, 0),
     hand: new T.SphereGeometry(0.064, 8, 6).scale(1, 1.15, 0.85).translate(0, -0.3, 0),
+    /* a stripe down both sides of the thigh, following its taper */
+    pantStripe: merge([Math.PI / 2, Math.PI * 1.5].map(a => new T.LatheGeometry([[0.112, -0.03], [0.108, -0.2], [0.09, -0.455]].map(([r, y]) => new T.Vector2(r, y)), 3, a - 0.2, 0.4))),
     thigh: merge([lathe([[0.01, 0.05], [0.108, 0], [0.104, -0.2], [0.086, -0.46]], 12), new T.SphereGeometry(0.09, 12, 8).translate(0, -0.49, 0)]),
     shin: lathe([[0.01, 0.03], [0.07, 0], [0.084, -0.13], [0.062, -0.34], [0.052, -0.46], [0.01, -0.49]], 12),
     foot: new T.CapsuleGeometry(0.058, 0.15, 2, 8).rotateX(Math.PI / 2).scale(1.05, 0.72, 1).translate(0, -0.465, -0.07),
   };
-  /* [name, joints it follows, color key] */
+  /* Low-polygon stand-ins, used only to cast shadows: a flattened silhouette does not need the detail, and at night
+     every one of these is drawn four times. Open tubes are fine, the ends never show. */
+  const SHADOW_GEO = {
+    torso: lathe([[0.178, -0.04], [0.215, 0.32], [0.235, 0.47], [0.2, 0.6], [0.09, 0.67]], 6).scale(1, 1, 0.74),
+    pads: new T.SphereGeometry(0.22, 6, 4).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
+    hips: lathe([[0.11, -0.215], [0.166, -0.11], [0.17, -0.02]], 6).scale(1, 1, 0.78),
+    helmet: new T.SphereGeometry(0.17, 8, 5).scale(1, 1.02, 1.12),
+    upperArm: lathe([[0.07, 0], [0.06, -0.3]], 5),
+    foreArm: lathe([[0.054, 0], [0.056, -0.08], [0.058, -0.34]], 5),              // long enough to stand in for the hand
+    thigh: lathe([[0.108, 0], [0.086, -0.5]], 6),
+    shin: lathe([[0.07, 0], [0.084, -0.13], [0.052, -0.46]], 6),
+    foot: new T.BoxGeometry(0.12, 0.08, 0.26).translate(0, -0.465, -0.07),
+  };
+  /* [name, joints it follows, color key, what body type scales it ('body', 'limb' or nothing), casts a shadow] */
   const PART_DEFS = [
-    ['torso', ['chest'], 'jersey'], ['pads', ['chest'], 'jersey'], ['neck', ['chest'], 'skin'], ['hips', ['pelvis'], 'pants'],
-    ['helmet', ['head'], 'helmet'], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
-    ['upperArm', ['shL', 'shR'], 'skin'], ['sleeveCap', ['shL', 'shR'], 'jersey'], ['sleeve', ['shL', 'shR'], 'trim'], ['foreArm', ['elL', 'elR'], 'skin'], ['hand', ['elL', 'elR'], 'glove'],
-    ['thigh', ['hipL', 'hipR'], 'pants'], ['shin', ['kneeL', 'kneeR'], 'sock'], ['foot', ['kneeL', 'kneeR'], 'shoe'],
+    ['torso', ['chest'], 'jersey', 'body', 1], ['pads', ['chest'], 'jersey', 'body', 1], ['neck', ['chest'], 'skin'],
+    ['hips', ['pelvis'], 'pants', 'body', 1],
+    ['helmet', ['head'], 'helmet', '', 1], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
+    ['upperArm', ['shL', 'shR'], 'skin', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
+    ['foreArm', ['elL', 'elR'], 'skin', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
+    ['thigh', ['hipL', 'hipR'], 'pants', 'limb', 1], ['pantStripe', ['hipL', 'hipR'], 'stripe', 'limb'],
+    ['shin', ['kneeL', 'kneeR'], 'sock', 'limb', 1], ['foot', ['kneeL', 'kneeR'], 'shoe', '', 1],
   ];
+  /* Body types: [shoulder and hip width, depth, height, limb thickness]. Linemen are wide and deep, receivers and
+     defensive backs lean, so the two lines read as big men even from the gameplay camera. */
+  const BUILD = {
+    line: [1.24, 1.34, 1.03, 1.2], end: [1.13, 1.12, 1.05, 1.1], big: [1.08, 1.07, 1.02, 1.08], qb: [1, 1, 1.03, 1],
+    back: [1.04, 1.06, 0.96, 1.07], slim: [0.93, 0.92, 1.02, 0.91], db: [0.94, 0.93, 0.99, 0.93], ref: [0.96, 1.04, 0.97, 0.94],
+  };
+  function buildOf(role) {
+    if (/^(LT|LG|C|RG|RT)$/.test(role) || /^DT/.test(role)) return BUILD.line;
+    if (/^DE/.test(role)) return BUILD.end;
+    if (/^(TE|FB|OLB|MLB)/.test(role)) return BUILD.big;
+    if (role === 'QB') return BUILD.qb;
+    if (role === 'RB') return BUILD.back;
+    if (/^(CB|FS|SS)/.test(role)) return BUILD.db;
+    return BUILD.slim;
+  }
+  function setBuild(f, b) {
+    f.bodyS.set(b[0], 1, b[1]); f.limbS.set(b[3], 1, b[3]);
+    f.shL.position.x = -0.31 * b[0]; f.shR.position.x = 0.31 * b[0];
+    f.hipL.position.x = -0.11 * (0.5 + 0.5 * b[0]); f.hipR.position.x = 0.11 * (0.5 + 0.5 * b[0]);
+    f.num.scale.set(b[0], 1, b[1]);
+    f.root.scale.setScalar(PSCALE * b[2]);
+  }
+  /* officials: white shirt with a striped panel, black trousers and cap; no pads or facemask */
+  const REF_COLORS = { jersey: '#f4f4f4', pants: '#15171c', helmet: '#15171c', stripe: '#15171c', trim: '#15171c', sock: '#15171c', number: '#15171c',
+    skin: '#d7a078', glove: '#d7a078', shoe: '#0c0c10', mask: '#15171c', visor: '#d7a078' };
+  const REF_HIDE = new Set(['pads', 'mask', 'stripe', 'logo', 'sleeve', 'pantStripe', 'wrist']);
   const SKIN = ['#f0c8a4', '#d7a078', '#b3764c', '#8a583a', '#66402e'];
 
   function numberGeometry() {
@@ -105,6 +153,17 @@
     return m;
   }
 
+  function stripeMaterial() {
+    let m = numCache.get('ref');
+    if (m) return m;
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d'); x.fillStyle = '#15171c';
+    for (let i = 0; i < 5; i++) x.fillRect(3 + i * 13, 0, 6, 64);
+    m = new T.MeshBasicMaterial({ map: new T.CanvasTexture(c), transparent: true, depthWrite: false, side: T.DoubleSide });
+    numCache.set('ref', m);
+    return m;
+  }
+
   /* ---------- figures ---------- */
   function makeFigure() {
     const g = () => new T.Group();
@@ -117,6 +176,7 @@
     f.num = new T.Mesh(numberGeometry(), numberMaterial(0, '#ffffff'));
     f.chest.add(f.num);
     f.cur = new Float32Array(NPOSE); f.cur[PELY] = HIP;
+    f.bodyS = new T.Vector3(1, 1, 1); f.limbS = new T.Vector3(1, 1, 1); f.hide = null;
     f.heading = 0; f.fall = 0; f.fallDir = 1; f.seed = Math.random() * 6.28; f.snap = true;
     return f;
   }
@@ -128,9 +188,16 @@
     f.shR.rotation.x = c[SRX]; f.shR.rotation.z = c[SRZ]; f.elR.rotation.x = c[ER];
     f.hipL.rotation.x = c[HL]; f.kneeL.rotation.x = c[KL]; f.hipR.rotation.x = c[HR]; f.kneeR.rotation.x = c[KR];
   }
+  const ZERO4 = new T.Matrix4().makeScale(0, 0, 0), fit4 = new T.Matrix4();
   function writeFigure(f, i) {
     f.root.updateMatrixWorld(true);
-    for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setMatrixAt(i * p.joints.length + k, f[p.joints[k]].matrixWorld);
+    for (const p of parts) {
+      const n = p.joints.length, sc = p.fit === 'body' ? f.bodyS : p.fit === 'limb' ? f.limbS : null, gone = f.hide && f.hide.has(p.name);
+      for (let k = 0; k < n; k++) {
+        const jm = f[p.joints[k]].matrixWorld;
+        p.mesh.setMatrixAt(i * n + k, gone ? ZERO4 : sc ? fit4.copy(jm).scale(sc) : jm);
+      }
+    }
   }
   function colorFigure(i, c) {
     for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setColorAt(i * p.joints.length + k, col.set(c[p.color]));
@@ -147,6 +214,66 @@
     if (p.isOL || /^D[ET]/.test(p.role) || p.role === 'TE') return 'line';
     if (p.role === 'QB') return Math.abs(p.y - s.ps.los) < 2.6 ? 'under' : 'two';
     return /^(RB|FB|OLB|MLB)/.test(p.role) ? 'two' : 'wide';
+  }
+  /* touchdown: the scorer picks one of three celebrations, his teammates jump or pump a fist */
+  function celebrate(f, scorer, tg) {
+    const b = Math.abs(Math.sin(time * 6.5 + f.seed)), v = Math.floor(f.seed / 6.2832 * 3);
+    if (scorer && v === 1) {                                  // spike the ball, then arms out wide
+      if (celebT < 0.45) { tg[SRX] = 3.4; tg[ER] = 0.9; tg[CHRX] = 0.25; tg[SLX] = 0.6; tg[EL] = 0.8; tg[HL] = 0.3; tg[HR] = -0.25; tg[KR] = -0.3; }
+      else if (celebT < 0.8) { tg[SRX] = 0.25; tg[ER] = 0.1; tg[CHRX] = -0.5; tg[SLX] = -0.5; tg[EL] = 0.5; tg[PELY] = HIP - 0.1; tg[HL] = 0.5; tg[KL] = -0.6; tg[HR] = -0.2; tg[KR] = -0.3; }
+      else { tg[SLX] = 2.6; tg[SRX] = 2.6; tg[SLZ] = -0.8; tg[SRZ] = 0.8; tg[EL] = 0.45; tg[ER] = 0.45; tg[CHRX] = 0.1; tg[HEADRX] = 0.25; tg[PELY] = HIP + b * 0.07; tg[HL] = 0.15; tg[HR] = -0.15; }
+      return true;
+    }
+    if (scorer && v === 2) {                                  // one arm to the sky and a slow strut
+      const w = Math.sin(time * 4 + f.seed);
+      tg[SRX] = 3.05; tg[ER] = 0.05; tg[SLX] = 0.15; tg[SLZ] = -0.45; tg[EL] = 1.6; tg[CHRX] = 0.12; tg[HEADRX] = 0.35;
+      tg[HL] = w * 0.3; tg[HR] = -w * 0.3; tg[KL] = -0.3 * Math.max(0, w); tg[KR] = -0.3 * Math.max(0, -w); tg[PELY] = HIP + Math.abs(w) * 0.03;
+      return false;
+    }
+    if (!scorer && v === 0) {                                 // fist pump
+      const w = Math.sin(time * 9 + f.seed) * 0.5 + 0.5;
+      tg[SRX] = 1.6 + w * 1.3; tg[ER] = 1.9 - w * 1.5; tg[SLX] = 0.3; tg[EL] = 1.1; tg[CHRX] = 0.05; tg[PELY] = HIP + w * 0.08;
+      tg[HL] = 0.1; tg[HR] = 0.1; tg[KL] = -0.2 * (1 - w); tg[KR] = -0.2 * (1 - w);
+      return false;
+    }
+    const who = scorer ? 1.4 : 1;                             // jumping with both arms up
+    tg[PELY] = HIP + b * 0.2 * who; tg[CHRX] = 0.08; tg[SLX] = 2.95; tg[SRX] = 2.95; tg[SLZ] = -0.3 - b * 0.2; tg[SRZ] = 0.3 + b * 0.2; tg[EL] = 0.2; tg[ER] = 0.2;
+    tg[HL] = 0.1; tg[HR] = 0.1; tg[KL] = -0.25 * (1 - b); tg[KR] = -0.25 * (1 - b); tg[HEADRX] = 0.25;
+    return false;
+  }
+  /* an official: jog to a spot, watch the ball, and signal how the play ended ('td', 'fd' first down, 'inc' incomplete) */
+  function poseRef(f, r, sig, bx, by, dt) {
+    const tg = TG; tg.fill(0);
+    const sp = Math.hypot(r.vx, r.vy), run = Math.min(1, sp / 6), ph = r.anim * 2.4, sn = Math.sin(ph), cs = Math.cos(ph);
+    tg[PELY] = HIP - 0.03 * run + Math.abs(cs) * 0.04 * run; tg[CHRX] = -0.05 - 0.15 * run;
+    tg[HL] = sn * 0.8 * run; tg[HR] = -sn * 0.8 * run; tg[KL] = -(0.15 + Math.max(0, cs)) * run; tg[KR] = -(0.15 + Math.max(0, -cs)) * run;
+    tg[SLX] = -sn * 0.6 * run; tg[SRX] = sn * 0.6 * run; tg[EL] = 0.3 + run; tg[ER] = 0.3 + run;
+    let hx = bx - r.x, hy = by - r.y;
+    if (sp > 1.2) { hx = r.vx; hy = r.vy; }
+    else if (sig === 'td') { tg[SLX] = 3.05; tg[SRX] = 3.05; tg[EL] = 0.05; tg[ER] = 0.05; tg[SLZ] = -0.12; tg[SRZ] = 0.12; }
+    else if (sig === 'fd') { tg[SRX] = 1.57; tg[ER] = 0.02; hx = 0; hy = r.fdDir; }             // arm straight out toward the line to gain
+    else if (sig === 'inc') { const w = Math.sin(time * 8); tg[SLX] = 1.1; tg[SRX] = 1.1; tg[SLZ] = w * 0.7; tg[SRZ] = -w * 0.7; tg[EL] = 0.1; tg[ER] = 0.1; }
+    let d = Math.atan2(-hx, hy) - f.heading; d = Math.atan2(Math.sin(d), Math.cos(d));
+    f.heading += f.snap ? d : d * (1 - Math.exp(-dt * 8));
+    const k = f.snap ? 1 : 1 - Math.exp(-dt * 16);
+    for (let i = 0; i < NPOSE; i++) f.cur[i] += (tg[i] - f.cur[i]) * k;
+    f.snap = false;
+    applyPose(f);
+    f.root.position.set(r.x, 0, -r.y); f.root.rotation.y = f.heading;
+  }
+  /* a reserve on the sideline: stands and breathes, some with hands on hips or arms folded, and jumps when his team scores */
+  function poseBench(f, up, dt) {
+    const tg = TG; tg.fill(0);
+    tg[PELY] = HIP; tg[CHRX] = -0.04 + Math.sin(time * 1.7 + f.seed) * 0.014; tg[EL] = 0.3; tg[ER] = 0.3;
+    if (up) {
+      const b = Math.abs(Math.sin(time * 6 + f.seed));
+      tg[PELY] = HIP + b * 0.16; tg[SLX] = 2.9; tg[SRX] = 2.9; tg[SLZ] = -0.35; tg[SRZ] = 0.35; tg[EL] = 0.2; tg[ER] = 0.2; tg[KL] = -0.2 * (1 - b); tg[KR] = -0.2 * (1 - b);
+    } else if (f.seed > 4.2) { tg[SLZ] = -0.45; tg[SRZ] = 0.45; tg[EL] = 1.6; tg[ER] = 1.6; tg[SLX] = 0.15; tg[SRX] = 0.15; }
+    else if (f.seed < 1.2) { tg[SLX] = 0.55; tg[SRX] = 0.55; tg[SLZ] = 0.35; tg[SRZ] = -0.35; tg[EL] = 1.5; tg[ER] = 1.5; }
+    const k = f.snap ? 1 : 1 - Math.exp(-dt * 10);
+    for (let i = 0; i < NPOSE; i++) f.cur[i] += (tg[i] - f.cur[i]) * k;
+    f.snap = false;
+    applyPose(f);
   }
   function poseFor(f, p, s, dt) {
     const tg = TG, ps = s.ps; tg.fill(0);
@@ -171,11 +298,8 @@
       tg[PELY] = HIP - 0.16; tg[CHRX] = -0.8; tg[SLX] = 0.7 + w * 0.3; tg[SRX] = 0.5 - w * 0.3; tg[SLZ] = -0.8; tg[SRZ] = 0.8;
       tg[HL] = 0.55; tg[KL] = -0.95; tg[HR] = -0.3; tg[KR] = -0.35; tg[HEADRX] = 0.4;
     } else if (s.celeb && s.G.state === 'dead') {
-      if (p.team === s.celeb.team) {                          // arms up, bouncing
-        const who = p === s.celeb.who ? 1.4 : 1, b = Math.abs(Math.sin(time * 6.5 + f.seed));
-        tg[PELY] = HIP + b * 0.2 * who; tg[CHRX] = 0.08; tg[SLX] = 2.95; tg[SRX] = 2.95; tg[SLZ] = -0.3 - b * 0.2; tg[SRZ] = 0.3 + b * 0.2; tg[EL] = 0.2; tg[ER] = 0.2;
-        tg[HL] = 0.1; tg[HR] = 0.1; tg[KL] = -0.25 * (1 - b); tg[KR] = -0.25 * (1 - b); tg[HEADRX] = 0.25;
-      } else {                                                // heads down
+      if (p.team === s.celeb.team) snap = celebrate(f, p === s.celeb.who, tg);
+      else {                                                  // heads down
         tg[CHRX] = -0.18; tg[HEADRX] = -0.4; tg[SLX] = 0.15; tg[SRX] = 0.15; tg[SLZ] = -0.4; tg[SRZ] = 0.4; tg[EL] = 1.5; tg[ER] = 1.5;
       }
     } else if (p.eng || p.block) {                            // locked up in a block
@@ -220,8 +344,19 @@
       }
       if (inPocket) { tg[SLX] = 0.8; tg[SRX] = 0.8; tg[SLZ] = 0.25; tg[SRZ] = -0.25; tg[EL] = 1.75; tg[ER] = 1.75; tg[CHRX] = -0.06; }   // ball in both hands at the chest
       else if (carrier) { tg[SRX] = 0.5; tg[SRZ] = -0.15; tg[ER] = 2.0; }                                       // ball tucked away
+      if (ps.mode === 'run' && s.live && ps.runner && ps.runner !== ps.qb) {                                    // the exchange
+        if (p === ps.qb && !ps.handoff) { tg[SLX] = 0.75; tg[SRX] = 0.75; tg[SLZ] = 0.25; tg[SRZ] = -0.25; tg[EL] = 1.6; tg[ER] = 1.6; }        // both hands on the ball
+        else if (p === ps.qb && ps.t < 1.7) { tg[SRX] = 1.25; tg[SRZ] = 0.5; tg[ER] = 0.15; tg[CHRY] = -0.35; tg[SLX] = 0.2; tg[EL] = 0.9; }     // arm left out after the give
+        else if (p === ps.runner && !ps.handoff) { tg[SLX] = 1.0; tg[EL] = 1.5; tg[SRX] = 0.45; tg[ER] = 1.75; tg[SLZ] = 0.2; tg[SRZ] = -0.2; }  // arms make a pocket
+      }
       if (ps.air && ps.air.target === p && ps.air.T - ps.air.t < 0.45) { tg[SLX] = 2.7; tg[SRX] = 2.7; tg[SLZ] = -0.15; tg[SRZ] = 0.15; tg[EL] = 0.35; tg[ER] = 0.35; tg[HEADRX] = 0.35; }
       if (p.juke > 0 && !(p.spinT > 0)) tg[PELRZ] = clamp(-p.vx * Math.cos(f.heading) * 0.06, -0.4, 0.4);
+    }
+    /* A forward lean comes partly from the hips: the seat goes back and the jersey stays tucked in,
+       instead of the chest folding over a level pelvis. The thighs counter-rotate so the feet stay put. */
+    if (tg[PELRX] === 0 && tg[CHRX] < -0.15) {
+      const lean = tg[CHRX] * 0.55;
+      tg[PELRX] = lean; tg[CHRX] -= lean; tg[HL] -= lean; tg[HR] -= lean;
     }
     /* heading */
     if (hx !== null && (hx || hy)) {
@@ -252,6 +387,13 @@
     for (let i = 0; i < 16000; i++) {                                                              // grass grain
       c.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.05)';
       c.fillRect(Math.random() * TEXW, Math.random() * TEXH, 2, 5 + Math.random() * 6);
+    }
+    if (envSnow) {                                                                                 // a dusting of snow, thicker in patches
+      c.fillStyle = 'rgba(236,243,252,0.46)'; c.fillRect(0, 0, TEXW, TEXH);
+      for (let i = 0; i < 900; i++) {
+        c.fillStyle = `rgba(244,249,255,${0.05 + Math.random() * 0.12})`;
+        c.beginPath(); c.ellipse(Math.random() * TEXW, Math.random() * TEXH, 10 + Math.random() * 46, 6 + Math.random() * 22, Math.random() * 3, 0, 7); c.fill();
+      }
     }
     c.fillStyle = '#ffffff';
     for (let y = 0; y <= 100; y += 5) { const h = (y === 0 || y === 100 ? 0.42 : 0.2) * S; c.fillRect(X(0), Y(y) - h / 2, FW * S, h); }
@@ -330,22 +472,21 @@
   function buildScene() {
     scene = new T.Scene();
     scene.fog = new T.Fog(0x0a1020, 190, 560);
-    const sky = document.createElement('canvas'); sky.width = 4; sky.height = 256;
-    const sx = sky.getContext('2d'), grad = sx.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, '#04070e'); grad.addColorStop(0.55, '#0b1324'); grad.addColorStop(1, '#17223d');
-    sx.fillStyle = grad; sx.fillRect(0, 0, 4, 256);
-    scene.background = new T.CanvasTexture(sky); scene.background.colorSpace = T.SRGBColorSpace;
-    scene.add(new T.HemisphereLight(0xdfe8ff, 0x24402c, 2.4));
-    const sun = new T.DirectionalLight(0xffffff, 2.2); sun.position.set(-30, 80, 40); scene.add(sun);
-    const fill = new T.DirectionalLight(0xcfe0ff, 0.9); fill.position.set(45, 30, -70); scene.add(fill);
+    skyCanvas = document.createElement('canvas'); skyCanvas.width = 4; skyCanvas.height = 256;
+    scene.background = new T.CanvasTexture(skyCanvas); scene.background.colorSpace = T.SRGBColorSpace;
+    hemiLight = new T.HemisphereLight(0xdfe8ff, 0x24402c, 2.4); scene.add(hemiLight);
+    sunLight = new T.DirectionalLight(0xffffff, 2.2); sunLight.position.set(-30, 80, 40); scene.add(sunLight);
+    fillLight = new T.DirectionalLight(0xcfe0ff, 0.9); fillLight.position.set(45, 30, -70); scene.add(fillLight);
 
-    const ground = new T.Mesh(new T.PlaneGeometry(900, 900), new T.MeshBasicMaterial({ color: 0x0c1220 }));
+    groundMat = new T.MeshBasicMaterial({ color: 0x0c1220 });
+    const ground = new T.Mesh(new T.PlaneGeometry(900, 900), groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.set(FW / 2, -0.6, -50); scene.add(ground);
 
     fieldCanvas = document.createElement('canvas'); fieldCanvas.width = TEXW; fieldCanvas.height = TEXH;
     fieldTex = new T.CanvasTexture(fieldCanvas); fieldTex.colorSpace = T.SRGBColorSpace;
     fieldTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const field = new T.Mesh(new T.PlaneGeometry(FW + 2 * PAD_X, Y1 - Y0), new T.MeshBasicMaterial({ map: fieldTex }));
+    fieldMat = new T.MeshBasicMaterial({ map: fieldTex });
+    const field = new T.Mesh(new T.PlaneGeometry(FW + 2 * PAD_X, Y1 - Y0), fieldMat);
     field.rotation.x = -Math.PI / 2; field.position.set(FW / 2, 0, -(Y0 + Y1) / 2); scene.add(field);
 
     /* stands: a lower bowl and an upper deck, each four trapezoids around the field */
@@ -362,7 +503,7 @@
       quadMesh([x0, h0, -yb], [x1, h0, -yb], [X1, h1, -YB], [X0, h1, -YB], mat, end, v);           // far end
       quadMesh([x1, h0, -ya], [x0, h0, -ya], [X0, h1, -YA], [X1, h1, -YA], mat, end, v);           // near end
     };
-    const wallMat = new T.MeshBasicMaterial({ color: 0x0e1628, side: T.DoubleSide });
+    wallMat = new T.MeshBasicMaterial({ color: 0x0e1628, side: T.DoubleSide });
     ring4(-14, FW + 14, -24, 124, 1.6, 40, 22, crowdMat);
     ring4(-54, FW + 54, -64, 164, 23.6, 0.01, 5, ribbonMat, 3, 1);                                 // ribbon board between the decks
     ring4(-55, FW + 55, -65, 165, 28.6, 34, 24, crowdMat);
@@ -382,11 +523,12 @@
     rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.25, 'rgba(210,225,255,0.55)'); rg.addColorStop(1, 'rgba(160,190,255,0)');
     gx.fillStyle = rg; gx.fillRect(0, 0, 64, 64);
     const glowTex = new T.CanvasTexture(glowC);
-    for (const [x, y] of [[-70, -78], [FW + 70, -78], [-70, 178], [FW + 70, 178]]) {
+    for (const [x, y] of TOWERS) {
       box(2.2, 78, 2.2, 0x1a2338, x, 39, -y, true);
       const panel = box(20, 9, 1, 0xf2f6ff, x, 80, -y, true); panel.material.fog = false; panel.lookAt(FW / 2, 0, -50);
       const sp = new T.Sprite(new T.SpriteMaterial({ map: glowTex, blending: T.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
       sp.position.set(x, 80, -y); sp.scale.setScalar(75); scene.add(sp);
+      towerPanels.push(panel); towerGlow.push(sp);
     }
     /* camera flashes in the lower bowl: a few all night, a burst when the crowd erupts */
     const fg = new T.BufferGeometry();
@@ -424,39 +566,163 @@
     ball.add(leather, band(0.13), band(-0.13), laces); ball.scale.setScalar(1.45); scene.add(ball);
     const blob = () => new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false, ...near });
     ballShadow = new T.Mesh(new T.CircleGeometry(0.3, 12).rotateX(-Math.PI / 2), blob()); ballShadow.position.y = 0.04; scene.add(ballShadow);
-    shadows = new T.InstancedMesh(new T.CircleGeometry(0.62, 16).rotateX(-Math.PI / 2), blob(), CAP);
-    shadows.frustumCulled = false; shadows.count = 0; scene.add(shadows);
+    contact = new T.InstancedMesh(new T.CircleGeometry(0.5, 16).rotateX(-Math.PI / 2), blob(), CAP);     // a soft patch right under each player
+    contact.frustumCulled = false; contact.count = 0; scene.add(contact);
     /* body parts */
-    parts = PART_DEFS.map(([name, joints, color]) => {
-      const mesh = new T.InstancedMesh(GEO[name], new T.MeshLambertMaterial({ color: 0xffffff }), CAP * joints.length);
+    parts = PART_DEFS.map(([name, joints, color, fit, shadow]) => {
+      const mat = name === 'helmet' ? new T.MeshPhongMaterial({ color: 0xffffff, shininess: 120, specular: 0x9aa0aa }) : new T.MeshLambertMaterial({ color: 0xffffff });
+      const mesh = new T.InstancedMesh(GEO[name], mat, CAP * joints.length);
       mesh.instanceMatrix.setUsage(T.DynamicDrawUsage); mesh.frustumCulled = false; mesh.count = 0;
       for (let i = 0; i < CAP * joints.length; i++) mesh.setColorAt(i, col.set(0xffffff));
       scene.add(mesh);
-      return { mesh, joints, color };
+      return { name, mesh, joints, color, fit, shadow };
     });
     const holder = new T.Group(); scene.add(holder);
     for (let i = 0; i < CAP; i++) { const f = makeFigure(); figs.push(f); holder.add(f.root); f.root.visible = false; }
+    for (let i = 0; i < REFS; i++) {
+      const f = figs[SIDELINE + MAXP + i];
+      f.hide = REF_HIDE; setBuild(f, BUILD.ref); f.num.material = stripeMaterial();
+      colorFigure(SIDELINE + MAXP + i, { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] });
+      refs.push({ x: FW / 2, y: 50, vx: 0, vy: 0, anim: 0, fdDir: 1, placed: false });
+    }
+    buildShadows();
+    buildWeather(glowTex);
+    applyEnv({ time: 'night', weather: 'clear' });
+  }
+
+  /* ---------- shadows ----------
+     Each light gets a flattened copy of the main body parts: the same geometry and the very same per-player
+     matrices, pushed through one matrix that projects everything onto the turf away from that light. The stencil
+     buffer makes sure a pixel is darkened once per light even where parts overlap. At night that gives every player
+     four faint shadows, one from each light tower; by day, one from the sun. */
+  const SHADOW_Y = 0.035, LIGHTS = 4, TOWER_H = 80;
+  function buildShadows() {
+    for (let L = 0; L < LIGHTS; L++) {
+      const mat = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.17, depthWrite: false, side: T.DoubleSide, forceSinglePass: true, fog: false,
+        stencilWrite: true, stencilFunc: T.NotEqualStencilFunc, stencilRef: L + 1, stencilZPass: T.ReplaceStencilOp,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      const meshes = parts.filter(p => p.shadow).map(p => {
+        const m = new T.InstancedMesh(SHADOW_GEO[p.name], mat, 1);
+        m.instanceMatrix = p.mesh.instanceMatrix;             // shared with the body part, so it costs no extra work per frame
+        m.matrixAutoUpdate = false; m.frustumCulled = false; m.count = 0; m.renderOrder = 2 + L; m.userData.src = p.mesh;
+        scene.add(m);
+        return m;
+      });
+      shadowSets.push({ mat, meshes, on: false });
+    }
+  }
+  /* Projects onto the plane y = SHADOW_Y. l is [x, y, z, w] in scene space: w = 1 for a lamp at that point, 0 for the direction to the sun. */
+  function shadowMatrix(m, l) {
+    const x = l[0], y = l[1], z = l[2], w = l[3], h = SHADOW_Y, d = y - h * w;
+    return m.set(d, -x, 0, x * h, 0, -h * w, 0, y * h, 0, -z, d, z * h, 0, -w, 0, y);
+  }
+
+  /* ---------- time of day and weather ---------- */
+  const TIMES = {
+    night: { sky: ['#04070e', '#0b1324', '#17223d'], fog: '#0a1020', hemi: ['#dfe8ff', '#24402c', 2.4], sun: ['#ffffff', 2.2, [-30, 80, 40]], fill: 0.9,
+      field: [1, 1, 1], crowd: 1, glow: 1, ground: '#0c1220', wall: '#0e1628', towers: true, shade: 0.17 },
+    dusk: { sky: ['#232a5c', '#8a4f72', '#f39a5e'], fog: '#5b4257', hemi: ['#ffd9c2', '#2c3a2e', 2.1], sun: ['#ffb27a', 2.8, [-95, 36, -20]], fill: 0.7,
+      field: [1.02, 0.94, 0.86], crowd: 1.3, glow: 0.7, ground: '#1c1b2b', wall: '#1a1c30', towers: false, shade: 0.3 },
+    day: { sky: ['#2c6fd8', '#73abef', '#d3e6fb'], fog: '#bcd5f1', hemi: ['#ffffff', '#3f6a45', 2.8], sun: ['#fff3dc', 3.0, [-45, 90, 55]], fill: 0.55,
+      field: [1.13, 1.13, 1.1], crowd: 1.8, glow: 0, ground: '#5a6676', wall: '#3a4662', towers: false, shade: 0.38 },
+  };
+  function applyEnv(e) {
+    const t = TIMES[e.time] || TIMES.night, wet = e.weather === 'rain', snow = e.weather === 'snow', bad = wet || snow, dim = wet ? 0.72 : snow ? 0.88 : 1;
+    const dark = t === TIMES.night;
+    const c = skyCanvas.getContext('2d'), g = c.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, t.sky[0]); g.addColorStop(0.55, t.sky[1]); g.addColorStop(1, t.sky[2]);
+    c.fillStyle = g; c.fillRect(0, 0, 4, 256);
+    if (bad) { c.fillStyle = dark ? 'rgba(22,26,36,0.6)' : 'rgba(150,158,170,0.74)'; c.fillRect(0, 0, 4, 256); }     // overcast
+    scene.background.needsUpdate = true;
+    col.set(t.fog); if (bad) col.lerp(col2.set(dark ? '#161b25' : '#98a1ac'), 0.7);
+    scene.fog.color.copy(col); scene.fog.near = wet ? 70 : snow ? 50 : 190; scene.fog.far = wet ? 340 : snow ? 290 : 560;
+    hemiLight.color.set(t.hemi[0]); hemiLight.groundColor.set(t.hemi[1]); hemiLight.intensity = t.hemi[2] * dim;
+    sunLight.color.set(t.sun[0]); sunLight.intensity = t.sun[1] * (bad ? 0.45 : 1); sunLight.position.set(t.sun[2][0], t.sun[2][1], t.sun[2][2]);
+    fillLight.intensity = t.fill;
+    fieldMat.color.setRGB(t.field[0] * dim, t.field[1] * dim, t.field[2] * dim);
+    crowdBase = t.crowd * dim;
+    groundMat.color.set(t.ground); wallMat.color.set(t.wall);
+    const lamps = bad ? Math.max(t.glow, 0.8) : t.glow;       // the lights come on when the weather closes in
+    for (const sp of towerGlow) { sp.visible = lamps > 0; sp.material.opacity = lamps; }
+    for (const pn of towerPanels) pn.material.color.set(lamps > 0 ? '#f2f6ff' : '#5d6675');
+    const shade = t.shade * (bad ? 0.5 : 1);
+    shadowSets.forEach((set, i) => {
+      set.on = t.towers || i === 0; set.mat.opacity = shade;
+      shadowMatrix(m4, t.towers ? [TOWERS[i][0], TOWER_H, -TOWERS[i][1], 1] : [t.sun[2][0], t.sun[2][1], t.sun[2][2], 0]);
+      for (const m of set.meshes) { m.visible = set.on; m.matrix.copy(m4); m.matrixWorld.copy(m4); }
+    });
+    contact.material.opacity = t.towers ? 0.26 : 0.18;
+    rainPts.visible = wet; snowPts.visible = snow;
+    if (snow !== envSnow) { envSnow = snow; teamsKey = ''; }  // repaint the turf with or without its cover of snow
+  }
+  /* rain and snow: points in a box that follows the camera, wrapped so the box is always full */
+  const NDROP = 1300, BOXW = 70, BOXH = 34;
+  function buildWeather(dotTex) {
+    const mk = (tex, size, opacity) => {
+      const g = new T.BufferGeometry();
+      g.setAttribute('position', new T.BufferAttribute(new Float32Array(NDROP * 3), 3));
+      const pts = new T.Points(g, new T.PointsMaterial({ map: tex, size, transparent: true, opacity, depthWrite: false, fog: false }));
+      pts.frustumCulled = false; pts.visible = false; pts.userData.seed = Float32Array.from({ length: NDROP * 3 }, Math.random);
+      scene.add(pts);
+      return pts;
+    };
+    const sc = document.createElement('canvas'); sc.width = 32; sc.height = 64;
+    const x = sc.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 64);
+    gr.addColorStop(0, 'rgba(214,228,255,0)'); gr.addColorStop(0.5, 'rgba(214,228,255,0.95)'); gr.addColorStop(1, 'rgba(214,228,255,0)');
+    x.fillStyle = gr; x.fillRect(15, 0, 2, 64);
+    rainPts = mk(new T.CanvasTexture(sc), 1.7, 0.5);
+    snowPts = mk(dotTex, 0.5, 0.9);
+  }
+  const wrap = (v, c, size) => c - size / 2 + ((((v - c + size / 2) % size) + size) % size);
+  function updateWeather(pts, fall, wind) {
+    const a = pts.geometry.attributes.position, sd = pts.userData.seed, cx = camLook.x, cz = (camPos.z + camLook.z) / 2 - 8, snow = fall < 10;
+    for (let i = 0; i < NDROP; i++) {
+      const k = i * 3, sway = snow ? Math.sin(time * 1.3 + sd[k] * 40) * 1.1 : 0;
+      a.setXYZ(i, wrap(sd[k] * BOXW + wind * time + sway, cx, BOXW), wrap(sd[k + 1] * BOXH - fall * time * (0.8 + sd[k + 2] * 0.4), BOXH / 2, BOXH), wrap(sd[k + 2] * BOXW, cz, BOXW));
+    }
+    a.needsUpdate = true;
+  }
+  /* The three officials. The referee stands behind the offense, the other two work the sidelines at the ball. */
+  function updateRefs(G, ps, dt) {
+    const base = SIDELINE + MAXP, off = ps.offTeam === 0 ? 1 : -1, pre = G.state === 'pre' || G.state === 'kickm', L = ps.los;
+    let bx = ps.bx === undefined ? FW / 2 : ps.bx, by = L;
+    const a = ps.air, c = ps.carrier;
+    if (a) { bx = a.x; by = a.y; } else if (c && !pre) { bx = c.x; by = c.y; }
+    const fy = clamp(by, -4, 104), lx = ps.bx === undefined ? FW / 2 : ps.bx;
+    const spots = [[clamp(lx + 9, 5, FW - 5), clamp((pre ? L : by) - off * 14, -8, 108)], [-1.7, pre ? L : fy], [FW + 1.7, pre ? L + off * 7 : fy]];
+    const sig = G.state === 'dead' ? G.sig : null;
+    for (let i = 0; i < REFS; i++) {
+      const f = figs[base + i], r = refs[i], tx = spots[i][0], ty = spots[i][1];
+      if (!r.placed) { r.x = tx; r.y = ty; r.vx = r.vy = 0; r.placed = true; f.snap = true; }
+      const dx = tx - r.x, dy = ty - r.y, d = Math.hypot(dx, dy), want = d > 1.2 ? Math.min(7, d * 1.6) : 0, k = 1 - Math.exp(-dt * 5);
+      r.vx += ((d > 0.01 ? dx / d * want : 0) - r.vx) * k; r.vy += ((d > 0.01 ? dy / d * want : 0) - r.vy) * k;
+      r.x += r.vx * dt; r.y += r.vy * dt; r.anim += Math.hypot(r.vx, r.vy) * dt * 0.65; r.fdDir = off;
+      f.root.visible = true;
+      poseRef(f, r, sig === 'fd' && i > 0 ? null : sig, bx, by, dt);
+      writeFigure(f, base + i);
+      contact.setMatrixAt(base + i, m4.makeTranslation(r.x, 0.04, -r.y));
+    }
+  }
+  function hideFigure(f, i) {
+    f.root.visible = false;
+    for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setMatrixAt(i * p.joints.length + k, ZERO4);
+    contact.setMatrixAt(i, ZERO4);
   }
 
   /* repaint everything that carries team colors, and stand the reserves along the sidelines */
   function setTeams(t0, t1) {
     paintField(t0, t1); paintCrowd(t0, t1);
-    const m4 = new T.Matrix4();
+    const kinds = [BUILD.line, BUILD.big, BUILD.slim, BUILD.back, BUILD.db, BUILD.end, BUILD.qb];
     for (let i = 0; i < SIDELINE; i++) {
       const home = i < SIDELINE / 2, n = i % (SIDELINE / 2), f = figs[i], t = home ? t0 : t1;
       const x = home ? -4.2 - (n % 2) * 1.1 : FW + 4.2 + (n % 2) * 1.1, y = 33 + n * 3.6 + (Math.random() - 0.5);
-      f.cur.fill(0); f.cur[PELY] = HIP; f.cur[CHRX] = -0.04;
-      if (n % 3 === 0) { f.cur[SLZ] = -0.45; f.cur[SRZ] = 0.45; f.cur[EL] = 1.6; f.cur[ER] = 1.6; f.cur[SLX] = 0.15; f.cur[SRX] = 0.15; }   // hands on hips
-      else { f.cur[EL] = 0.3; f.cur[ER] = 0.3; }
-      applyPose(f);
-      f.root.position.set(x, 0, -y); f.root.rotation.y = home ? -Math.PI / 2 : Math.PI / 2; f.root.visible = true;
+      setBuild(f, kinds[(i * 5 + n) % kinds.length]);
+      f.root.position.set(x, 0, -y); f.root.rotation.y = home ? -Math.PI / 2 : Math.PI / 2; f.root.visible = true; f.snap = true;
       const c = teamColors(t, home, SKIN[Math.floor(Math.random() * SKIN.length)]);
       f.num.material = numberMaterial(Math.floor(Math.random() * 98) + 1, c.number);
-      colorFigure(i, c); writeFigure(f, i);
-      shadows.setMatrixAt(i, m4.makeTranslation(x, 0.04, -y));
+      colorFigure(i, c);
     }
-    for (const p of parts) { p.mesh.instanceColor.needsUpdate = true; p.mesh.instanceMatrix.needsUpdate = true; }
-    shadows.instanceMatrix.needsUpdate = true;
+    for (const p of parts) p.mesh.instanceColor.needsUpdate = true;
   }
 
   /* ---------- public ---------- */
@@ -480,13 +746,15 @@
     v3b.set(x + 1, z || 0, -y).project(camera);
     return { x: sx, y: sy, s: Math.abs((v3b.x + 1) / 2 * W - sx) };
   }
-  const m4 = new T.Matrix4(), q4 = new T.Quaternion(), dirV = new T.Vector3();
+  const m4 = new T.Matrix4(), dirV = new T.Vector3(), NIGHT = { time: 'night', weather: 'clear' };
   /* s: { G, P, ps, cam, teams, acc, shake, isCtl } */
   function render(s, dt) {
     time += dt;
     const G = s.G, P = s.P, ps = s.ps, t0 = s.teams[G.tm[0]], t1 = s.teams[G.tm[1]];
-    const key = G.tm[0] + '-' + G.tm[1];
+    const key = G.tm[0] + '-' + G.tm[1], e = s.env || NIGHT, ek = e.time + '|' + e.weather;
+    if (ek !== envKey) { envKey = ek; applyEnv(e); }
     if (key !== teamsKey) { teamsKey = key; boardKey = ''; setTeams(t0, t1); }
+    celebT = G.celeb && G.state === 'dead' ? celebT + dt : 0;
     const bk = G.ros ? [G.score, G.q, Math.ceil(G.clock || 0), s.down, !!G.celeb].join('|') : 'menu';
     if (bk !== boardKey) { boardKey = bk; paintBoard(G, t0, t1, s.down); }
 
@@ -496,8 +764,9 @@
     let ctl = null;
     for (let i = 0; i < MAXP; i++) {
       const f = figs[SIDELINE + i], p = P[i];
-      if (!p || !ps) { f.root.visible = false; continue; }
+      if (!p || !ps) { hideFigure(f, SIDELINE + i); continue; }
       if (fresh) {
+        setBuild(f, buildOf(p.role));
         const home = p.team === 0, c = teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
         colorFigure(SIDELINE + i, c); f.num.material = numberMaterial(p.num, c.number);
         f.fall = 0; f.fallDir = Math.random() < 0.75 ? 1 : -1; f.snap = true; f.root.visible = true;
@@ -505,12 +774,24 @@
       }
       poseFor(f, p, st, dt);
       writeFigure(f, SIDELINE + i);
-      shadows.setMatrixAt(SIDELINE + i, m4.makeTranslation(p.x, 0.04, -p.y));
+      contact.setMatrixAt(SIDELINE + i, m4.makeTranslation(p.x, 0.04, -p.y));
       if (s.isCtl(p)) ctl = p;
     }
-    const active = SIDELINE + (ps ? Math.min(MAXP, P.length) : 0);
+    /* the benches, then the officials */
+    const scored = G.celeb && G.state === 'dead' ? G.celeb.team : -1;
+    for (let i = 0; i < SIDELINE; i++) {
+      const f = figs[i];
+      poseBench(f, (i < SIDELINE / 2 ? 0 : 1) === scored, dt);
+      writeFigure(f, i);
+      contact.setMatrixAt(i, m4.makeTranslation(f.root.position.x, 0.04, f.root.position.z));
+    }
+    if (ps && G.state !== 'menu') updateRefs(G, ps, dt);
+    else for (const r of refs) r.placed = false;
+    const active = ps && G.state !== 'menu' ? CAP : SIDELINE;
     for (const p of parts) { p.mesh.count = active * p.joints.length; p.mesh.instanceMatrix.needsUpdate = true; if (fresh) p.mesh.instanceColor.needsUpdate = true; }
-    shadows.count = active; shadows.instanceMatrix.needsUpdate = true;
+    const cast = s.shadows !== false;
+    for (const set of shadowSets) for (const m of set.meshes) { m.visible = set.on && cast; m.count = m.userData.src.count; }
+    contact.count = active; contact.instanceMatrix.needsUpdate = true;
 
     /* ball */
     let bx = null, by = 0, bz = 0;
@@ -525,7 +806,7 @@
         if (a.kick) ball.rotateX(time * 14); else ball.rotateZ(time * 22);
       } else if (ps.loose) {
         bx = ps.loose.x; by = ps.loose.y; bz = ps.loose.z; ball.rotation.set(time * 9, time * 4, 0);
-      } else if (c) {
+      } else if (c && G.state !== 'pre' && G.state !== 'kickm') {     // before the snap the ball waits on the turf
         const f = figs[SIDELINE + P.indexOf(c)];
         if (f) {
           const pocket = c === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open && !c.down;
@@ -565,7 +846,7 @@
     /* crowd reacts */
     cheer = Math.max(0, cheer - dt * 0.5);
     crowdTex.offset.y = cheer > 0 ? Math.abs(Math.sin(time * 16)) * 0.012 * Math.min(1, cheer) : 0;
-    crowdMat.color.setScalar(1 + 0.35 * Math.min(1, cheer));
+    crowdMat.color.setScalar((1 + 0.35 * Math.min(1, cheer)) * crowdBase);
 
     /* camera */
     const cm = s.cam, menu = G.state === 'menu';
@@ -598,6 +879,8 @@
     if (debugCam) { camera.position.set(...debugCam.pos); camLook.set(...debugCam.look); }
     camera.lookAt(camLook);
     for (const g of posts) g.visible = Math.abs(-camera.position.z - g.userData.y) > 14;   // not the one the camera sits beside
+    if (rainPts.visible) updateWeather(rainPts, 36, 6);
+    if (snowPts.visible) updateWeather(snowPts, 4.2, 1.8);
     renderer.render(scene, camera);
   }
 
@@ -605,6 +888,7 @@
     init, resize, render, project,
     cheer(v) { cheer = Math.max(cheer, v); },
     get info() { return renderer ? renderer.info.render : null; },
+    get scene() { return scene; },                       // test hook
     /* test hook: { pos: [x, height, -y], look: [x, height, -y] } pins the camera for close-ups; null releases it */
     set debugCam(v) { debugCam = v; },
   };

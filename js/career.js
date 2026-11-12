@@ -511,14 +511,14 @@
     const opp = nextOpp();
     PG.snd('whistle');
     PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: 1,
-      mustWin: C.phase !== 'reg', line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
+      mustWin: C.phase !== 'reg', env: PG.envFor(C.season, C.week + (C.phase === 'reg' ? 0 : C.phase === 'semi' ? 8 : 9), C.phase !== 'reg' || C.week >= 5), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
   /* weekly practice: six reps with the first team, no clock, XP for what you do with them */
   function practice() {
     const opp = nextOpp();
     PG.snd('whistle');
-    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[C.team] - 4], diff: 1, drill: 6, line: chip,
+    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[C.team] - 4], diff: 1, drill: 6, env: { time: 'day', weather: 'clear' }, line: chip,
       onEnd: r => {
         const m = r.my, items = xpFor(m, false).filter(([l]) => l !== 'Game played').map(([l, v]) => [l, Math.round(v * 0.5)]);
         items.unshift(['Practice reps', 80]);

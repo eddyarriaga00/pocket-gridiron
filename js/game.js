@@ -137,7 +137,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '',
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     kickoff(first);
@@ -187,6 +187,7 @@
   }
 
   function setupPlay() {
+    G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc'
     const off = G.poss, dir = off === 0 ? 1 : -1, op = G.op, dp = G.dp, bx = G.bx, los = G.los;
     G.dir = dir;
     P = [];
@@ -988,6 +989,7 @@
     let big = '', sub = '', stop = false, score = false, rpGain = 0;
     if (kind === 'inc') {
       big = arg || 'Incomplete';
+      G.sig = 'inc';
       stop = true;
       G.down++;
       G.stats[off].att++;
@@ -998,6 +1000,7 @@
       const xp = rnd() < 0.96;
       if (xp) G.score[t]++;
       big = 'Touchdown!';
+      G.sig = 'td';
       sub = tname(t) + (xp ? ' · extra point is good' : ' · extra point missed');
       score = true;
       if (ps.mode === 'ko') sub = tname(t) + ' · kick return' + (xp ? ', extra point is good' : ', extra point missed');
@@ -1050,6 +1053,7 @@
         if ((y - ps.fd) * dir >= 0) {
           setBall(off, y, x);
           big = 'First down';
+          G.sig = 'fd';
           sub = `${gi}-yard ${ps.caught?'catch':'run'} · ${c.name}`;
           if (off === 0) {
             snd('chime');
@@ -1068,6 +1072,7 @@
       if (arg) {
         G.score[off] += 3;
         big = 'It’s good!';
+        G.sig = 'td';
         sub = `${d}-yard field goal`;
         score = true;
         kickoff(1 - off);
@@ -1075,6 +1080,7 @@
         react(off, 0.9, 3);
       } else {
         big = 'No good';
+        G.sig = 'inc';
         sub = `${d}-yard attempt`;
         stop = true;
         react(1 - off, 0.7, 2);
@@ -2125,6 +2131,7 @@
   const tmBtn = (t, i, on) => `<button class="tm ${on?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`;
 
   function showMenu() {
+    if (G.state === 'menu') G.env = null;  // the stadium behind the menus is always a clear night
     toMenu();
     const cs = PG.career && PG.career.summary();
     scr.innerHTML = `<div class="menu"><h1>Pocket<br><em>Gridiron</em></h1><p class="tag">Full 11-on-11 football, built for one hand.</p>
@@ -2150,7 +2157,7 @@
   <h2>Look</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
   ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
-  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic'):''}
+  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off'):''}
   ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
   <h2>Sound</h2>
   ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
@@ -2183,6 +2190,9 @@
       on('scn', () => {
         SET.cin = SET.cin === false;
       });
+      on('ssh', () => {
+        SET.shad = SET.shad === false;
+      });
       on('srp', () => {
         SET.replay = SET.replay === false;
       });
@@ -2212,15 +2222,18 @@
   }
 
   function showExh() {
-    let me = SET.me, opp = SET.opp, ql = SET.ql, diff = SET.diff;
+    let me = SET.me, opp = SET.opp, ql = SET.ql, diff = SET.diff, tod = SET.tod || 'night', wx = SET.wx || 'clear';
     if (opp === me) opp = (me + 1) % TEAMS.length;
     const draw = () => {
       G.tm = [me, opp];
+      G.env = { time: tod, weather: wx };  // the stadium behind the menu shows the choice
       scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Exhibition</h1>
   <h2>Your team</h2><div class="teams" id="tms">${TEAMS.map((t,i)=>tmBtn(t,i,i===me)).join('')}</div>
   <h2>Opponent</h2><div class="row"><button class="nav" id="opl" aria-label="Previous opponent">‹</button>${tmBtn(TEAMS[opp],opp,false)}<button class="nav" id="opr" aria-label="Next opponent">›</button></div>
   <h2>Difficulty</h2><div class="seg" id="dif">${['Rookie','Pro','All-Pro'].map((d,i)=>`<button data-d="${i}" class="${i===diff?'on':''}">${d}</button>`).join('')}</div>
   <h2>Quarter length</h2><div class="seg" id="qls">${[60,120,180,300].map(q=>`<button data-q="${q}" class="${q===ql?'on':''}">${q/60} min</button>`).join('')}</div>
+  <h2>Kickoff time</h2><div class="seg" id="tod">${[['day','Day'],['dusk','Dusk'],['night','Night']].map(([k,l])=>`<button data-v="${k}" class="${k===tod?'on':''}">${l}</button>`).join('')}</div>
+  <h2>Weather</h2><div class="seg" id="wx">${[['clear','Clear'],['rain','Rain'],['snow','Snow']].map(([k,l])=>`<button data-v="${k}" class="${k===wx?'on':''}">${l}</button>`).join('')}</div>
   <button class="go" id="go">Kick off</button></div>`;
       const stepO = d => {
         do {
@@ -2244,14 +2257,43 @@
         diff = +b.dataset.d;
         draw();
       });
+      scr.querySelectorAll('#tod button').forEach(b => b.onclick = () => {
+        tod = b.dataset.v;
+        keepScroll(draw);
+      });
+      scr.querySelectorAll('#wx button').forEach(b => b.onclick = () => {
+        wx = b.dataset.v;
+        keepScroll(draw);
+      });
       $('#go').onclick = () => {
-        Object.assign(SET, { me, opp, ql, diff });
+        Object.assign(SET, { me, opp, ql, diff, tod, wx });
         save('pg.settings', SET);
         snd('whistle');
-        startGame({ a: me, b: opp, ql, diff });
-      }
+        startGame({ a: me, b: opp, ql, diff, env: { time: tod, weather: wx } });
+      };
     };
     draw();
+  }
+
+  /* redraw a menu without losing the scroll position */
+  function keepScroll(draw) {
+    const el = scr.querySelector('.menu'), y = el ? el.scrollTop : 0;
+    draw();
+    const n = scr.querySelector('.menu');
+    if (n) n.scrollTop = y;
+  }
+
+  /* Career and Season pick the conditions for each game from the week, so a given week always looks the same:
+     mostly clear nights and afternoons, some rain, snow late in the season and in the playoffs. */
+  function envFor(season, week, late) {
+    let h = (season * 7919 + week * 104729 + 12345) >>> 0;
+    const r = () => {
+      h = (h * 1664525 + 1013904223) >>> 0;
+      return h / 4294967296;
+    };
+    const time = ['night', 'day', 'dusk', 'day', 'night'][Math.floor(r() * 5)], k = r();
+    const weather = late ? (k < 0.3 ? 'snow' : k < 0.45 ? 'rain' : 'clear') : (k < 0.16 ? 'rain' : k < 0.22 ? 'snow' : 'clear');
+    return { time, weather };
   }
 
   function statTable() {
@@ -2623,7 +2665,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (R3) {
       ctx.clearRect(0, 0, W, H);
-      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false }, FDT);
+      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false }, FDT);
       if (shake > 0) shake -= FDT;
     } else {
       if (shake > 0) {
@@ -2863,7 +2905,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, statTable,
+    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

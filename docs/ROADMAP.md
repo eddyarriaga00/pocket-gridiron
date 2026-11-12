@@ -272,6 +272,14 @@ what is next. Update it after every item.
   Roster tab shows leaders (rushing 334 yards, 8 tackles) and lines per player. `mkRoster` re-rolls duplicate numbers, which
   changes the seeded sequence, so `H.fingerprint()` was re-baselined. `H.sim(12,180)`: 32 points a game, no errors.
 
+- 08:07 More flags. 20 seeded computer games: 11 holding, 7 false starts, 8 offsides, 1.3 flags a game; none with the switch off.
+  Pass interference never came up by itself in computer games: their quarterbacks only throw to open receivers, so a catchable
+  ball almost never falls incomplete with a defender close (measured: 0 of 52 incompletions). It needs a defender within
+  2.2 yards, so it will mostly follow a user's throw into coverage. Its code path was exercised by forcing it for six games
+  (2.8 a game, every one a first down at the spot, no errors), then the real numbers were restored.
+  Also learned from that measurement: most computer incompletions are inaccurate throws to wide-open backs behind the line.
+  `H.fingerprint()` re-baselined.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -292,7 +300,8 @@ what is next. Update it after every item.
       a trophy for finishing a season ahead of him
 - [x] Season mode: one roster for the whole season (names, numbers, ratings that move between seasons), every player's stat
       line from the box score, and team leaders, on a new Roster tab. Jersey numbers no longer repeat within a team
-- [ ] Holding and pass interference, with a Settings switch for penalties
+- [x] Holding (2% of gains of four yards or more: ten yards back, replay the down) and defensive pass interference
+      (a first down at the spot); Settings has a Penalties switch that turns every flag off
 - [ ] Menu: a slow camera path around the stadium and a 3D preview of your team's uniform on the team picker
 - [ ] Career difficulty: measure with scripted seasons and tune so an average player wins about half
 

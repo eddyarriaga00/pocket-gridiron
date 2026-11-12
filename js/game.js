@@ -828,6 +828,12 @@
       }
       if (me && nd === me) my.int++;
     } else {
+      /* pass interference: a defender on the receiver's back when a catchable ball falls incomplete */
+      if (flagsOn() && nd && ndd < 2.2 && dr <= 2.2 && (a.y1 - ps.los) * G.dir > 1 && rnd() < 0.15) {
+        dropBall(a);
+        const ez = off === 0 ? a.y1 >= 99 : a.y1 <= 1;
+        return flagAfter('Pass interference', 1 - off, ez ? (off === 0 ? 99 : 1) : a.y1, a.x1, true, 'first down at the spot');
+      }
       if (pm) my.att++;
       if (me && nd === me && ndd < 2.2) {
         my.pbu++;
@@ -1365,6 +1371,14 @@
   function finish(kind, arg) {
     if (G.state !== 'live' && G.state !== 'kicka') return;
     if (G.try2 != null) return finishTry(kind);
+    /* holding: now and then a good gain comes back. Ten yards from the old spot and the down is replayed. */
+    if (flagsOn() && (kind === 'tackle' || kind === 'oob' || kind === 'td') && ps.mode !== 'ko' && ps.mode !== 'kick' && !ps.turnover && !ps.fum) {
+      const who = ps.carrier, o = ps.offTeam, d = o === 0 ? 1 : -1;
+      if (who && who.team === o && (who.y - ps.los) * d >= 4 && rnd() < 0.02) {
+        const room = o === 0 ? ps.los : 100 - ps.los, yd = Math.min(10, Math.max(1, Math.floor(room / 2)));
+        return flagAfter('Holding', o, ps.los - d * yd, ps.bx, false, `${yd} yards, replay the down`);
+      }
+    }
     const off = ps.offTeam, dir = G.dir, c = ps.carrier, los = ps.los, me = QUIET ? null : G.me;
     let big = '', sub = '', stop = false, score = false, rpGain = 0;
     if (kind === 'inc') {
@@ -1566,6 +1580,37 @@
       const want = G.q === 2 ? deep : lead < 0 ? lead >= -16 : lead === 0 && deep;
       if (want && timeout(t)) return;
     }
+  }
+
+  /* flags can be switched off in Settings; there are none in practice or on a two-point try */
+  const flagsOn = () => SET.pen !== false && !G.drill && G.try2 == null;
+
+  /* A flag thrown during the play. The play does not count: the ball goes where the foul puts it, and the down is
+     replayed, or it is a first down when the foul gives one. */
+  function flagAfter(name, team, y, x, first, text) {
+    const off = ps.offTeam, dir = off === 0 ? 1 : -1;
+    for (const p of P) {
+      p.eng = null;
+      p.block = null;
+    }
+    if (first) setBall(off, y, x);
+    else {
+      G.los = clamp(y, 1, 99);
+      G.togo = Math.max(1, (ps.fd - G.los) * dir);
+    }
+    G.last = name;
+    G.sig = first ? 'fd' : null;
+    G.rp = false;
+    G.runoff = 0;
+    ps.after = 0;
+    G.state = 'dead';
+    G.deadT = 2.1;
+    banner('Flag', `${name}, ${tname(team)} · ${text}`, 1900);
+    snd('whistle');
+    react(1 - team, 0.6, 2);
+    say(`Flag on the play. ${name}, ${tname(team)}. ${text}.`, true);
+    hudKey = '';
+    updHud();
   }
 
   /* A flag before the snap: five yards, or half the distance to the goal, and the down is played again */
@@ -1888,7 +1933,7 @@
       p.jog = 0;
     }
     if (ps.mode === 'kick') return doKick(rnd(0.55, 1));
-    if (!G.drill && G.try2 == null) {
+    if (flagsOn()) {
       // once in a long while somebody jumps
       const r = rnd();
       if (r < 0.011) return flag('False start', ps.offTeam);
@@ -2808,6 +2853,8 @@
   ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
   ${chip('smu','Music',SET.mus?'On':'Off')}
   ${chip('san','Announcer',SET.ann!==false?'On':'Off')}
+  <h2>Rules</h2>
+  ${chip('spn','Penalties',SET.pen!==false?'On':'Off')}
   <h2>Help</h2>
   ${chip('stp','Control tips',SET.tips&&Object.keys(SET.tips).length?'Show again':'On')}</div>`;
       const on = (id, f) => {
@@ -2853,6 +2900,9 @@
         SET.mus = !SET.mus;
         if (PG.audio) PG.audio.refresh();
       });
+      on('spn', () => {
+        SET.pen = SET.pen === false;
+      });
       on('san', () => {
         SET.ann = SET.ann === false;
         if (PG.audio) PG.audio.refresh();
@@ -2868,7 +2918,7 @@
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
   <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
-  <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
+  <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause.</li></ul></div>`;
     $('#bk').onclick = showMenu;

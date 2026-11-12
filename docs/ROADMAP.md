@@ -419,6 +419,14 @@ what is next. Update it after every item.
   Cover 2, Cover 3 on 2nd and long, Cover 4 on 3rd and 7. The test player now takes the suggestion, and its exhibition
   scores went from losing by about twenty to 7-0, 7-14, 6-7 and 3-14. `H.fingerprint()` unchanged.
 
+- 14:04 Play tag and run-pass options. `playKind(op)` names the play; `ps.rpo` marks an option. Balance, by scripted
+  players over three games each (yards a play): Inside Zone 3.6; RPO handed off every time 2.2 (it was -0.1 with a
+  one-second mesh four yards deep, so the mesh is 0.7 s and nearer the line); RPO thrown every time 16.0 with 71%
+  complete and 7% turned over (it was 21.3 and 90% before the lane rule); ordinary Slants thrown by the same player
+  13.7, 74% and 6%. So an option thrown blind is about an ordinary pass, and the hand-off is the safe floor. The test
+  player's own "read" did not match the engine's lane check, so a well-read option is not measured.
+  `H.fingerprint()` unchanged: the computer never calls an option, and the only dice are rolled when one is called.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -512,6 +520,20 @@ what is next. Update it after every item.
       and opens on its tab; the scoreboard row carries the zoom buttons; Settings gained Volume and the zoom stepper; the
       throw power bar and the ring on the receiver's letter are new
 - [ ] Still open from before: a person plays it on a phone; contract years could matter more; animation checked in motion
+
+### Round 9 (the owner's requests at 13:52 and 14:10 on 2026-11-12: "for any plays, underneath the game pls let me know if
+### it's a run play throw play etc rfo"; "after all this bug test, research and just optimize the ui to be perfect";
+### "audio is decent, but need it to sound like football"; "yes automatic improvement loop ... make major improvements or
+### if not just work on improving ui more and more")
+- [x] A tag under the field for every snap: Run, Pass, Play action, Screen, RPO or Kick, with the play's name. On defense
+      it shows your call, and its badge turns to what the offense is doing a moment after the snap (later for a fake)
+- [x] Run-pass option plays (read as what "rfo" meant): RPO Slant and RPO Bubble, on their own tab. For 0.7 s the
+      quarterback and the back share the ball: throw to a lettered receiver in that time, or do nothing and the back takes
+      it. Linebackers in underneath zones either step up at the fake or sit; one who sits in the throwing lane bats the
+      ball down more often than not. The computer never calls them, but your coach does now and then in Career
+- [ ] Sound that is unmistakably football
+- [ ] Bug test every screen and mode; research interface guidelines; fix what turns up
+- [ ] The automatic loop back on, briefed with "major improvements, otherwise the interface"
 
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.

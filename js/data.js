@@ -55,6 +55,10 @@
     { n: 'QB Draw', cat: 'run', f: 'gun', run: { who: 'QB', path: [[0, -6], [1, 4]], push: 2.0 }, r: { X: 'go', Z: 'go' } },
     { n: 'Counter', cat: 'run', f: 'iform', run: { who: 'RB', path: [[1.2, -6], [-2.2, -3], [-2.7, 3]], push: 1.9 } },
     { n: 'QB Sneak', cat: 'run', f: 'single', d: 'Short yardage', short: 1, run: { who: 'QB', path: [[0, 0.5], [0.4, 3]], fast: 1, push: 2.6 } },
+    /* run-pass options: the back and the quarterback meet with the ball between them for a second. Throw to a lettered
+       receiver in that second, or do nothing and the back takes it. rpo marks them; the computer never calls them. */
+    { n: 'RPO Slant', cat: 'rpo', f: 'gun', rpo: 1, d: 'Shotgun · throw or hand off', run: { who: 'RB', path: [[0.8, -3.3], [0.6, -1], [1, 4]], push: 2.1 }, r: { X: 'slant', Z: 'slant' } },
+    { n: 'RPO Bubble', cat: 'rpo', f: 'gun', rpo: 1, d: 'Shotgun · throw or hand off', run: { who: 'RB', path: [[-0.8, -3.3], [-0.8, -1], [-1.2, 4]], push: 2.1 }, r: { S2: 'flatR', X: 'slant' } },
     { n: 'Slants', cat: 'short', f: 'gun', r: { X: 'slant', Z: 'slant', S: 'out', S2: 'drag', RB: 'flatR' } },
     { n: 'Curl Flat', cat: 'short', f: 'single', r: { X: 'curl', Z: 'curl', S: 'in', TE: 'out', RB: 'flatL' } },
     { n: 'Mesh', cat: 'short', f: 'gun', r: { S: 'drag', S2: 'drag', X: 'post', Z: 'corner', RB: 'flatR' } },

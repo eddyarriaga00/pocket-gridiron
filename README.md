@@ -25,8 +25,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 
 ## On the field
 
-- Pass plays, run plays, play action, screens, bootlegs, field goals, punts, live kickoffs, kneel and spike. Seventeen
-  offensive plays and eight defensive calls. Before the snap you can tap a receiver's letter to change his route, call an audible or flip
+- Pass plays, run plays, run-pass options, play action, screens, bootlegs, field goals, punts, live kickoffs, kneel and
+  spike. Nineteen offensive plays and eight defensive calls. A tag under the field names the kind of play on every snap. Before the snap you can tap a receiver's letter to change his route, call an audible or flip
   the play; on defense you can change the coverage.
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.

@@ -18,7 +18,7 @@
 <div id="meter" hidden><p id="mtxt"></p><div class="bar"><i id="ndl"></i></div></div>
 <div id="pw" hidden><span>Power</span><div class="trk"><i id="pwf"></i></div><b id="pwl"></b></div>
 <div id="rp" hidden><i></i>Replay · tap to skip</div>
-<div id="bl"><div id="tip" hidden></div><div id="brief" hidden></div></div>
+<div id="bl"><div id="tip" hidden></div><div id="brief" hidden></div><div id="ptype" hidden><b></b><span></span></div></div>
 <div id="pad"></div><div id="screen"></div><div id="ov" hidden></div>`;
   const cv = $('#c'), ctx = cv.getContext('2d'), pad = $('#pad'), scr = $('#screen');
   const FW = 53.33, PITCH = 48 * Math.PI / 180, CS = Math.cos(PITCH), SN = Math.sin(PITCH), PS = 1.6, CAMH = 19.3;
@@ -238,7 +238,7 @@
     const f = FORM[op.f], o = {};
     for (const r in f) o[r] = mk(off, r, f[r][0] * fl, f[r][1]);  // fl mirrors the formation when the play is flipped
     const kick = op.cat === 'special';
-    ps = { t: 0, mode: kick ? 'kick' : op.cat === 'run' ? 'run' : 'pass', offTeam: off, qb: o.QB, carrier: o.QB, thrown: false, air: null, caught: false, handoff: false, open: false, turnover: false,
+    ps = { t: 0, mode: kick ? 'kick' : op.run ? 'run' : 'pass', rpo: !!op.rpo, offTeam: off, qb: o.QB, carrier: o.QB, thrown: false, air: null, caught: false, handoff: false, open: false, turnover: false,
       think: 0, scr: false, runner: null, recs: [], pa: !!op.pa, los, fd: G.fd, bx, drop: { x: clamp(bx + (op.roll || 0) * fl, 4, FW - 4), y: los - dir * (op.f === 'gun' ? 7.5 : 6.5) }, kick: null, passer: null, tgt: null, tackler: null };
     if (kick) {
       o.QB.y = los - dir * (op.n === 'Punt' ? 13 : 7.5);
@@ -262,7 +262,7 @@
       if (nm && ROUTES[nm]) {
         o[r].route = mkRoute(o[r], nm, dir);
         o[r].rn = nm;
-        if (ps.mode === 'pass') ps.recs.push(o[r]);
+        if (ps.mode === 'pass' || ps.rpo) ps.recs.push(o[r]);
       }
     }
     ps.recs.sort((a, b) => a.x - b.x).forEach((p, i) => {
@@ -290,6 +290,9 @@
       }
       d[r] = p;
     }
+    /* On a run-pass option each underneath zone defender either steps up at the run fake or sits in his zone: that is
+       the read. (Only when such a play is called, which the computer never does, so seeded runs are not disturbed.) */
+    if (ps.rpo) for (const r of DEFR) if (d[r].asg === 'zone' && !d[r].deep && /LB/.test(r)) d[r].bite = rnd() < 0.4 ? 0.55 : 0.08;
     const free = new Set(el), take = (p, t) => {
       p.man = t;
       free.delete(t);
@@ -507,6 +510,11 @@
         ty = lerp(d.zy, b.y + b.vy * 0.3, 0.8) + dir * 0.5;
       }
     }
+    if (ps.rpo && !ps.handoff && !ps.thrown && d.bite) {
+      // stepping up to stop the run he thinks he sees
+      tx = lerp(tx, ps.bx, d.bite * 0.5);
+      ty = lerp(ty, ps.los + dir * 1.2, d.bite);
+    }
     seek(d, tx, ty, 1, !!b);
   }
 
@@ -548,7 +556,8 @@
     }
     if (ps.mode === 'run' && !ps.handoff && p === ps.runner) {
       const w = p.path[p.pi];
-      if (w && seek(p, w[0], w[1], 1, true) < 1) p.pi++;
+      if (ps.rpo) seek(p, w[0], w[1], 0.6, true);  // a run-pass option: he rides the mesh beside the quarterback until the ball is his
+      else if (w && seek(p, w[0], w[1], 1, true) < 1) p.pi++;
       return;
     }
     if (ps.mode === 'run' && p.route && ps.t < 1.5) {
@@ -659,6 +668,7 @@
   /* Your throw: holding a receiver's letter (on the field, on the pad, or its number key) fills the power bar, and
      letting go throws with that much on the ball. A quick tap floats it; a full bar fires it. */
   const CHARGE = 0.55;  // seconds from an empty bar to a full one
+  const RPO_T = 0.7;  // how long the quarterback holds a run-pass option before the back takes the ball
 
   function startCharge(i, pid) {
     if (!canPass() || !ps.recs[i] || ps.recs[i].down) return;
@@ -679,6 +689,8 @@
   function throwTo(r, pt, type) {
     const q = ps.carrier;
     if (!q || ps.thrown) return;
+    const option = ps.rpo && ps.mode === 'run';
+    if (option) ps.mode = 'pass';  // the option is taken: from here it is a pass play
     let tx, ty, T = 0.6, d;
     /* power, 0 to 1: a floated lob at 0 (slow, high), an ordinary pass at a half, a bullet at 1 (fast, flat).
        The computer's quarterbacks throw at a half; yours throws what the power bar says. */
@@ -700,7 +712,7 @@
         ty = q.y + (ty - q.y) * k;
         d = range;
       }
-      const pr = pressure(q), err = d * 0.03 * (1 + (85 - (q.thr ?? q.rt)) * 0.03) * (pr ? 1.9 : 1);
+      const pr = pressure(q), err = d * 0.03 * (1 + (85 - (q.thr ?? q.rt)) * 0.03) * (pr ? 1.9 : 1) * (ps.rpo ? 1.6 : 1);  // an option throw comes out of the mesh, feet not set
       tx = clamp(tx + (rnd() - rnd()) * err, 1, FW - 1);
       ty = clamp(ty + (rnd() - rnd()) * err, -9, 109);
     } else {
@@ -710,6 +722,19 @@
       T = d / 20;
     }
     ps.air = { x0: q.x, y0: q.y, x1: tx, y1: ty, t: 0, T, h: (1.2 + d * 0.11) * hf, target: r, x: q.x, y: q.y, z: 1.8, dist: d };
+    if (option && r) {
+      /* The read. An underneath defender who did not step up at the run fake and is standing in the throwing lane
+         can get a hand on the ball (see resolvePass): throw when he bites, hand off when he sits. */
+      const vx = tx - q.x, vy = ty - q.y, len2 = vx * vx + vy * vy || 1;
+      let near = 2.6;
+      for (const o of P) if (o.team !== q.team && !o.down && !o.eng && !(o.bite > 0.3) && (o.asg === 'zone' ? !o.deep : /LB/.test(o.role) && o.asg !== 'rush')) {
+        const s = ((o.x - q.x) * vx + (o.y - q.y) * vy) / len2, off2 = hyp(q.x + vx * s - o.x, q.y + vy * s - o.y);
+        if (s > 0.2 && s < 0.92 && off2 < near) {
+          near = off2;
+          ps.air.lane = o;
+        }
+      }
+    }
     ps.thrown = true;
     ps.carrier = null;
     ps.passer = q;
@@ -774,10 +799,30 @@
     } else if (ps.t > 4.6) ps.scr = true;
   }
 
+  /* The computer quarterback's read on a run-pass option, made once, half a second in: throw to a lettered receiver who
+     has come clear (or who is calling for the ball), otherwise leave it with the back. No dice in it. */
+  function rpoRead(q) {
+    ps.rpoRead = true;
+    const me = !AUTO && G.me && G.me.team === q.team ? G.me : null;
+    let best = null, bo = 0;
+    for (const r of ps.recs) {
+      if (r.down) continue;
+      let open = 99;
+      for (const o of P) if (o.team !== q.team && !o.down) open = Math.min(open, dist(o, r));
+      if (r === me && me.callT > 0) open += 3;
+      if (open > bo) {
+        bo = open;
+        best = r;
+      }
+    }
+    if (best && bo >= 3.4) throwTo(best, null, 0.65);
+  }
+
   function carrierCtl(p, dt) {
     const user = userP(p);
     if (ps.mode === 'run' && !ps.handoff && p === ps.qb && ps.runner !== p) {
       seek(p, ps.runner.x, ps.runner.y, 0.7);
+      if (ps.rpo && !user && !ps.rpoRead && ps.t > RPO_T - 0.25) rpoRead(p);
       return;
     }
     if (ps.mode === 'pass' && !ps.thrown && p === ps.qb && !ps.turnover) {
@@ -806,7 +851,7 @@
   }
 
   const userOnD = () => !AUTO && G.state === 'live' && (!G.lock || !!G.me) && (ps.fum ? true : ps.carrier ? ps.carrier.team === 1 : !!(ps.air && ps.offTeam === 1));  // a loose ball is anyone's
-  const canPass = () => !AUTO && G.state === 'live' && ps.mode === 'pass' && !ps.thrown && !ps.turnover && ps.carrier === ps.qb && userP(ps.qb) && (ps.qb.y - ps.los) * G.dir < 0.3;
+  const canPass = () => !AUTO && G.state === 'live' && (ps.mode === 'pass' || (ps.rpo && !ps.handoff)) && !ps.thrown && !ps.turnover && ps.carrier === ps.qb && userP(ps.qb) && (ps.qb.y - ps.los) * G.dir < 0.3;
 
   function resolvePass() {
     const a = ps.air, r = a.target, off = ps.offTeam, my = G.my, me = QUIET ? null : G.me, pm = !!me && ps.passer === me;
@@ -815,6 +860,30 @@
       if (pm) my.att++;
       dropBall(a);
       finish('inc', 'Thrown away');
+      return;
+    }
+    if (a.lane && !a.lane.down && rnd() < 0.55) {
+      /* a run-pass option thrown past a linebacker who never moved: he bats it down, and one time in four he keeps it */
+      const d = a.lane;
+      if (pm) my.att++;
+      if (rnd() < 0.25) {
+        for (const p of P) {
+          p.eng = null;
+          p.block = null;
+        }
+        ps.carrier = d;
+        ps.turnover = true;
+        ps.open = true;
+        toast('Intercepted!');
+        snd('hit');
+        if (pm) my.pint++;
+        if (me && d === me) my.int++;
+        return;
+      }
+      a.x1 = d.x;
+      a.y1 = d.y;
+      dropBall(a);
+      finish('inc', 'Batted down');
       return;
     }
     const dr = hyp(r.x - a.x1, r.y - a.y1);
@@ -842,6 +911,11 @@
       credit(ps.passer, 'comp', 1);
       credit(r, 'rec', 1);
       openField(0.05, 0.3);
+      if (ps.rpo) for (const o of P) if (o.team !== off && o.eng && !o.eng.isOL) {
+        // an option pass is not a called screen: the receivers were blocking for a run, and the defense comes off those blocks to the ball
+        release(o);
+        o.immune = 1.5;
+      }
       snd('catch', { x: r.x });
       if (pm) {
         my.att++;
@@ -931,7 +1005,10 @@
     const off = ps.offTeam;
     if (ps.mode === 'run' && !ps.handoff) {
       const rn = ps.runner, dl = G.op.run.delay || 0;
-      if (rn === ps.qb ? ps.t > (G.op.run.fast ? 0.1 : 0.45) : ps.t > dl + 0.3 && (G.op.run.toss || dist(rn, ps.qb) < 1.3 || ps.t > dl + 0.9)) {
+      /* a run-pass option is handed off a second in, unless a throw is being wound up at that moment (then a little longer) */
+      const give = ps.rpo ? ps.t > RPO_T && !(G.chg && ps.t < RPO_T + 0.6)
+        : rn === ps.qb ? ps.t > (G.op.run.fast ? 0.1 : 0.45) : ps.t > dl + 0.3 && (G.op.run.toss || dist(rn, ps.qb) < 1.3 || ps.t > dl + 0.9);
+      if (give) {
         // a toss is pitched at once, so the defense sees it sooner
         ps.handoff = true;
         ps.carrier = rn;
@@ -1909,6 +1986,7 @@
     if (G.down >= 3 && G.togo > 4) pr = 0.12;
     // career: the coach leans on the user's position so they stay involved
     const star = G.lock && t === 0 && !AUTO ? G.lock : null;
+    if ((star === 'QB' || star === 'X') && G.togo >= 3 && G.togo <= 10 && rnd() < 0.12) return pick(OFF.filter(p => p.rpo));  // your coach likes an option now and then (never rolled for a computer-only game)
     if (star === 'RB') pr = Math.max(pr, G.down >= 3 && G.togo > 6 ? 0.3 : 0.5);  // measured: at 0.6 a back's team scored too little to win
     else if (star === 'X') pr *= G.drill ? 0 : 0.5;
     const foe = G.lock && t === 1 && !AUTO ? G.lock : null;  // and the opponent tests a defender
@@ -2312,7 +2390,8 @@
     let t;
     if (ps.offTeam === 0) {
       if (me === ps.qb) return '';
-      if (ps.mode === 'run') t = me === ps.runner ? 'You get the ball. Follow your blocks.' : me.route ? 'Sell the route, then block downfield.' : 'Lead the way and block.';
+      if (ps.rpo) t = me.route && ps.recs.includes(me) ? `Run your ${RNAME[me.rn]} route. The quarterback throws it or hands off: tap Call if you are open.` : 'It may be a run: block your man.';
+      else if (ps.mode === 'run') t = me === ps.runner ? 'You get the ball. Follow your blocks.' : me.route ? 'Sell the route, then block downfield.' : 'Lead the way and block.';
       else t = me.route ? `Run your ${RNAME[me.rn]} route. Tap Call when you are open.` : 'Stay in and pass block.';
       return `<b>${G.op.n}</b><span>${t}</span>`;
     }
@@ -2526,7 +2605,7 @@
       if (ps.fum) return userOnD() ? 'loose' : 'none';
       if (c && userP(c)) return canPass() ? 'pass' : 'carry';
       if (userOnD()) return lk ? 'deflock' : 'def';
-      if (lk && me && ps.offTeam === 0 && !ps.turnover && !me.down && me !== ps.qb) return me.route && ps.mode === 'pass' && !ps.thrown ? 'route' : 'offball';
+      if (lk && me && ps.offTeam === 0 && !ps.turnover && !me.down && me !== ps.qb) return me.route && (ps.mode === 'pass' || (ps.rpo && !ps.handoff)) && !ps.thrown ? 'route' : 'offball';
     }
     return 'none';
   }
@@ -3044,6 +3123,7 @@
     if (G.togo <= 1) return 'QB Sneak';
     if (G.togo <= 3) return 'Inside Zone';
     if (G.down >= 3) return G.togo >= 9 ? 'Dagger' : 'Slants';
+    if (G.down === 2 && G.togo >= 4 && G.togo <= 7) return 'RPO Slant';
     if (G.togo >= 12) return 'Curl Flat';
     return G.down === 1 || toGoal <= 12 ? 'Off Tackle' : 'Stick';
   }
@@ -3057,7 +3137,7 @@
   function showCall(side) {
     const sug = side === 'off' ? suggestOff() : side === 'def' ? suggestDef() : null, sugPlay = side === 'off' && OFF.find(p => p.n === sug);
     let cat = sugPlay ? sugPlay.cat : G.down === 4 ? 'special' : 'run';
-    const cats = [['run', 'Run'], ['short', 'Short'], ['deep', 'Deep'], ['special', 'Special']].filter(c => G.try2 == null || c[0] !== 'special');  // no kicks on a two-point try
+    const cats = [['run', 'Run'], ['rpo', 'RPO'], ['short', 'Short'], ['deep', 'Deep'], ['special', 'Special']].filter(c => G.try2 == null || c[0] !== 'special');  // no kicks on a two-point try
     let qb = null;
     if (side === 'qb') {
       const rest = OFF.filter(p => p.cat !== 'special' && p !== G.op);
@@ -3222,7 +3302,7 @@
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard, and beside it − and + zoom the camera out and in.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul></div>`;
@@ -3603,7 +3683,7 @@
       }
     }
     p.hx = undefined;
-    if (p.let && ps.offTeam === 0 && ps.mode === 'pass' && !ps.thrown && userP(ps.qb) && (G.state === 'pre' || G.state === 'live')) {
+    if (p.let && ps.offTeam === 0 && (ps.mode === 'pass' || (ps.rpo && !ps.handoff)) && !ps.thrown && userP(ps.qb) && (G.state === 'pre' || G.state === 'live')) {
       const by = ty - 13;
       p.hx = x;
       p.hy = by;
@@ -3669,7 +3749,7 @@
     const solo = G.lock && G.me !== ps.qb;
     for (const p of P) {
       if (p.team !== 0 || (solo && p !== G.me)) continue;
-      if (p.route && (ps.mode === 'pass' || solo)) poly([[p.sx, p.sy], ...p.route.pts], solo ? ACC : p.col || '#fff', solo ? 4 : 3);
+      if (p.route && (ps.mode === 'pass' || ps.rpo || solo)) poly([[p.sx, p.sy], ...p.route.pts], solo ? ACC : p.col || '#fff', solo ? 4 : 3);
       if (p.path) poly([[p.sx, p.sy], ...p.path], '#ff9f43', 4);
     }
   }
@@ -3804,6 +3884,7 @@
       ctx.arc(stick.ox + stick.x * 36, stick.oy - stick.y * 36, 15, 0, 7);
       ctx.fill();
     }
+    playTag();
     const pwEl = $('#pw'), pwOn = G.state === 'live' && (G.chg || G.pwShow);
     if (pwEl.hidden === !!pwOn) pwEl.hidden = !pwOn;
     if (pwOn) {
@@ -3817,6 +3898,40 @@
     const m = $('#meter'), km = G.state === 'kickm';
     if (m.hidden === km) m.hidden = !km;
     if (km) $('#ndl').style.left = (50 + 50 * Math.sin(G.meter * 4.2)) + '%';
+  }
+
+  /* ---------- what kind of play this is ----------
+     A tag under the field for every snap: run, pass, play action, screen, run-pass option or kick, with the play's name.
+     On defense it shows your own call before the snap, and a moment after it what the offense turned out to be doing
+     (a fake takes longer to see through than a plain run). */
+  const KIND = { run: 'Run', pass: 'Pass', pa: 'Play action', screen: 'Screen', rpo: 'RPO', kick: 'Kick', def: 'Defense' };
+  const playKind = op => op.cat === 'special' ? 'kick' : op.rpo ? 'rpo' : op.run ? 'run' : op.pa ? 'pa' : Object.values(op.r || {}).some(r => /^screen/.test(r)) ? 'screen' : 'pass';
+  let tagKey = '';
+
+  function playTag() {
+    const el = $('#ptype'), st = G.state, on = !!ps && !AUTO && (st === 'pre' || st === 'live' || st === 'kickm' || st === 'kicka');
+    let k = '', txt = '';
+    if (on) {
+      if (ps.mode === 'ko') {
+        k = 'kick';
+        txt = ps.punt ? 'Punt return' : 'Kickoff';
+      } else if (ps.offTeam === 0) {
+        k = playKind(G.op);
+        txt = k === 'rpo' && st === 'live' ? ps.thrown ? 'Thrown' : ps.handoff ? 'Handed off' : 'Throw or hand off' : G.op.n;  // while the option is live, the choice matters more than the name
+      } else {
+        const kind = playKind(G.op), seen = st === 'live' || st === 'kicka' ? ps.t > (kind === 'pa' || kind === 'screen' ? 1.1 : kind === 'rpo' ? RPO_T : 0.5) || kind === 'kick' : kind === 'kick';
+        k = seen ? kind : 'def';
+        txt = seen && kind === 'kick' ? G.op.n : G.dp.n;  // the badge says what they are doing; the words stay your own call
+      }
+    }
+    const key = on ? k + '|' + txt : '';
+    if (key === tagKey) return;
+    tagKey = key;
+    el.hidden = !on;
+    if (!on) return;
+    el.dataset.k = k;
+    el.firstChild.textContent = KIND[k];
+    el.lastChild.textContent = txt;
   }
 
   /* ---------- loop ---------- */

@@ -40,6 +40,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Players run on feet that stay where they land: the legs are solved each frame so a planted foot neither slides nor
   sinks, forward, backward or in a sideways shuffle, and linemen crouch with their soles flat on the turf. A defender
   with ground to cover turns and runs, looking back at the quarterback. The quarterback winds up as the power bar fills.
+- A tackle is two men, not one after the other: the tackler bends to the hit with his shoulder at the runner's hip and
+  his arms round him, and they go down together.
 - Every control has a touch area of at least 44 by 44 pixels, however small it is drawn, and the layout is checked from
   320-pixel phones up to a desktop window. A phone held sideways is asked to turn upright.
 
@@ -116,6 +118,8 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 `PG.r3d.gait(8)` runs a figure at eight yards a second and measures its feet (how far a planted foot slides, how deep
 it sinks, how long it is down); `{ how: 'side' }` makes it a shuffle, `{ who: 'ref' }` an official.
 `PG.r3d.strip(8)` returns a picture of one stride from the side (`{ view: 'front' }` from in front).
+`PG.r3d.tackle(0)` stages a tackle (the angle it comes from, in radians) and measures it: how far the tackler's hands
+are from the runner, whether either body is inside the other or under the turf. `PG.r3d.tackleStrip(0)` draws it.
 
 `tools/audit.js` is the interface audit. Load it the same way after the harness, then run
 `await A.menus(); A.play('exh'); A.play('career'); A.play('camp'); A.report()` at a phone size such as 320 by 568.

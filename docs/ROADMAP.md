@@ -58,7 +58,9 @@ what is next. Update it after every item.
    from the canvases) and blocks of the in-game display that overlap. `A.menus()` replaces the test season and career.
 7. Motion, after any change to the poses: `PG.r3d.gait(8)` (and 2, 5, `{ how: 'back' }`, `{ how: 'side' }` at 3,
    `{ how: 'diag' }`, `{ who: 'ref' }` and `{ who: 'crew' }`) should report a slide of about 2 cm or less and a sink
-   of under half a centimetre; `PG.r3d.strip(8)` returns an image of one stride from the side
+   of under half a centimetre; `PG.r3d.tackle(0)` (and 1.57, 3.14) should report hands within 10 cm of the runner,
+   nothing inside him and nothing under the turf, and `PG.r3d.tackleStrip(0)` draws that tackle as a row of frames;
+   `PG.r3d.poseOf(i)` gives the pose player i is drawn in, for checking that a state reaches the figure; `PG.r3d.strip(8)` returns an image of one stride from the side
    (put it in an `<img>` and look at it).
 
 ## Architecture
@@ -509,6 +511,27 @@ what is next. Update it after every item.
   Drawing only: `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at both phone
   sizes; no console errors.
 
+- 17:44 Two-player tackles (automatic run 4). Measured first, with a staged tackle (`PG.r3d.tackle(angle)`: a runner
+  at six yards a second met from the front, the side or behind, then moved exactly as the engine moves the pair).
+  As it was: the tackler's hands ended 23 to 28 cm from the runner, his trunk 19 to 35 cm inside the runner's body,
+  and parts of both men up to 46 cm under the turf; the two fell side by side like dominoes. Now the tackler bends to
+  the hit inside a tenth of a second with his shoulder at the runner's hip, his arms are solved (`armIK()`, the leg
+  solve turned round for an elbow) to a hand on each side of the runner's hips, he is drawn at 0.96 yard from the
+  runner so the shoulder really is there, and he rides him down to lie across his legs with his head turned aside
+  (the head has its own turn now). `settle()` tries each fallen pose on the figure before it is used: hips up until
+  nothing is under the grass and the tackler's trunk is on the runner and not in him, hands pushed out to the
+  runner's surface, feet let down to the turf. Measured at six approach angles once they are down: hands 8 to 9 cm
+  from the runner's surface (the hand's own radius, so touching), trunk inside the runner 0, under the turf 0 for
+  both. The runner keeps the ball tucked on his back or side and holds it out in front when he lands on his face.
+  `PG.r3d.tackleStrip(angle)` draws the fall as a row of frames; looked at for the three directions, and one real
+  tackle in a game from above.
+  A correction to the 15:46 entry: the quarterback's wind-up was not reaching the game. The power-bar value was
+  passed to the renderer but not on to the pose code, and the still I took showed his ordinary pocket pose, which I
+  misread. It is passed through now and checked by reading the pose the game draws (`PG.r3d.poseOf(i)`): right
+  shoulder 0.80 in the pocket, 3.05 with the bar at 87%, 3.33 at the release, 1.25 late in the follow-through.
+  Drawing only: `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at both phone
+  sizes; no console errors.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -648,13 +671,18 @@ what is next. Update it after every item.
       2); a defender who has ground to cover turns and runs looking back instead of shuffling at a sprint; officials
       and the chain crew on the players' stride. Still to be judged in motion by a person
 
+- [x] Run 4, two-player tackles. The tackler bends to the hit with his shoulder at the runner's hip and his arms
+      round him, and the two go down together, the tackler across the runner's legs; nothing ends up under the turf
+      or inside the other man. The quarterback's wind-up from run 2 now really shows (it was not reaching the game).
+      Still to be judged in motion by a person
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
 - More stadium sound, once somebody has listened to run 1: the stadium announcer on scores and at the end of each
   quarter, the defense calling out the play at the line, a goal-post "doink" (the kick model would have to allow one).
-- Motion, the rest: tackles that involve both players (the tackler's arms round the runner, the pair going down
-  together); a head that turns on its own (the helmet only follows the chest now); more touchdown celebrations than
-  the three there are; reserves on the bench who walk about.
+- Motion, the rest: a second and third man joining a tackle (a pile); blockers whose hands are on the man they block
+  (the arm solve is there now); heads that follow the ball (the head can turn, only the tackler uses it); more
+  touchdown celebrations than the three there are; reserves on the bench who walk about.
 - A real loose-ball scramble instead of an instant recovery; a pile.
 - A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
 - Career: an awards night at the end of the season, age and decline over a long career, a hall of fame screen that

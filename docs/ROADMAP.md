@@ -181,8 +181,9 @@ what is next. Update it after every item.
       sun, stars and clouds; a crowd drawn seat by seat that hops when it cheers; rim light on players; a finishing pass with glow,
       vignette and color (Settings can turn it off)
 - [ ] Animation: better run cycle, catch, tackle wrap, handoff, throw follow-through, referee, celebration variety
-- [x] Weather and time of day: day, dusk, night, rain, snow (cosmetic for now; no effect on play)
-- [ ] Ball-carrier and defender moves: stiff arm, truck, hurdle, hit stick, strip; fumbles
+- [x] Weather and time of day: day, dusk, night, rain, snow
+- [x] Moves: Power (truck a tackler in front, stiff-arm one beside), Hurdle, Hit (hit stick), Strip; fumbles (lost or recovered);
+      rain and snow make catches, fumbles and field goals harder
 - [ ] Sound round 2: announcer calls (speech synthesis, a setting), chants, footsteps, stings between plays
 - [ ] Presentation: pre-game intro, player of the game, drive summary
 - [ ] README refresh, final regression, morning summary
@@ -203,6 +204,12 @@ what is next. Update it after every item.
   134 draw calls and 229k triangles with everything on. Checked by screenshot in day, night, rain; regression clean
   (`H.fingerprint()` unchanged, `H.sim(6,120)` 4.6 ypc, 63% completions, no errors). Not measured on a phone: if it is slow
   there, Settings has switches for shadows and for the finishing pass, and Sharpness lowers the pixel ratio.
+
+- 07:24 Moves and fumbles. Carry pad: Sprint, Juke, Spin, Power, Hurdle. Defense pad: Sprint, Dive, Switch, Hit, Strip (keys L, H, F, R).
+  A tackle knocks the ball loose 1.6% of the time, 10% on a hit stick, 15% on a strip; who recovers depends on who is nearby.
+  `H.sim(12,180)`: 4.5 ypc, 57% completions, 1.6% INT, 31 pts/game, no errors. `H.fingerprint()` re-baselined (the fumble roll
+  changes the random sequence on purpose). Hurdle pose checked by screenshot; truck, stiff arm, hit and strip checked by
+  script only (timers and odds), not yet by eye.
 
 ## Morning hand-off
 

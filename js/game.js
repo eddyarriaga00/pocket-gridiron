@@ -140,6 +140,8 @@
       sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
+    /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
+    G.wx = { rain: { fum: 1.8, cat: 0.94, kick: 0.05 }, snow: { fum: 1.5, cat: 0.96, kick: 0.07 } }[G.env.weather] || { fum: 1, cat: 1, kick: 0 };
     kickoff(first);
     P = [];
     ps = null;
@@ -178,7 +180,8 @@
     const r = G.ros[team][role], ol = role in OLX;
     const p = { team, role, x, y, vx: 0, vy: 0, dvx: 0, dvy: 0, spd: r.spd, acc: ol || role[0] === 'D' ? 9 : 13, rt: r.rt, num: r.num, name: r.name,
       eng: null, block: null, shed: 0, immune: 0, beat: 0, stun: 0, down: false, tcd: 0, route: null, wp: 0, juke: 0, jcd: 0, dive: 0, anim: rnd(6), rd: 0, isOL: ol, asg: null, man: null,
-      callT: 0, manT: 0, bt: null, rx: rnd(0.2, 0.45), thrT: 0, spinT: 0, fell: 0, jog: 0 };
+      callT: 0, manT: 0, bt: null, rx: rnd(0.2, 0.45), thrT: 0, spinT: 0, fell: 0, jog: 0,
+      stiff: 0, truck: 0, hurdle: 0, pcd: 0, hcd: 0, hit: 0, strip: 0, dcd: 0, flat: 0 };  // move timers: power, hurdle, hit stick, strip, knocked flat
     if (r.x) Object.assign(p, r.x);
     p.sx = x;
     p.sy = y;
@@ -504,6 +507,7 @@
       if (d > 9 || ay < -1.5) continue;
       vx += (dx >= 0 ? 1 : -1) * (9 - d) / 9 * (o.eng ? 0.4 : 1) * 1.6 * (Math.abs(dx) < 4 ? 1 : 0.4);
       if (d < 1.8 && p.jcd <= 0 && rnd() < 2.5 * SDT) doJuke(p, dx >= 0 ? 1 : -1);  // a rate, so it is the same at any frame rate
+      else if (d < 2.2 && ay > 0.5 && p.pcd <= 0 && p.juke <= 0 && rnd() < 1.1 * SDT) doPower(p);
     }
     if (p.x < 5) vx += (5 - p.x) * 0.5;
     if (p.x > FW - 5) vx -= (p.x - (FW - 5)) * 0.5;
@@ -526,6 +530,30 @@
     p.spinT = 0.5;
     p.vx *= 0.85;
     p.vy *= 0.85;
+    snd('juke');
+  }
+
+  /* Power: lower the shoulder into a tackler who is right in front (truck), otherwise throw out a stiff arm */
+  function doPower(p) {
+    let near = null, nd = 3.4;
+    for (const o of P) if (o.team !== p.team && !o.down && o.stun <= 0) {
+      const d = dist(o, p);
+      if (d < nd) {
+        nd = d;
+        near = o;
+      }
+    }
+    const sp = hyp(p.vx, p.vy) || 1, ahead = near ? ((near.x - p.x) * p.vx + (near.y - p.y) * p.vy) / (nd * sp) : 0;
+    if (near && nd < 2.5 && ahead > 0.6) p.truck = 0.55;
+    else p.stiff = 0.75;
+    p.pcd = 1.6;
+    snd('juke');
+  }
+
+  /* Hurdle: over a diving tackler or a man on the ground; risky if someone is standing there to meet you */
+  function doHurdle(p) {
+    p.hurdle = 0.5;
+    p.hcd = 1.8;
     snd('juke');
   }
 
@@ -718,6 +746,7 @@
     let cp = dr > 2.2 ? 0 : (0.96 - clamp((2.6 - ndd) / 2.6, 0, 1) * 0.42) * (0.93 + ((r.cat ?? r.rt) - 70) * 0.005) - (dr > 1.2 ? 0.25 : 0) - Math.max(0, a.dist - 16) * 0.009;
     const ud = nd && nd === G.sel && off === 1 && !AUTO && ndd < 1.8;
     if (ud) cp -= 0.2;
+    cp *= G.wx.cat;  // a wet or frozen ball is harder to hold
     let ip = ndd < 1.5 ? 0.38 * (1 + ((nd.bsk ?? nd.rt) - 75) * 0.02) : 0;
     if (dr > 2.2 && ndd < 1.6) ip = 0.4;
     if (ud) ip += 0.2;
@@ -833,6 +862,15 @@
       p.manT -= dt;
       p.thrT -= dt;
       p.spinT -= dt;
+      p.stiff -= dt;
+      p.truck -= dt;
+      p.hurdle -= dt;
+      p.pcd -= dt;
+      p.hcd -= dt;
+      p.hit -= dt;
+      p.strip -= dt;
+      p.dcd -= dt;
+      p.flat -= dt;
       if (p.rd > 0 && ps.open) p.rd -= dt;
       if (p.dive > 0) {
         p.dive -= dt;
@@ -934,9 +972,29 @@
         if (o.dive > 0) pr += 0.2;
         for (const q of P) if (q.team === o.team && q !== o && !q.down && q.stun <= 0 && dist(q, c2) < 2.2) pr += 0.15;
         if (c2.juke > 0) pr *= 0.22;
+        if (c2.hurdle > 0) {
+          if (o.dive > 0 && o.hit <= 0) continue;  // sailed over the diving tackler
+          pr += 0.18;  // met in the air
+        }
+        if (c2.truck > 0) pr *= clamp(0.52 - ((c2.brk ?? c2.rt) - 75) * 0.008, 0.3, 0.7);
+        else if (c2.stiff > 0) pr *= 0.58;
+        if (o.hit > 0) pr += 0.1;
+        if (o.strip > 0) pr -= 0.2;
         if (c2 === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open) pr = 0.93;
         if (o === G.sel && uod) pr += 0.1;
         if (rnd() < clamp(pr, 0.08, 0.97)) {
+          /* does the ball come out? rare on a normal tackle, likely enough on a hit stick or a strip to be worth the risk */
+          let fum = 0.016 * G.wx.fum * clamp(1 - ((c2.brk ?? c2.rt) - 75) * 0.015, 0.5, 1.5);
+          if (o.hit > 0) fum += 0.085;
+          if (o.strip > 0) fum += 0.13;
+          if (c2.hurdle > 0) fum *= 2.5;
+          if (rnd() < fum) {
+            const near = t => P.reduce((n, q) => n + (q.team === t && !q.down && q !== c2 && dist(q, c2) < 6 ? 1 : 0), 0);
+            const lost = rnd() < clamp(0.5 + 0.12 * (near(o.team) - near(c2.team)), 0.2, 0.85);
+            ps.fumble = { lost, forced: o };
+            ps.loose = { x: c2.x, y: c2.y, z: 1.1, vx: rnd(-3, 3), vy: rnd(-3, 3), vz: 3 };
+            if (!AUTO && G.me && o === G.me) G.my.ff = (G.my.ff || 0) + 1;
+          }
           const pw = clamp(0.45 + hyp(o.vx - c2.vx, o.vy - c2.vy) / 14, 0.5, 1.3);
           c2.down = true;
           o.fell = 1;
@@ -945,16 +1003,24 @@
           snd('hit', { power: pw });
           if (pw > 1.05 && !QUIET && !AUTO && PG.audio) PG.audio.crowd.ooh(0.6);
           hitFx(c2.x, c2.y);
-          finish('tackle');
+          finish(ps.fumble && ps.fumble.lost ? 'fumble' : 'tackle');
           return;
         }
         release(o);
-        o.stun = 0.9;
+        const moved = c2.truck > 0 ? 'truck' : c2.stiff > 0 ? 'stiff' : '';
+        o.stun = o.hit > 0 ? 1.3 : moved ? 1.2 : 0.9;  // a missed hit stick takes longer to recover from
         o.dive = 0;
-        c2.vx *= 0.7;
-        c2.vy *= 0.7;
-        snd('hit', { power: 0.45 });
-        if (userP(c2)) toast('Broken tackle!');
+        o.hit = 0;
+        if (moved) {
+          const dx = o.x - c2.x, dy = o.y - c2.y, m = hyp(dx, dy) || 1;
+          o.vx = dx / m * 5;
+          o.vy = dy / m * 5;
+          if (moved === 'truck') o.flat = 1.2;  // put on his back
+        }
+        c2.vx *= moved === 'truck' ? 0.6 : 0.7;
+        c2.vy *= moved === 'truck' ? 0.6 : 0.7;
+        snd('hit', { power: moved === 'truck' ? 0.9 : 0.45 });
+        if (userP(c2)) toast(moved === 'truck' ? 'Ran him over!' : moved === 'stiff' ? 'Stiff arm!' : 'Broken tackle!');
       }
       if (c2.team === 0 ? c2.y >= 100 : c2.y <= 0) finish('td');
       else if (c2.x < 0 || c2.x > FW) finish('oob');
@@ -1014,6 +1080,14 @@
         snd('fanfare');
       }
       react(t, 1.4, 5.5);
+    } else if (kind === 'fumble') {
+      const t = 1 - c.team, f = ps.fumble.forced;
+      stop = true;
+      big = 'Fumble!';
+      sub = `${tname(t)} recover` + (f ? ` · forced by ${f.name}` : '');
+      G.stats[c.team].to++;
+      react(t, 1.2, 3);
+      setBall(t, c.y, c.x);
     } else if (kind === 'tackle' || kind === 'oob') {
       const t = c.team, y = c.y, x = c.x;
       if (me && ps.tackler === me) G.my.tkl++;
@@ -1103,6 +1177,7 @@
       stop = true;
       react(1 - off, 0.9, 2.5);
     }
+    if (kind === 'tackle' && ps.fumble && !ps.fumble.lost) sub += ' · fumble, recovered';
     if (!stop && !score) G.clock = Math.max(0, G.clock - 13);
     if (G.ot && score) G.final = true;
     G.last = sub === 'Turnover on downs' ? sub : big;
@@ -1112,7 +1187,7 @@
       p.block = null;
     }
     ps.after = 0;
-    G.rp = !QUIET && !AUTO && SET.replay !== false && (kind === 'td' || big === 'Interception!' || rpGain >= 28);
+    G.rp = !QUIET && !AUTO && SET.replay !== false && (kind === 'td' || kind === 'fumble' || big === 'Interception!' || rpGain >= 28);
     G.state = 'dead';
     G.deadT = score ? 2.6 : 1.7;
     banner(big, sub, G.deadT * 1000 - 150);
@@ -1187,7 +1262,7 @@
       d[k + 3] = p.vy;
       d[k + 4] = p.anim;
       d[k + 5] = p.thrT;
-      d[k + 6] = (p.down ? 1 : 0) | (p.fell ? 2 : 0) | (p.dive > 0 ? 4 : 0) | (p.stun > 0 ? 8 : 0) | (p.juke > 0 ? 16 : 0) | (p.spinT > 0 ? 32 : 0) | (p.eng ? 64 : 0) | (p.block ? 128 : 0);
+      d[k + 6] = (p.down ? 1 : 0) | (p.fell ? 2 : 0) | (p.dive > 0 ? 4 : 0) | (p.stun > 0 ? 8 : 0) | (p.juke > 0 ? 16 : 0) | (p.spinT > 0 ? 32 : 0) | (p.eng ? 64 : 0) | (p.block ? 128 : 0) | (p.stiff > 0 ? 256 : 0) | (p.truck > 0 ? 512 : 0) | (p.hurdle > 0 ? 1024 : 0) | (p.hit > 0 ? 2048 : 0) | (p.flat > 0 ? 4096 : 0);
       d[k + 7] = o ? P.indexOf(o) : -1;
     }
     const a = ps.air;
@@ -1233,6 +1308,11 @@
       p.spinT = fl & 32 ? 0.2 : 0;
       p.eng = fl & 64 ? P[o] || null : null;
       p.block = fl & 128 ? P[o] || null : null;
+      p.stiff = fl & 256 ? 0.2 : 0;
+      p.truck = fl & 512 ? 0.2 : 0;
+      p.hurdle = fl & 1024 ? 0.25 : 0;
+      p.hit = fl & 2048 ? 0.2 : 0;
+      p.flat = fl & 4096 ? 0.2 : 0;
       p.jog = 0;
     }
     const a = f.air, b = g.air || a;
@@ -1395,7 +1475,7 @@
     const off = G.poss, dir = G.dir, los = ps.los, k = ps.qb;
     let x1, y1, T, h;
     if (G.op.n === 'Field Goal') {
-      const d = ((off === 0 ? 100 : 0) - los) * dir + 17, thr = clamp(0.22 + Math.max(0, d - 22) * 0.019, 0.22, 0.96), good = acc >= thr && d <= 63, sg = rnd() < .5 ? -1 : 1;
+      const d = ((off === 0 ? 100 : 0) - los) * dir + 17, thr = clamp(0.22 + Math.max(0, d - 22) * 0.019, 0.22, 0.96), good = acc >= thr + G.wx.kick && d <= 63, sg = rnd() < .5 ? -1 : 1;
       x1 = FW / 2 + sg * (good ? (1 - acc) * 3.5 : 4.4 + rnd(3));
       y1 = (off === 0 ? 110 : -10) + dir * 10;
       T = 1.5 + d * 0.014;
@@ -1631,6 +1711,29 @@
     s.dive = 0.32;
   }
 
+  /* Hit stick: a short, hard lunge. More likely to bring him down and to jar the ball loose, slower to recover from a miss. */
+  function hitStick() {
+    const s = G.sel;
+    if (!s || s.dive > 0 || s.stun > 0 || s.eng || s.down || s.dcd > 0) return;
+    diveDef();
+    if (s.dive > 0) {
+      s.dive = 0.24;
+      s.hit = 0.24;
+      s.dcd = 1.4;
+      const m = hyp(s.vx, s.vy) || 1;
+      s.vx *= s.spd * 1.5 / m;
+      s.vy *= s.spd * 1.5 / m;
+    }
+  }
+
+  /* Strip: swipe at the ball for the next half second. The tackle is less sure, the fumble far more likely. */
+  function stripBall() {
+    const s = G.sel;
+    if (!s || s.stun > 0 || s.eng || s.down || s.dcd > 0) return;
+    s.strip = 0.5;
+    s.dcd = 1.2;
+  }
+
   function act(k, n) {
     if (AUTO || G.paused) return;
     if (k === 'main') {
@@ -1670,13 +1773,17 @@
       }
       return;
     }
-    if (c && userP(c) && !canPass() && c.jcd <= 0) {
-      if (k === 'juke') doJuke(c, inp.x >= 0 ? 1 : -1);
-      if (k === 'spin') doSpin(c);
+    if (c && userP(c) && !canPass()) {
+      if (k === 'juke' && c.jcd <= 0) doJuke(c, inp.x >= 0 ? 1 : -1);
+      if (k === 'spin' && c.jcd <= 0) doSpin(c);
+      if (k === 'power' && c.pcd <= 0 && c.hurdle <= 0) doPower(c);
+      if (k === 'hurdle' && c.hcd <= 0 && c.truck <= 0) doHurdle(c);
     }
     if (userOnD()) {
       if (k === 'switch') switchDef();
       if (k === 'dive') diveDef();
+      if (k === 'hit') hitStick();
+      if (k === 'strip') stripBall();
     }
   }
 
@@ -1698,8 +1805,8 @@
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter first to change his route.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle.',
-    def: 'Drag to chase the ball. Dive tackles, Switch changes player.', deflock: 'Drag to chase the ball. Dive makes the tackle.', route: 'Follow your route. Tap Call when you are open.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter first to change his route.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+    def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
     offball: 'Drag to block for the ball carrier.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control.' };
   let tipT;
 
@@ -1764,13 +1871,19 @@
       spr();
       B('Juke', '', () => act('juke'));
       B('Spin', '', () => act('spin'));
+      B('Power', '', () => act('power'));
+      B('Hurdle', '', () => act('hurdle'));
     } else if (kind === 'def') {
       spr();
       B('Dive', '', () => act('dive'));
       B('Switch', '', () => act('switch'));
+      B('Hit', '', () => act('hit'));
+      B('Strip', '', () => act('strip'));
     } else if (kind === 'deflock') {
       spr();
       B('Dive', '', () => act('dive'));
+      B('Hit', '', () => act('hit'));
+      B('Strip', '', () => act('strip'));
     } else if (kind === 'route') {
       spr();
       B('Call', 'hot', () => act('call'));
@@ -1792,6 +1905,10 @@
     if (e.code === 'KeyK') act('spin');
     if (e.code === 'KeyQ') act('switch');
     if (e.code === 'KeyE') act('dive');
+    if (e.code === 'KeyL') act('power');
+    if (e.code === 'KeyH') act('hurdle');
+    if (e.code === 'KeyF') act('hit');
+    if (e.code === 'KeyR') act('strip');
     if (e.code === 'KeyC') act('call');
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
   });
@@ -2217,10 +2334,10 @@
   function showHow() {
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li></ul>
-  <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li></ul>
+  <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
-  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, Q switch, E dive, C call for the ball, P pause.</li></ul></div>`;
+  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, C call for the ball, P pause.</li></ul></div>`;
     $('#bk').onclick = showMenu;
   }
 

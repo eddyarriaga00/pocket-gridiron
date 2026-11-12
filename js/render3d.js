@@ -281,16 +281,21 @@
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5), ph = p.anim * 2.4, sn = Math.sin(ph), cs = Math.cos(ph);
     const carrier = ps.carrier === p && !ps.air, inPocket = carrier && p === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open;
     let hx = null, hy = 0, snap = false;
-    if (!(p.down || p.fell)) f.fall = 0;
+    const flat = p.flat > 0 && !p.down && !p.fell;              // run over: on his back for a moment
+    if (!(p.down || p.fell || flat)) f.fall = 0;
     tg[PELY] = HIP; tg[EL] = 0.25; tg[ER] = 0.25; tg[CHRX] = -0.05;
 
-    if (p.down || p.fell) {                                   // on the turf
+    if (p.down || p.fell || flat) {                           // on the turf
       f.fall = Math.min(1, f.fall + dt / 0.28);
       const e = f.fall * f.fall * (3 - 2 * f.fall);
-      tg[PELY] = lerp(HIP, 0.24, e); tg[PELRX] = -1.5 * e * f.fallDir;
+      tg[PELY] = lerp(HIP, 0.24, e); tg[PELRX] = -1.5 * e * (flat ? -1 : f.fallDir);
       tg[SLX] = 2.5; tg[SRX] = 2.8; tg[SLZ] = -0.5; tg[SRZ] = 0.4; tg[EL] = 0.5; tg[ER] = 0.3;
       tg[HL] = 0.2; tg[KL] = -0.4; tg[HR] = -0.1; tg[KR] = -0.15; tg[HEADRX] = 0.2;
       snap = true;
+    } else if (p.dive > 0 && p.hit > 0) {                     // hit stick: stays on his feet and drives a shoulder through
+      tg[PELY] = HIP - 0.22; tg[PELRX] = -0.75; tg[CHRX] = -0.3; tg[HEADRX] = 0.5; tg[SLX] = 1.7; tg[SRX] = 1.7; tg[SLZ] = 0.35; tg[SRZ] = -0.35; tg[EL] = 0.5; tg[ER] = 0.5;
+      tg[HL] = 1.6; tg[KL] = -1.1; tg[HR] = 0.3; tg[KR] = -0.4;
+      hx = p.vx; hy = p.vy; snap = true;
     } else if (p.dive > 0) {
       tg[PELY] = 0.5; tg[PELRX] = -1.35; tg[SLX] = 2.9; tg[SRX] = 2.9; tg[EL] = 0.1; tg[ER] = 0.1; tg[HL] = 0.1; tg[HR] = -0.1; tg[KL] = -0.1; tg[KR] = -0.2;
       hx = p.vx; hy = p.vy;
@@ -352,6 +357,15 @@
       }
       if (ps.air && ps.air.target === p && ps.air.T - ps.air.t < 0.45) { tg[SLX] = 2.7; tg[SRX] = 2.7; tg[SLZ] = -0.15; tg[SRZ] = 0.15; tg[EL] = 0.35; tg[ER] = 0.35; tg[HEADRX] = 0.35; }
       if (p.juke > 0 && !(p.spinT > 0)) tg[PELRZ] = clamp(-p.vx * Math.cos(f.heading) * 0.06, -0.4, 0.4);
+      if (p.truck > 0) {                                       // shoulder down, both arms over the ball
+        tg[CHRX] = -0.85; tg[HEADRX] = 0.55; tg[SLX] = 0.9; tg[SRX] = 0.9; tg[SLZ] = 0.3; tg[SRZ] = -0.3; tg[EL] = 1.7; tg[ER] = 1.7; tg[PELY] -= 0.1;
+      } else if (p.stiff > 0) { tg[SLX] = 1.45; tg[SLZ] = -0.55; tg[EL] = 0.05; tg[CHRY] = 0.28; }      // free arm locked out
+      if (p.strip > 0) { tg[SRX] = 1.4 + Math.sin(time * 28) * 0.45; tg[ER] = 0.4; }                    // swiping at the ball
+      if (p.hurdle > 0) {                                      // lead leg up and over, trail leg tucked
+        const up = Math.sin(clamp(1 - p.hurdle / 0.5, 0, 1) * Math.PI);
+        tg[PELY] = HIP + 0.62 * up; tg[HL] = 1.5; tg[KL] = -0.25; tg[HR] = -0.5; tg[KR] = -1.5; tg[CHRX] = -0.3;
+        snap = true;
+      }
     }
     /* A forward lean comes partly from the hips: the seat goes back and the jersey stays tucked in,
        instead of the chest folding over a level pelvis. The thighs counter-rotate so the feet stay put. */

@@ -532,6 +532,12 @@ what is next. Update it after every item.
   Drawing only: `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at both phone
   sizes; no console errors.
 
+- 17:55 The owner's first verdict by ear: the spoken commentary sounds "too ai" and should be "like the nfl
+  commentators". Nothing changed in the game for it yet. Looked at what could record real-sounding lines: the voice
+  service connected to this session (Eleven v4 and others; a two-voice sample of 230 characters priced at 1.15
+  credits, one short line at 0.5; the account holds 5 credits), and this Mac (M1, Python 3.14, no speech model, no
+  ffmpeg; only compact system voices installed). Asked the owner which way to go; see "Next ideas".
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -678,8 +684,16 @@ what is next. Update it after every item.
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
-- More stadium sound, once somebody has listened to run 1: the stadium announcer on scores and at the end of each
-  quarter, the defense calling out the play at the line, a goal-post "doink" (the kick model would have to allow one).
+- Commentary that sounds like a broadcast booth. The owner listened and wrote at about 17:50 on 2026-11-12: "the voice
+  over is too ai, it needs to be like the nfl commentators". The spoken lines come from the phone's own speech voice,
+  which cannot be made to sound human, so this needs recorded lines: an original two-man booth (play-by-play and
+  analyst) with our own words, never a real commentator's voice, name or catchphrase, and no league or team marks.
+  WAITING on the owner's choice of how the lines are recorded: a free open-source voice model run on this Mac (needs
+  a download, which the assets rule forbids without his say-so), or the paid voice service connected to the session
+  (5 credits there at 17:55; a full booth is roughly 60 to 100). Until he answers: do not add spoken lines, and do
+  not download or generate any audio.
+- More stadium sound: the stadium announcer on scores and at the end of each quarter, the defense calling out the play
+  at the line, a goal-post "doink" (the kick model would have to allow one).
 - Motion, the rest: a second and third man joining a tackle (a pile); blockers whose hands are on the man they block
   (the arm solve is there now); heads that follow the ball (the head can turn, only the tackler uses it); more
   touchdown celebrations than the three there are; reserves on the bench who walk about.

@@ -32,7 +32,7 @@
   const camPos = new T.Vector3(FW / 2, 30, 20), camLook = new T.Vector3(FW / 2, 0, -50);
 
   /* ---------- pose layout ---------- */
-  const PELY = 0, PELRX = 1, PELRZ = 2, CHRX = 3, CHRY = 4, HEADRX = 5, SLX = 6, SLZ = 7, EL = 8, SRX = 9, SRZ = 10, ER = 11, HL = 12, KL = 13, HR = 14, KR = 15, NPOSE = 16;
+  const PELY = 0, PELRX = 1, PELRZ = 2, CHRX = 3, CHRY = 4, HEADRX = 5, SLX = 6, SLZ = 7, EL = 8, SRX = 9, SRZ = 10, ER = 11, HL = 12, KL = 13, HR = 14, KR = 15, AL = 16, AR = 17, NPOSE = 18;
   const TG = new Float32Array(NPOSE);
 
   /* two poses a fallen player passes through on his way up: one knee down with the other foot planted, then standing */
@@ -40,6 +40,11 @@
 
   for (const [i, v] of [[PELY, 0.56], [CHRX, -0.35], [HEADRX, 0.3], [SLX, 0.55], [SRX, 0.95], [EL, 0.4], [ER, 0.7], [HL, 1.5], [KL, -1.55], [HR, -0.1], [KR, -1.6]]) KNEEL[i] = v;
   for (const [i, v] of [[PELY, 1], [CHRX, -0.05], [EL, 0.25], [ER, 0.25]]) STAND[i] = v;
+
+  /* Leg lengths, in figure units (hips at HIP = 1): thigh, knee to ankle, the ankle above the sole, and the toe of
+     the shoe ahead of the ankle. The foot turns on the ankle, so a planted sole can lie flat while the shin leans,
+     and the heel can peel up over the toe as he pushes off (the shoe is stiff, so the toe is where it hinges). */
+  const L1 = 0.5, ANKLE = 0.44, SOLE = 0.067, TOE = 0.2;
 
   /* ---------- geometry ---------- */
   const cap = (r, len, y) => new T.CapsuleGeometry(r, len, 3, 8).translate(0, y, 0);
@@ -167,7 +172,7 @@
     pantStripe: merge([Math.PI / 2, Math.PI * 1.5].map(a => lathe([[0.112, -0.03], [0.108, -0.2], [0.09, -0.455]], 3, a - 0.2, 0.4))),
     thigh: merge([lathe([[0.01, 0.05], [0.108, 0], [0.104, -0.2], [0.086, -0.46]], 12), new T.SphereGeometry(0.087, 12, 8).translate(0, -0.49, 0)]),
     shin: lathe([[0.01, 0.03], [0.07, 0], [0.084, -0.13], [0.062, -0.34], [0.052, -0.46], [0.01, -0.49]], 12),
-    foot: new T.CapsuleGeometry(0.058, 0.15, 2, 8).rotateX(Math.PI / 2).scale(1.05, 0.72, 1).translate(0, -0.465, -0.07),
+    foot: new T.CapsuleGeometry(0.058, 0.15, 2, 8).rotateX(Math.PI / 2).scale(1.05, 0.72, 1).translate(0, -0.465 + ANKLE, -0.07),  // in the ankle joint's space
   };
 
   /* ---------- the near model ----------
@@ -182,7 +187,7 @@
     const g = merge([new T.SphereGeometry(1, 12, 8).scale(0.056, 0.046, 0.092).translate(0, -0.466, -0.118), new T.SphereGeometry(1, 12, 8).scale(0.052, 0.05, 0.085).translate(0, -0.462, -0.02),
       new T.CylinderGeometry(0.052, 0.054, 0.05, 12).translate(0, -0.43, 0.002)]), p = g.attributes.position;
     for (let i = 0; i < p.count; i++) if (p.getY(i) < -0.507) p.setY(i, -0.507);
-    return g;
+    return g.translate(0, ANKLE, 0);  // into the ankle joint's space
   }
 
   /* A hand seen with the arm hanging: the palm faces the thigh, so it is thin from side to side, the fingers hang in a
@@ -265,7 +270,7 @@
     foreArm: lathe([[0.054, 0], [0.056, -0.08], [0.058, -0.34]], 5),  // long enough to stand in for the hand
     thigh: lathe([[0.108, 0], [0.086, -0.5]], 6),
     shin: lathe([[0.07, 0], [0.084, -0.13], [0.052, -0.46]], 6),
-    foot: new T.BoxGeometry(0.12, 0.08, 0.26).translate(0, -0.465, -0.07),
+    foot: new T.BoxGeometry(0.12, 0.08, 0.26).translate(0, -0.465 + ANKLE, -0.07),
   };
 
   /* [name, joints it follows, color key, what body type scales it ('body', 'limb' or nothing), casts a shadow] */
@@ -276,7 +281,7 @@
     ['upperArm', ['shL', 'shR'], 'skin', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
     ['foreArm', ['elL', 'elR'], 'skin', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
     ['thigh', ['hipL', 'hipR'], 'pants', 'limb', 1], ['pantStripe', ['hipL', 'hipR'], 'stripe', 'limb'],
-    ['shin', ['kneeL', 'kneeR'], 'sock', 'limb', 1], ['foot', ['kneeL', 'kneeR'], 'shoe', 'limb', 1],  // the shoe widens with the leg, or a thick ankle pokes through it
+    ['shin', ['kneeL', 'kneeR'], 'sock', 'limb', 1], ['foot', ['ankL', 'ankR'], 'shoe', 'limb', 1],  // the shoe widens with the leg, or a thick ankle pokes through it
   ];
 
   /* Body types: [shoulder and hip width, depth, height, limb thickness]. Linemen are wide and deep, receivers and
@@ -380,7 +385,7 @@
   /* ---------- figures ---------- */
   function makeFigure() {
     const g = () => new T.Group();
-    const f = { root: g(), pelvis: g(), chest: g(), head: g(), shL: g(), elL: g(), shR: g(), elR: g(), hipL: g(), kneeL: g(), hipR: g(), kneeR: g() };
+    const f = { root: g(), pelvis: g(), chest: g(), head: g(), shL: g(), elL: g(), shR: g(), elR: g(), hipL: g(), kneeL: g(), ankL: g(), hipR: g(), kneeR: g(), ankR: g() };
     f.root.add(f.pelvis);
     f.pelvis.position.y = HIP;
     f.pelvis.add(f.chest);
@@ -392,10 +397,12 @@
       sh.add(el);
       f.chest.add(sh);
     }
-    for (const [hip, knee, side] of [[f.hipL, f.kneeL, -1], [f.hipR, f.kneeR, 1]]) {
+    for (const [hip, knee, ank, side] of [[f.hipL, f.kneeL, f.ankL, -1], [f.hipR, f.kneeR, f.ankR, 1]]) {
       hip.position.set(side * 0.11, 0, 0);
-      knee.position.y = -0.5;
+      knee.position.y = -L1;
+      ank.position.y = -ANKLE;
       hip.add(knee);
+      knee.add(ank);
       f.pelvis.add(hip);
     }
     f.root.scale.setScalar(PSCALE);
@@ -415,6 +422,9 @@
     f.snap = true;
     f.ph = Math.random() * 6.28;
     f.lean = 0;  // stride phase and how far he is leaning into a cut
+    f.gaitT = 0;  // how long he has been striding (the legs follow the stride exactly once it has settled)
+    f.back = false;
+    f.wind = 0;  // how far a quarterback has wound up for the throw (0 to 1)
     return f;
   }
 
@@ -436,6 +446,8 @@
     f.kneeL.rotation.x = c[KL];
     f.hipR.rotation.x = c[HR];
     f.kneeR.rotation.x = c[KR];
+    f.ankL.rotation.x = c[AL];
+    f.ankR.rotation.x = c[AR];
   }
 
   const ZERO4 = new T.Matrix4().makeScale(0, 0, 0), fit4 = new T.Matrix4();
@@ -464,6 +476,84 @@
   /* The height a pass is drawn at. The engine throws from 1.8 yards up to 1.2; the figures are drawn 1.6 times life
      size, so both ends are lifted to match (out of the hand by the ear, in at the numbers) and the arc is left alone. */
   const passZ = a => a.z + (PSCALE - 1) * lerp(1.8, 1.2, Math.min(1, a.t / a.T));
+
+  /* ---------- the stride: feet that stay where they are put ----------
+     A run used to be two sine waves on the hips and knees. Measured, the foot was at its lowest for a twentieth of the
+     stride, was sliding backward over the turf at about the runner's own speed while it was there, and sank five
+     centimetres into the field. Now each foot is given a place to be and the leg is solved to put it there.
+     Each foot spends a share of the cycle on the ground (about half at a walk, a quarter flat out) and the rest in the
+     air. On the ground the toe of the shoe stays exactly where it landed while the hips travel over it, and the heel
+     peels up before it leaves. In the air the ankle swings through on an arc that is higher the faster he runs. */
+  const smooth = x => x * x * (3 - 2 * x);
+  const stepOf = sp => clamp(0.75 + 0.19 * sp, 0.8, 2.5);  // yards covered by one step at this speed
+  const LEG = [0, 0, 0], GAIT = { duty: 0.4, Ls: 0, c0: 0, h: 1, heel: 0, lift: 0, front: 0, back: false };
+
+  /* Two bones in the plane the leg swings in. (u, y): where the ankle should be, forward of the hip and above the
+     turf; h: how high the hip is; pitch: how far the heel is lifted (0 is a flat sole). Fills LEG with the hip, knee
+     and ankle angles; a place the leg cannot reach is aimed at as far as it goes. */
+  function legIK(u, y, h, pitch) {
+    const dy = h - y, D = clamp(Math.hypot(u, dy), 0.26, L1 + ANKLE - 0.004), inner = Math.acos(clamp((L1 * L1 + ANKLE * ANKLE - D * D) / (2 * L1 * ANKLE), -1, 1));
+    LEG[0] = Math.atan2(u, dy) + Math.asin(clamp(ANKLE * Math.sin(inner) / D, -1, 1));  // the knee always folds forward
+    LEG[1] = inner - Math.PI;
+    LEG[2] = -pitch - LEG[0] - LEG[1];
+  }
+
+  /* the shape of the stride at this speed. `along` is the share of his speed that is in the direction he faces:
+     1 running forward, -1 backpedalling, 0 shuffling sideways (the legs cannot plant across themselves, so then they step in place) */
+  function gaitOf(f, sp, run, along) {
+    const g = GAIT, cyc = 2 * stepOf(sp) / f.root.scale.y, share = Math.abs(along);  // figure lengths covered in one cycle of two steps
+    g.back = along < 0;
+    g.duty = clamp(lerp(0.62, 0.8, run) / cyc, 0.24, 0.6);
+    g.Ls = g.duty * cyc * share;  // how far the hips travel over a planted foot
+    g.c0 = f.ph / (2 * Math.PI) + 0.63;
+    g.h = lerp(0.965, 0.94, run) + lerp(0.016, 0.05, run) * (1 - Math.cos(4 * Math.PI * (g.c0 - g.duty / 2))) / 2;  // lowest over the planted foot, highest in the air between steps
+    g.heel = g.back ? 0 : lerp(0.4, 0.95, run) * share;
+    g.lift = lerp(0.06, 0.36, run) * (g.back ? 0.5 : 0.4 + 0.6 * share);
+    g.front = g.Ls * lerp(0.5, 0.46, run) + (g.back ? 0 : 0.06);  // how far ahead of the hip the toe lands
+    return g;
+  }
+
+  /* both legs for the stride g, with the hips at height h; `walk` fades it in from standing still */
+  function strideLegs(tg, g, h, walk) {
+    for (let k = 0; k < 2; k++) {
+      let c = g.c0 + k * 0.5, u, y, pitch;
+      c -= Math.floor(c);
+      if (c < g.duty) {
+        const a = c / g.duty;
+        pitch = g.heel * smooth(clamp((a - 0.5) / 0.5, 0, 1));
+        u = g.front - g.Ls * a - TOE * Math.cos(pitch) + SOLE * Math.sin(pitch);  // the ankle rides up and forward over the toe
+        y = TOE * Math.sin(pitch) + SOLE * Math.cos(pitch);
+      } else {
+        const t = (c - g.duty) / (1 - g.duty), t2 = t * t, t3 = t2 * t, m = -g.Ls / g.duty * (1 - g.duty) * 0.55;  // leave and land moving nearly with the turf
+        const u0 = g.front - g.Ls - TOE * Math.cos(g.heel) + SOLE * Math.sin(g.heel), y0 = TOE * Math.sin(g.heel) + SOLE * Math.cos(g.heel), u1 = g.front - TOE;
+        u = (2 * t3 - 3 * t2 + 1) * u0 + (t3 - 2 * t2 + t) * m + (3 * t2 - 2 * t3) * u1 + (t3 - t2) * m;
+        y = lerp(y0, SOLE, smooth(t)) + g.lift * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.85)), 1.3);
+        pitch = g.heel * (1 - smooth(Math.min(1, t / 0.55)));
+      }
+      if (g.back) u = -u - TOE;  // backpedalling: the same path mirrored, on a foot that still points forward, the ankle passing under the hip
+      legIK(u, y, h, pitch);
+      tg[k ? HR : HL] = LEG[0] * walk;
+      tg[k ? KR : KL] = LEG[1] * walk;
+      tg[k ? AR : AL] = LEG[2] * walk;
+    }
+  }
+
+  /* Stand a set pose on the turf: both soles flat, the hips moved up or down until the lower foot rests exactly on
+     the ground, and the other foot let down onto its toe if it is still short of it. (The shoe used to be one piece
+     with the shin, so in a crouch the toes were buried in the field.) */
+  function plant(tg) {
+    let low = 9, hi = 0;
+    const sole = [0, 0];
+    for (let k = 0; k < 2; k++) {
+      const A = tg[PELRX] + tg[k ? HR : HL], B = A + tg[k ? KR : KL];
+      tg[k ? AR : AL] = -B;
+      sole[k] = tg[PELY] - L1 * Math.cos(A) - ANKLE * Math.cos(B) - SOLE;
+      low = Math.min(low, sole[k]);
+      hi = Math.max(hi, sole[k]);
+    }
+    tg[PELY] -= low;
+    if (hi - low > 0.004) tg[sole[1] > sole[0] ? AR : AL] -= Math.asin(Math.min(0.9, (hi - low) / TOE));
+  }
 
   /* ---------- animation: fill TG with the pose this player wants ---------- */
   function stanceOf(p, s) {
@@ -660,9 +750,11 @@
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
     /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
        ground actually covered. That keeps the feet moving at the pace of the turf instead of skating over it. */
-    f.ph += sp * dt * Math.PI / clamp(0.75 + 0.19 * sp, 0.8, 2.5);
-    const sn = Math.sin(f.ph), cs = Math.cos(f.ph);
+    f.ph += sp * dt * Math.PI / stepOf(sp);
+    const sn = Math.sin(f.ph);
+    let striding = false;
     const carrier = ps.carrier === p && !ps.air, inPocket = carrier && p === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open;
+    const winding = s.charge >= 0 && carrier && p === ps.qb && !ps.thrown;  // the user is holding a receiver's letter: the power bar is filling
     let hx = null, hy = 0, snap = false;
     const flat = p.flat > 0 && !p.down && !p.fell;  // run over: on his back for a moment
     if (!(p.down || p.fell || flat)) f.fall = 0;
@@ -746,6 +838,7 @@
       tg[KL] = -1.1;
       tg[HR] = 0.3;
       tg[KR] = -0.4;
+      plant(tg);
       hx = p.vx;
       hy = p.vy;
       snap = true;
@@ -776,6 +869,7 @@
       tg[HR] = -0.3;
       tg[KR] = -0.35;
       tg[HEADRX] = 0.4;
+      plant(tg);
     } else if (s.celeb && s.G.state === 'dead') {
       if (p.team === s.celeb.team) snap = celebrate(f, p === s.celeb.who, tg);
       else {
@@ -805,6 +899,7 @@
       tg[HR] = 0.45 - w * 0.3;
       tg[KL] = -0.75;
       tg[KR] = -0.75;
+      plant(tg);
     } else if (p.fc) {
       // fair catch: one arm straight up, waving, eyes on the ball
       tg[SRX] = 3.05;
@@ -813,18 +908,21 @@
       tg[HEADRX] = 0.4;
       tg[CHRX] = 0.04;
     } else if (p.thrT > 0) {
-      // throwing motion: cock, then whip through
-      const u = 1 - p.thrT / 0.32;
-      if (u < 0.45) {
-        const a = u / 0.45;
+      /* The throw: cock, then whip through. A quarterback who wound up while the power bar filled is cocked already
+         and goes straight to the whip. The finish fits the power: a bullet snaps down across the body with the
+         weight over the front foot, a lob is pushed up and out and finishes high. */
+      const u = 1 - p.thrT / 0.32, pw = p.thrP === undefined ? 0.5 : p.thrP, cock = 0.45 * (1 - (f.wind || 0));
+      if (u < cock) {
+        const a = u / cock;
         tg[SRX] = lerp(1.3, 3.5, a);
         tg[ER] = 1.5;
         tg[CHRY] = 0.5;
       } else {
-        const a = (u - 0.45) / 0.55;
-        tg[SRX] = lerp(3.5, 1.0, a);
-        tg[ER] = lerp(1.5, 0.15, a);
-        tg[CHRY] = lerp(0.5, -0.4, a);
+        const a = smooth((u - cock) / (1 - cock));
+        tg[SRX] = lerp(3.5, lerp(1.9, 0.7, pw), a);
+        tg[ER] = lerp(1.5, lerp(0.5, 0.1, pw), a);
+        tg[CHRY] = lerp(0.5, lerp(-0.2, -0.55, pw), a);
+        tg[CHRX] = lerp(-0.05, lerp(0.05, -0.28, pw), a);
       }
       tg[SLX] = 0.8;
       tg[EL] = 1.0;
@@ -832,7 +930,8 @@
       tg[KL] = -0.3;
       tg[HR] = -0.3;
       tg[KR] = -0.2;
-      tg[CHRX] = -0.1;
+      if (u < cock) tg[CHRX] = -0.05;
+      plant(tg);
       snap = true;
     } else if (ps.mode === 'kick' && p === ps.qb && ps.air && ps.air.t < 0.45) {
       // the kicker swings through the ball
@@ -900,6 +999,7 @@
         tg[SRX] = -0.2;
         tg[ER] = 0.7;
       }
+      plant(tg);
       hx = 0;
       hy = p.team === ps.offTeam ? s.dir : -s.dir;
     } else {
@@ -919,13 +1019,9 @@
         hy = ps.qb.y - p.y;
         facing = p.vx * hx + p.vy * hy >= 0 ? 1 : -1;
       }  // eyes on the quarterback
-      const back = facing < 0, dirn = back ? -1 : 1, moving = Math.min(1, run * 3), amp = (back ? 0.5 : 0.42 + 0.58 * run) * moving;
-      /* legs: the thigh drives further forward than it reaches behind; the knee folds as the leg comes through and opens for the plant */
-      const thigh = v => (v * 0.85 + 0.22 * run) * amp * dirn, knee = v => -(0.16 + (0.5 + 1.1 * run) * Math.pow(Math.max(0, v * dirn), 0.8)) * moving;
-      tg[HL] = thigh(sn);
-      tg[HR] = thigh(-sn);
-      tg[KL] = knee(cs);
-      tg[KR] = knee(-cs);
+      const back = facing < 0, dirn = back ? -1 : 1, moving = Math.min(1, run * 3);
+      /* legs: the stride (see above) gives each foot a place on the turf; the hips ride at the height it asks for */
+      const walk = clamp((sp - 0.25) / 0.5, 0, 1), gait = walk > 0 ? gaitOf(f, sp, run, clamp((p.vy * Math.cos(f.heading) - p.vx * Math.sin(f.heading)) / sp, -1, 1)) : null;
       /* arms: opposite the legs, elbows held near a right angle, hands driving from hip to chin */
       const arm = (0.2 + 0.8 * run) * moving;
       tg[SLX] = (-sn * 0.95 + 0.12) * arm * dirn;
@@ -935,7 +1031,7 @@
       tg[CHRY] = sn * 0.2 * run * dirn;  // the shoulders turn against the hips
       tg[CHRX] = back ? 0.04 : -(0.08 + 0.28 * run);
       tg[HEADRX] = -tg[CHRX] * 0.6;
-      tg[PELY] = HIP - 0.05 * run + Math.abs(sn) * 0.07 * run;  // the body rises between plants
+      tg[PELY] = gait ? lerp(HIP, gait.h, walk) : HIP;  // the body rises between plants
       tg[PELRZ] = f.lean;  // and leans into a cut
       if (sp < 0.5) {
         // standing: breathe, and some rest hands on hips
@@ -989,6 +1085,24 @@
             tg[SLZ] = 0.2;
             tg[SRZ] = -0.2;
           }  // arms make a pocket
+      }
+      if (winding) {
+        /* winding up as the power bar fills: the ball goes back behind the ear, the front arm comes off it and
+           points, the shoulders open, and he turns to the man he is throwing to */
+        const e = smooth(s.charge), r = s.G.chg && ps.recs ? ps.recs[s.G.chg.i] : null;
+        tg[SRX] = lerp(0.9, 3.3, e);
+        tg[ER] = lerp(1.75, 1.45, e);
+        tg[SRZ] = lerp(-0.25, 0.15, e);
+        tg[SLX] = lerp(0.8, 1.35, e);
+        tg[EL] = lerp(1.75, 0.5, e);
+        tg[SLZ] = lerp(0.25, -0.1, e);
+        tg[CHRY] = 0.6 * e;
+        tg[CHRX] = lerp(-0.06, 0.03, e);
+        f.wind = s.charge;
+        if (r) {
+          hx = r.x - p.x;
+          hy = r.y - p.y;
+        }
       }
       if (ps.air && !ps.air.kick && ps.air.T - ps.air.t < 0.5) {
         const a = ps.air, bx = a.x - p.x, by = a.y - p.y;
@@ -1045,6 +1159,12 @@
         tg[KR] = -1.5;
         tg[CHRX] = -0.3;
         snap = true;
+      } else if (gait) {
+        /* last, so the legs reach the turf from wherever the hips have ended up (lower when he drops a shoulder) */
+        strideLegs(tg, gait, tg[PELY], walk);
+        striding = true;
+        if (gait.back !== f.back) f.gaitT = 0;  // turning from a backpedal to a run: ease across
+        f.back = gait.back;
       }
     }
     /* A forward lean comes partly from the hips: the seat goes back and the jersey stays tucked in,
@@ -1065,9 +1185,12 @@
       f.lean += ((f.snap ? 0 : clamp(d * 0.9 * run, -0.32, 0.32)) - f.lean) * (1 - Math.exp(-dt * 9));
     } else f.lean *= Math.exp(-dt * 9);
     if (p.spinT > 0) f.heading += dt * Math.PI * 2 / 0.5;
-    /* ease the pose */
-    const k = f.snap || snap ? (f.snap ? 1 : 1 - Math.exp(-dt * 60)) : 1 - Math.exp(-dt * 28);
-    for (let i = 0; i < NPOSE; i++) f.cur[i] += (tg[i] - f.cur[i]) * k;
+    /* ease the pose. A stride that has settled is followed almost exactly: easing it would round off the very
+       positions that keep the feet planted. */
+    if (!(p.thrT > 0) && !winding) f.wind = 0;
+    f.gaitT = striding ? f.gaitT + dt : 0;
+    const k = f.snap || snap ? (f.snap ? 1 : 1 - Math.exp(-dt * 60)) : 1 - Math.exp(-dt * 28), kLeg = lerp(k, Math.max(k, 1 - Math.exp(-dt * 150)), clamp(f.gaitT / 0.2, 0, 1));
+    for (let i = 0; i < NPOSE; i++) f.cur[i] += (tg[i] - f.cur[i]) * (i === PELY || i >= HL ? kLeg : k);
     f.snap = false;
     applyPose(f);
     f.root.position.set(p.x, 0, -p.y);
@@ -2060,11 +2183,9 @@
   let studio = null;
   const portraits = new Map();
 
-  function portrait(team, home, num) {
-    if (!renderer) return null;
-    const key = team.ab + (home ? 'h' : 'a') + num;
-    if (portraits.has(key)) return portraits.get(key);
-    const PW = 264, PH = 352;
+  const PW = 264, PH = 352;
+
+  function studioOf() {
     if (!studio) {
       const sc = new T.Scene(), f = makeFigure(), cam = new T.PerspectiveCamera(26, PW / PH, 0.5, 60);
       sc.add(new T.HemisphereLight(0xe6eeff, 0x2a3a4a, 2.6));
@@ -2097,11 +2218,23 @@
       cam.lookAt(0, 0.98, 0);
       const rt = new T.WebGLRenderTarget(PW, PH, { samples: 4 });
       rt.texture.colorSpace = T.SRGBColorSpace;
-      studio = { sc, f, cam, rt, meshes, buf: new Uint8Array(PW * PH * 4) };
+      const floor = new T.Mesh(new T.BoxGeometry(6, 0.02, 1.4).translate(0, -0.01, 0), new T.MeshLambertMaterial({ color: 0x2f6b3a }));
+      floor.visible = false;  // only the test strip stands him on turf
+      sc.add(floor);
+      studio = { sc, f, cam, rt, meshes, floor, buf: new Uint8Array(PW * PH * 4) };
     }
-    const st = studio, c = teamColors(team, home, SKIN[(num * 3) % SKIN.length]);
+    return studio;
+  }
+
+  /* dress the studio figure in a kit */
+  function dress(st, team, home, num) {
+    const c = teamColors(team, home, SKIN[(num * 3) % SKIN.length]);
     for (const name in st.meshes) for (const m of st.meshes[name]) m.material.color.set(c[m.userData.color]);
     st.f.num.material = numberMaterial(num, c.number);
+  }
+
+  /* draw the studio as it stands into a canvas context at (dx, dy), w wide */
+  function shoot(st, x, dx, dy, w) {
     const keepTarget = renderer.getRenderTarget(), keepColor = renderer.getClearColor(col2).getHex(), keepAlpha = renderer.getClearAlpha();
     renderer.setRenderTarget(st.rt);
     renderer.setClearColor(0x000000, 0);
@@ -2113,16 +2246,120 @@
     const cv = document.createElement('canvas');
     cv.width = PW;
     cv.height = PH;
-    const x = cv.getContext('2d'), img = x.createImageData(PW, PH), row = PW * 4;
+    const c = cv.getContext('2d'), img = c.createImageData(PW, PH), row = PW * 4;
     for (let y = 0; y < PH; y++) img.data.set(st.buf.subarray((PH - 1 - y) * row, (PH - y) * row), y * row);  // the target is stored bottom row first
-    x.putImageData(img, 0, 0);
+    c.putImageData(img, 0, 0);
+    x.drawImage(cv, dx, dy, w, w * PH / PW);
+  }
+
+  function portrait(team, home, num) {
+    if (!renderer) return null;
+    const key = team.ab + (home ? 'h' : 'a') + num;
+    if (portraits.has(key)) return portraits.get(key);
+    const st = studioOf(), cv = document.createElement('canvas');
+    dress(st, team, home, num);
+    cv.width = PW;
+    cv.height = PH;
+    shoot(st, cv.getContext('2d'), 0, 0, PW);
     const url = cv.toDataURL('image/png');
     portraits.set(key, url);
     return url;
   }
 
+  /* ---------- test hooks for the stride ----------
+     Nobody can watch the game move from a test, so the run is checked two ways: gait() measures the feet of a figure
+     running at a steady speed, and strip() draws that run as a row of side views, one stride from left to right. */
+  const runner = (speed, how) => {
+    /* a player and a play that take poseFor down the "on the move" branch: running forward, or covering (facing a
+       quarterback far behind him, or far to one side) so that the same speed is a backpedal or a shuffle */
+    const p = { x: 26, y: 30, vx: 0, vy: speed, role: 'WR', team: how ? 1 : 0, asg: 'zone' };
+    const ps = { carrier: null, air: null, mode: 'pass', offTeam: 0, runner: null, los: 20, qb: how === 'back' ? { x: 26, y: -4000 } : how === 'side' ? { x: -4000, y: 30 } : null };
+    return { p, s: { ps, G: { state: 'live' }, pre: false, live: true, dir: 1, celeb: null } };
+  };
+  let testFig = null;
+
+  function gaitTest(speed, opts) {
+    const o = opts || {}, f = testFig || (testFig = makeFigure()), dt = 1 / (o.fps || 120), { p, s } = runner(speed, o.how), v = new T.Vector3(), cm = 91.44;
+    setBuild(f, BUILD[o.build || 'slim']);
+    f.snap = true;
+    f.ph = 0;
+    f.heading = o.how === 'back' ? Math.PI : o.how === 'side' ? Math.PI / 2 : 0;
+    f.gaitT = 0;
+    const feet = [{ j: f.ankL, down: 0, n: 0, slips: [], at: null, knee: 0 }, { j: f.ankR, down: 0, n: 0, slips: [], at: null, knee: 0 }];
+    let low = 9, high = 0, hipLo = 9, hipHi = 0;
+    for (let t = 0; t < (o.seconds || 3); t += dt) {
+      p.y += p.vy * dt;
+      poseFor(f, p, s, dt);
+      f.root.updateMatrixWorld(true);
+      if (t < 0.7) continue;  // let the pose settle first
+      hipLo = Math.min(hipLo, f.cur[PELY]);
+      hipHi = Math.max(hipHi, f.cur[PELY]);
+      feet.forEach((ft, k) => {
+        const toe = ft.j.localToWorld(v.set(0, -SOLE, -TOE)), by = toe.y, bz = -toe.z, lowest = Math.min(by, ft.j.localToWorld(v.set(0, -SOLE, 0.06)).y);  // the toe, and the heel
+        low = Math.min(low, lowest);
+        high = Math.max(high, by);
+        ft.n++;
+        if (lowest < 0.006) {
+          // within half a centimetre of the turf: down
+          ft.down++;
+          if (!ft.at) ft.at = [bz, bz];
+          ft.at[0] = Math.min(ft.at[0], bz);
+          ft.at[1] = Math.max(ft.at[1], bz);
+          ft.knee = Math.max(ft.knee, -f.cur[k ? KR : KL]);
+        } else if (ft.at) {
+          ft.slips.push(ft.at[1] - ft.at[0]);
+          ft.at = null;
+        }
+      });
+    }
+    const slips = feet[0].slips.concat(feet[1].slips), r1 = x => Math.round(x * 10) / 10;
+    return { speed, steps: slips.length, slideCm: r1(Math.max(0, ...slips) * cm), slideAvgCm: r1(slips.reduce((a, b) => a + b, 0) / Math.max(1, slips.length) * cm), sinksCm: r1(Math.max(0, -low) * cm), liftCm: r1(high * cm),
+      onGround: Math.round(feet[0].down / feet[0].n * 100) + '%', kneeDeg: Math.round(Math.max(feet[0].knee, feet[1].knee) * 180 / Math.PI), hips: [r1(hipLo * 100) / 100, r1(hipHi * 100) / 100] };
+  }
+
+  function strip(speed, frames, opts) {
+    if (!renderer) return null;
+    const o = opts || {}, n = frames || 8, st = studioOf(), f = st.f, { p, s } = runner(speed, o.how), cell = o.cell || 150, cv = document.createElement('canvas'), dt = 1 / 240;
+    const keep = { cur: f.cur.slice(), rot: f.root.rotation.y, pos: f.root.position.clone() };
+    cv.width = cell * n;
+    cv.height = Math.round(cell * PH / PW);
+    const x = cv.getContext('2d');
+    x.fillStyle = '#0d1524';
+    x.fillRect(0, 0, cv.width, cv.height);
+    dress(st, (PG.TEAMS || [{ c1: '#c0392b', c2: '#f1f1f1' }])[o.team || 0], true, 12);
+    st.floor.visible = true;
+    f.snap = true;
+    f.ph = 0;
+    f.heading = o.how === 'back' ? Math.PI : o.how === 'side' ? Math.PI / 2 : 0;
+    f.gaitT = 0;
+    const T2 = speed > 0.01 ? 2 * stepOf(speed) / speed : 1, steps = Math.round(T2 / n / dt);
+    const sim = k => {
+      for (let i = 0; i < k; i++) {
+        f.root.scale.setScalar(PSCALE);  // the stride is worked out at the size he has on the field
+        p.y += p.vy * dt;
+        poseFor(f, p, s, dt);
+      }
+    };
+    sim(Math.round(0.8 / dt));
+    for (let i = 0; i < n; i++) {
+      sim(steps);
+      f.root.scale.setScalar(1);
+      f.root.position.set(0, 0, 0);
+      f.root.rotation.y = o.view === 'front' ? Math.PI : o.view === 'back' ? 0 : (o.how === 'back' ? Math.PI / 2 : -Math.PI / 2);  // from the side, running left to right
+      shoot(st, x, i * cell, 0, cell);
+    }
+    st.floor.visible = false;
+    f.cur.set(keep.cur);
+    applyPose(f);
+    f.root.scale.setScalar(1);
+    f.root.rotation.y = keep.rot;
+    f.root.position.copy(keep.pos);
+    return cv.toDataURL('image/png');
+  }
+
   PG.r3d = {
     init, resize, render, project, portrait,
+    gait: gaitTest, strip,  // test hooks: measure a run, and draw one stride as a row of side views
     cheer(v) {
       cheer = Math.max(cheer, v);
     },

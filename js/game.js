@@ -750,6 +750,7 @@
     ps.passer = q;
     ps.tgt = r;
     q.thrT = 0.32;
+    q.thrP = pw;  // the follow-through fits the power (drawing only)
     snd('throw');
     if (r && r === G.me && !QUIET) {
       G.my.tgt++;
@@ -3839,7 +3840,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (R3) {
       ctx.clearRect(0, 0, W, H);
-      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, zoom: SET.zoom, detail: SET.detail !== false }, FDT);
+      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, zoom: SET.zoom, detail: SET.detail !== false, charge: G.chg && G.state === 'live' ? clamp(G.chg.t / CHARGE, 0, 1) : -1 }, FDT);
       if (shake > 0) shake -= FDT;
     } else {
       if (shake > 0) {

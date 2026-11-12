@@ -56,6 +56,9 @@ what is next. Update it after every item.
    The report must be empty. It lists touch areas under 44 pixels, overlapping or covered controls, clipped or cut
    text, type under 10 pixels, contrast under 4.5 to 1 (measured against the picture really behind the text, read back
    from the canvases) and blocks of the in-game display that overlap. `A.menus()` replaces the test season and career.
+7. Motion, after any change to the poses: `PG.r3d.gait(8)` (and 2, 5 and `{ how: 'back' }`) should report a slide of
+   under 2 cm and a sink of under half a centimetre; `PG.r3d.strip(8)` returns an image of one stride from the side
+   (put it in an `<img>` and look at it).
 
 ## Architecture
 
@@ -474,6 +477,22 @@ what is next. Update it after every item.
   is nothing to count; the third-down noise does that job. Hits already grew with closing speed (`pw` in the tackle).
   `PG.audio.asked` lists what the game has asked the stadium for, so a test can check the hooks without sound.
 
+- 15:46 Motion (automatic run 2). Measured the old run first, with the formulas copied into a script: the foot was within
+  2 cm of its lowest point for 5 to 11% of the stride, was moving backward over the turf at 1.5 to 7 yards a second
+  while it was there, and sank 2.6 to 6.7 cm into the field. The rig now has ankle joints (two more pose values) and
+  the legs of anyone on the move are solved, two bones in the plane the leg swings in, to put each foot where the
+  stride says: planted for 66% of the cycle at a walk down to 30% flat out, then swung through on an arc.
+  `PG.r3d.gait(speed)` runs the real figure code and measures it. From 1 to 9.5 yards a second the planted toe now
+  slides 0.9 to 1.5 cm at most (0.2 cm backpedalling), sinks 0 to 0.2 cm, lifts 21 to 63 cm, and the knee over the
+  planted foot bends 33 to 51 degrees. `PG.r3d.strip(speed)` draws one stride as a row of side views; looked at for
+  2.2, 5 and 9.5 yards a second and a backpedal. Set stances are stood on the turf by `plant()`: soles flat, hips
+  moved until the lower foot rests on the ground (the shoe used to be one piece with the shin, so a crouch buried the
+  toes 10 to 16 cm). The quarterback winds up as the power bar fills, faces the man he is throwing to, skips the
+  cocking part of the throw if he is wound up already, and finishes low and across for a bullet, high for a lob.
+  Drawing only: `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at both
+  phone sizes; no console errors. Not solved: a sideways shuffle. The legs only swing forward and back, so a defender
+  sliding across still steps in place while he moves (measured: 120 cm of slide a step).
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -605,12 +624,17 @@ what is next. Update it after every item.
       that tops out as the ball comes down. At halftime the band plays a sixteen-second show (drum line, the fight song
       at a march with bells and tubas, a last chord) and the crowd applauds it. Still to be judged by ear
 
+- [x] Run 2, motion. Feet that stay where they are put: an ankle joint, and legs solved so a planted foot does not
+      slide or sink (see the log for the numbers). Stances stand on the turf with flat soles. The quarterback winds up
+      while the power bar fills and his follow-through fits the power. Still to be judged in motion by a person
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
 - More stadium sound, once somebody has listened to run 1: the stadium announcer on scores and at the end of each
   quarter, the defense calling out the play at the line, a goal-post "doink" (the kick model would have to allow one).
-- Motion: a run cycle with planted feet, tackles that involve both players (wrap and drive), a quarterback throwing
-  motion that follows the power bar, touchdown celebrations.
+- Motion, the rest: hips that open sideways, so a defender shuffling across can plant his feet too (now he steps in
+  place); tackles that involve both players (wrap and drive); officials and the bench on the new stride; more
+  touchdown celebrations than the three there are.
 - A real loose-ball scramble instead of an instant recovery; a pile.
 - A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
 - Career: an awards night at the end of the season, age and decline over a long career, a hall of fame screen that

@@ -142,7 +142,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
@@ -1151,6 +1151,7 @@
     return { name: b.name, num: b.num, team: b.team, role: b.role, line: parts.join(' · ') };
   }
 
+  const potdHtml = () => (G.potd ? `<button class="btn2" id="potd" style="margin:8px 0 2px">Watch the play of the game<small style="display:block;font-weight:500;text-transform:none;letter-spacing:0;color:var(--mute);margin-top:2px">${G.potd.text}</small></button>` : '');
   const potgHtml = () => {
     const p = playerOfGame();
     return p ? `<p class="potg"><small>Player of the game</small><b>#${p.num} ${p.name} · ${ab(p.team)}</b><span>${p.line}</span></p>` : '';
@@ -1551,6 +1552,18 @@
     }
     ps.after = 0;
     G.rp = !QUIET && !AUTO && SET.replay !== false && (kind === 'td' || kind === 'fumble' || big === 'Interception!' || rpGain >= 28);
+    /* is this the play of the game so far? Scores, takeaways, sacks and long gains count; yours count a little more. */
+    if (!AUTO && !QUIET && c && !G.drill) {
+      const gain = rpGain || (kind === 'td' && c.team === off && ps.mode !== 'ko' ? Math.round(((off === 0 ? 100 : 0) - los) * dir) : 0);
+      const pick6 = big === 'Interception!', sack = big === 'Sack!';
+      const sc = (kind === 'td' ? 60 + gain * 0.6 : pick6 ? 55 : kind === 'fumble' ? 50 : sack ? 22 : gain) * (c.team === 0 ? 1.2 : 1);
+      if (sc >= 15 && (!G.potd || sc > G.potd.score)) {
+        const how = ps.mode === 'ko' ? 'kick return' : c.team !== off ? 'return' : ps.caught ? 'catch' : 'run';
+        const text = kind === 'td' ? `${c.name}, ${gain > 0 ? gain + '-yard ' : ''}touchdown ${how}` : pick6 ? `${c.name}, interception` : kind === 'fumble' ? `${c.name}, fumble recovery`
+          : sack ? `${ps.tackler ? ps.tackler.name : 'The defense'}, sack` : `${c.name}, ${gain}-yard ${how}`;
+        G.hl = { score: sc, text };
+      }
+    }
     G.state = 'dead';
     G.deadT = score ? 2.6 : 1.7;
     banner(big, sub, G.deadT * 1000 - 150);
@@ -1670,7 +1683,46 @@
     return false;
   }
 
+  /* The recording of the best play so far is kept whole: the frames, and copies of the 22 players and of the play's
+     own state, so it can be shown again from a final screen after the field has been cleared. */
+  function keepHighlight() {
+    const h = G.hl;
+    G.hl = null;
+    if (!h || !ps || REC.length < 20) return;
+    const at = p => (p ? P.indexOf(p) : -1);
+    G.potd = { score: h.score, text: h.text, dir: G.dir, frames: REC.slice(), players: P.map(p => ({ ...p, eng: null, block: null, man: null, bt: null })),
+      ps: { ...ps, qb: at(ps.qb), runner: at(ps.runner), tackler: at(ps.tackler), passer: at(ps.passer), carrier: null, air: null, loose: null, recs: [], fum: null, tgt: null } };
+  }
+
+  /* shows it; done() puts the final screen back */
+  function watchPotd(done) {
+    const h = G.potd;
+    if (!h || G.state !== 'over') return;
+    scr.innerHTML = '';
+    P = h.players.map(p => ({ ...p }));
+    const at = i => (i >= 0 ? P[i] : null);
+    ps = { ...h.ps, qb: at(h.ps.qb), runner: at(h.ps.runner), tackler: at(h.ps.tackler), passer: at(h.ps.passer) };
+    G.dir = h.dir;
+    REC.length = 0;
+    for (const f of h.frames) REC.push(f);
+    G.rpEnd = () => {
+      P = [];
+      ps = null;
+      G.state = 'over';
+      $('#rp').lastChild.textContent = 'Replay · tap to skip';
+      done();
+    };
+    cam.snap = true;
+    G.state = 'replay';
+    G.rpI = Math.max(0, REC.length - 270);
+    G.celeb = null;
+    $('#rp').lastChild.textContent = 'Play of the game · tap to skip';
+    $('#rp').hidden = false;
+    $('#banner').classList.remove('on');
+  }
+
   function next() {
+    keepHighlight();
     if (G.rp) {
       G.rp = false;
       if (REC.length > 50) return startReplay();
@@ -1729,6 +1781,12 @@
   function endReplay() {
     $('#rp').hidden = true;
     REC.length = 0;
+    if (G.rpEnd) {
+      // it was the play of the game, shown from a final screen
+      const f = G.rpEnd;
+      G.rpEnd = null;
+      return f();
+    }
     next();
   }
 
@@ -1785,7 +1843,7 @@
       } else if (w < 0) snd('lose');
       say(w === 0 ? `It ends in a tie, ${G.score[0]} all.` : `${tname(w > 0 ? 0 : 1)} win it, ${Math.max(G.score[0], G.score[1])} to ${Math.min(G.score[0], G.score[1])}.`, true);
     }
-    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box });
+    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml() });
     else showFinal();
   }
 
@@ -3054,8 +3112,9 @@
     scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>${tie?'Final · tie':won?'You win':'Final'}</b><span>${G.ot?'Overtime':''}</span></div>
   <div class="sc">${s[0]} – ${s[1]}</div>
   <table class="st"><tr><th>${ab(0)}</th><th></th><th>${ab(1)}</th></tr>${row('Pass yards',x=>x.pass)}${row('Rush yards',x=>x.rush)}${row('Comp / att',x=>x.comp+' / '+x.att)}${row('Turnovers',x=>x.to)}</table>
-  ${potgHtml()}<button class="go" id="again">Back to menu</button></div>`;
+  ${potgHtml()}${potdHtml()}<button class="go" id="again">Back to menu</button></div>`;
     $('#again').onclick = showMenu;
+    if ($('#potd')) $('#potd').onclick = () => watchPotd(showFinal);
   }
 
   /* ---------- rendering ---------- */
@@ -3667,7 +3726,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster, kitsHtml,
+    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster, kitsHtml, watchPotd,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

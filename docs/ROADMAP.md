@@ -298,6 +298,10 @@ what is next. Update it after every item.
 - 08:16 Name plates (a quad above the number, text squeezed to fit) checked by a close-up of the quarterback. Vibration uses
   `navigator.vibrate`, which iPhones do not offer to web pages and which no test here can feel; it waits for the first tap.
 
+- 08:18 Play of the game. `G.potd` holds the frames plus copies of the 22 players and the play state; `watchPotd(done)` replays
+  it and hands the final screen back. Scripted: a forced 51-yard run became the play of the game, the button showed it from the
+  low camera, and both the natural end and a tap to skip returned to the final sheet. `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -329,7 +333,8 @@ what is next. Update it after every item.
 ### Round 5 (queued at 08:15; work through these in order)
 - [x] Names on the backs of jerseys; a short vibration on tackles you are in, big hits, fumbles and your touchdowns
       (Android browsers only; Settings has a switch where the device supports it)
-- [ ] Play of the game: the best play is kept and can be watched again from the final screen
+- [x] Play of the game: the best play (scores, takeaways, sacks, long gains; yours weigh a little more) is kept whole and
+      can be watched again from the final screen in Exhibition, Season and Career
 - [ ] Playbook: four more offensive plays (screen, quarterback sneak, counter, bootleg), two more defenses (Cover 4, goal line)
 - [ ] Live punt returns in Exhibition and Season
 - [ ] Camera choice in Settings (standard, close, high)

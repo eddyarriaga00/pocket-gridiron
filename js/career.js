@@ -764,17 +764,22 @@
     C.coach = coachSays(m, grade, pts, won, met, role0, role1);
     const trophies = checkTrophies();
     persist();
-    scr.innerHTML = `<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>
+    const show = () => {
+      // drawn again after watching the play of the game
+      scr.innerHTML = `<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>
   <div class="nx" style="margin-top:0"><small>Your game · grade ${grade}</small><h4>${line(m)}</h4><p style="margin:4px 0 0">${esc(C.news)}</p></div>
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
-  ${r.potgHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
+  ${r.potgHtml || ''}${r.potdHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">Continue</button></div>`;
-    $('#rc').onclick = () => {
-      PG.toMenu();
-      showHub(C.phase === 'done' ? 'season' : 'up');
+      $('#rc').onclick = () => {
+        PG.toMenu();
+        showHub(C.phase === 'done' ? 'season' : 'up');
+      };
+      if ($('#potd')) $('#potd').onclick = () => PG.watchPotd(show);
     };
+    show();
     if (C.phase === 'done' && C.po.finish === 'Champion') PG.banner('Champions!', full(C.team), 3000);
   }
 

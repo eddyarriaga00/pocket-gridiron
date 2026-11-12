@@ -5,6 +5,7 @@
           H.career('WR',2) new test career at a position, n games; returns stat lines
           H.fps(3)        average frames per second over n seconds (needs the pane visible)
    Everything steps the game synchronously through PG.dbg, so nothing here waits on real time. */
+window.PG_TEST=true;   // stops the game pausing itself when the test pane hides the page
 window.H=(()=>{
 const q=s=>document.querySelector(s),d=()=>PG.dbg;
 const key=(code,k)=>{dispatchEvent(new KeyboardEvent('keydown',{code,key:k}));dispatchEvent(new KeyboardEvent('keyup',{code,key:k}))};

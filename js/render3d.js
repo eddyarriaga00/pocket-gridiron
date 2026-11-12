@@ -18,7 +18,8 @@
   let renderer, scene, camera, W = 1, H = 1;
   let fieldTex, fieldCanvas, crowdTex, crowdCanvas, crowdMat, ribbonTex, ribbonCanvas, boardTex, boardCanvas, boardKey = '';
   let parts = [], figs = [], shadows, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
-  let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null;
+  let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null;
+  const FLASHES = 48, flashLife = new Float32Array(FLASHES);
   const posts = [];
   const camPos = new T.Vector3(FW / 2, 30, 20), camLook = new T.Vector3(FW / 2, 0, -50);
 
@@ -40,30 +41,40 @@
     return out;
   }
   /* every geometry is modelled in the space of the joint it hangs from */
+  /* a surface of revolution from [radius, y] pairs: tapered limbs and a chest that narrows to the waist */
+  const lathe = (pts, seg) => new T.LatheGeometry(pts.map(([r, y]) => new T.Vector2(r, y)), seg || 12);
   const GEO = {
-    torso: cap(0.2, 0.28, 0.33).scale(1, 1, 0.78),
-    pads: new T.SphereGeometry(0.22, 12, 8).scale(1.5, 0.62, 0.95).translate(0, 0.56, 0),
-    hips: cap(0.185, 0.06, 0).scale(1, 1, 0.82),
-    helmet: new T.SphereGeometry(0.165, 14, 10).scale(1, 1.03, 1.1),
-    stripe: new T.TorusGeometry(0.172, 0.016, 4, 12, Math.PI).rotateY(Math.PI / 2).scale(2.2, 1.03, 1.1),
-    visor: new T.SphereGeometry(0.125, 10, 8).scale(1, 0.62, 0.6).translate(0, -0.035, -0.12),
+    torso: lathe([[0.01, -0.05], [0.178, -0.04], [0.188, 0.14], [0.215, 0.32], [0.235, 0.47], [0.2, 0.6], [0.09, 0.67]]).scale(1, 1, 0.74),   // the hem hangs just over the pants
+    pads: new T.SphereGeometry(0.22, 14, 8).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
+    neck: new T.CylinderGeometry(0.068, 0.08, 0.12, 10).translate(0, 0.69, 0),
+    hips: lathe([[0.01, -0.3], [0.12, -0.27], [0.168, -0.15], [0.166, -0.01], [0.01, 0.0]]).scale(1, 1, 0.76),   // tops out inside the jersey
+    helmet: new T.SphereGeometry(0.17, 16, 12).scale(1, 1.02, 1.12),
+    stripe: new T.TorusGeometry(0.177, 0.016, 4, 14, Math.PI).rotateY(Math.PI / 2).scale(2.2, 1.02, 1.12),
+    logo: merge([-1, 1].map(side => new T.CylinderGeometry(0.058, 0.058, 0.012, 12).rotateZ(Math.PI / 2).translate(side * 0.168, 0.01, 0.01))),
+    visor: new T.SphereGeometry(0.128, 10, 8).scale(1, 0.6, 0.6).translate(0, -0.035, -0.125),
     mask: merge([
-      new T.TorusGeometry(0.158, 0.011, 4, 10, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.055, -0.02),
-      new T.TorusGeometry(0.15, 0.011, 4, 10, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.115, -0.02),
-      new T.CylinderGeometry(0.011, 0.011, 0.1, 5).translate(0, -0.085, -0.172),
+      new T.TorusGeometry(0.162, 0.011, 4, 12, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.05, -0.02),
+      new T.TorusGeometry(0.158, 0.011, 4, 12, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.1, -0.02),
+      new T.TorusGeometry(0.15, 0.011, 4, 12, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.145, -0.01),
+      new T.CylinderGeometry(0.011, 0.011, 0.11, 5).translate(0, -0.095, -0.178),
+      new T.CylinderGeometry(0.011, 0.011, 0.11, 5).translate(-0.07, -0.095, -0.158),
+      new T.CylinderGeometry(0.011, 0.011, 0.11, 5).translate(0.07, -0.095, -0.158),
     ]),
-    upperArm: cap(0.068, 0.19, -0.15),
-    foreArm: cap(0.055, 0.17, -0.13),
-    hand: new T.SphereGeometry(0.062, 8, 6).translate(0, -0.29, 0),
-    thigh: cap(0.09, 0.3, -0.24),
-    shin: cap(0.066, 0.3, -0.23),
-    foot: new T.BoxGeometry(0.115, 0.075, 0.25).translate(0, -0.465, -0.055),
+    /* limbs end in a ball at the joint, so the next segment meets a clean round edge instead of a ragged intersection */
+    upperArm: merge([lathe([[0.01, 0.03], [0.07, 0], [0.068, -0.15], [0.06, -0.29]], 10), new T.SphereGeometry(0.062, 10, 8).translate(0, -0.3, 0)]),
+    sleeveCap: lathe([[0.01, 0.045], [0.084, 0.01], [0.082, -0.13], [0.07, -0.135]], 10),
+    sleeve: new T.TorusGeometry(0.08, 0.013, 4, 12).rotateX(Math.PI / 2).translate(0, -0.13, 0),
+    foreArm: lathe([[0.01, 0.02], [0.054, 0], [0.056, -0.08], [0.044, -0.25], [0.01, -0.27]], 10),
+    hand: new T.SphereGeometry(0.064, 8, 6).scale(1, 1.15, 0.85).translate(0, -0.3, 0),
+    thigh: merge([lathe([[0.01, 0.05], [0.108, 0], [0.104, -0.2], [0.086, -0.46]], 12), new T.SphereGeometry(0.09, 12, 8).translate(0, -0.49, 0)]),
+    shin: lathe([[0.01, 0.03], [0.07, 0], [0.084, -0.13], [0.062, -0.34], [0.052, -0.46], [0.01, -0.49]], 12),
+    foot: new T.CapsuleGeometry(0.058, 0.15, 2, 8).rotateX(Math.PI / 2).scale(1.05, 0.72, 1).translate(0, -0.465, -0.07),
   };
   /* [name, joints it follows, color key] */
   const PART_DEFS = [
-    ['torso', ['chest'], 'jersey'], ['pads', ['chest'], 'jersey'], ['hips', ['pelvis'], 'pants'],
-    ['helmet', ['head'], 'helmet'], ['stripe', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
-    ['upperArm', ['shL', 'shR'], 'jersey'], ['foreArm', ['elL', 'elR'], 'skin'], ['hand', ['elL', 'elR'], 'glove'],
+    ['torso', ['chest'], 'jersey'], ['pads', ['chest'], 'jersey'], ['neck', ['chest'], 'skin'], ['hips', ['pelvis'], 'pants'],
+    ['helmet', ['head'], 'helmet'], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
+    ['upperArm', ['shL', 'shR'], 'skin'], ['sleeveCap', ['shL', 'shR'], 'jersey'], ['sleeve', ['shL', 'shR'], 'trim'], ['foreArm', ['elL', 'elR'], 'skin'], ['hand', ['elL', 'elR'], 'glove'],
     ['thigh', ['hipL', 'hipR'], 'pants'], ['shin', ['kneeL', 'kneeR'], 'sock'], ['foot', ['kneeL', 'kneeR'], 'shoe'],
   ];
   const SKIN = ['#f0c8a4', '#d7a078', '#b3764c', '#8a583a', '#66402e'];
@@ -126,8 +137,8 @@
   }
   function teamColors(t, home, skin) {
     return home
-      ? { jersey: t.c1, pants: t.c2, helmet: t.c2, stripe: t.c1, sock: '#f1f1f1', number: t.c2, skin, glove: '#f1f1f1', shoe: '#1b1b1f', mask: '#aeb6c2', visor: '#14161c' }
-      : { jersey: '#f1f1f1', pants: t.c1, helmet: t.c1, stripe: '#f1f1f1', sock: t.c1, number: t.c1, skin, glove: '#f1f1f1', shoe: '#1b1b1f', mask: '#aeb6c2', visor: '#14161c' };
+      ? { jersey: t.c1, pants: t.c2, helmet: t.c2, stripe: t.c1, trim: t.c2, sock: '#f1f1f1', number: t.c2, skin, glove: '#f1f1f1', shoe: '#1b1b1f', mask: '#aeb6c2', visor: '#14161c' }
+      : { jersey: '#f1f1f1', pants: t.c1, helmet: t.c1, stripe: '#f1f1f1', trim: t.c1, sock: t.c1, number: t.c1, skin, glove: '#f1f1f1', shoe: '#1b1b1f', mask: '#aeb6c2', visor: '#14161c' };
   }
 
   /* ---------- animation: fill TG with the pose this player wants ---------- */
@@ -326,6 +337,7 @@
     scene.background = new T.CanvasTexture(sky); scene.background.colorSpace = T.SRGBColorSpace;
     scene.add(new T.HemisphereLight(0xdfe8ff, 0x24402c, 2.4));
     const sun = new T.DirectionalLight(0xffffff, 2.2); sun.position.set(-30, 80, 40); scene.add(sun);
+    const fill = new T.DirectionalLight(0xcfe0ff, 0.9); fill.position.set(45, 30, -70); scene.add(fill);
 
     const ground = new T.Mesh(new T.PlaneGeometry(900, 900), new T.MeshBasicMaterial({ color: 0x0c1220 }));
     ground.rotation.x = -Math.PI / 2; ground.position.set(FW / 2, -0.6, -50); scene.add(ground);
@@ -376,6 +388,11 @@
       const sp = new T.Sprite(new T.SpriteMaterial({ map: glowTex, blending: T.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
       sp.position.set(x, 80, -y); sp.scale.setScalar(75); scene.add(sp);
     }
+    /* camera flashes in the lower bowl: a few all night, a burst when the crowd erupts */
+    const fg = new T.BufferGeometry();
+    fg.setAttribute('position', new T.BufferAttribute(new Float32Array(FLASHES * 3).fill(-999), 3));
+    flashes = new T.Points(fg, new T.PointsMaterial({ map: glowTex, size: 5, transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false }));
+    flashes.frustumCulled = false; scene.add(flashes);
     /* goal posts, pylons */
     const postMat = new T.MeshLambertMaterial({ color: 0xe9edf5 });
     const cyl = (r, h, x, y, z, rz) => { const m = new T.Mesh(new T.CylinderGeometry(r, r, h, 8), postMat); m.position.set(x, y, z); if (rz) m.rotation.z = rz; scene.add(m); return m; };
@@ -532,6 +549,19 @@
     losLine.visible = showLines; fdLine.visible = showLines && FD > 0.1 && FD < 99.9; sticks.visible = fdLine.visible;
     losLine.position.z = -L; fdLine.position.z = -FD; sticks.position.set(-2.6, 0, -FD);
 
+    /* camera flashes */
+    const fp = flashes.geometry.attributes.position, rate = (1.2 + 70 * Math.min(1, cheer)) * dt;
+    for (let i = 0; i < FLASHES; i++) {
+      if (flashLife[i] > 0) { flashLife[i] -= dt; if (flashLife[i] <= 0) fp.setY(i, -999); continue; }
+      if (Math.random() > rate / FLASHES * 3) continue;
+      const u = Math.random(), v = 0.08 + Math.random() * 0.85, side = Math.floor(Math.random() * 4), g = 40 * v, h = 1.9 + 22 * v;
+      if (side === 0) fp.setXYZ(i, -14 - g, h, -lerp(-24 - g, 124 + g, u));
+      else if (side === 1) fp.setXYZ(i, FW + 14 + g, h, -lerp(-24 - g, 124 + g, u));
+      else if (side === 2) fp.setXYZ(i, lerp(-14 - g, FW + 14 + g, u), h, -(124 + g));
+      else fp.setXYZ(i, lerp(-14 - g, FW + 14 + g, u), h, 24 + g);
+      flashLife[i] = 0.07 + Math.random() * 0.08;
+    }
+    fp.needsUpdate = true;
     /* crowd reacts */
     cheer = Math.max(0, cheer - dt * 0.5);
     crowdTex.offset.y = cheer > 0 ? Math.abs(Math.sin(time * 16)) * 0.012 * Math.min(1, cheer) : 0;
@@ -549,8 +579,11 @@
       const w = G.celeb.who, a = time * 0.55;
       v3.set(w.x + Math.sin(a) * 7.5, 2.9, -w.y + Math.cos(a) * 7.5); v3b.set(w.x, 2.1, -w.y);
     } else {
-      const up = cm.up, back = up ? 40 : 46, ahead = up ? 10 : 3, tx = lerp(FW / 2, cm.fx, 0.75);
-      v3.set(tx, 24, -(cm.fy - back)); v3b.set(tx, 0, -(cm.fy + ahead));
+      /* once a ball carrier is in the open field the camera closes in on him */
+      const chase = ps && ps.carrier && !ps.air && (ps.open || ps.mode === 'ko') && (G.state === 'live' || G.state === 'dead');
+      zoom += ((chase ? 0.68 : 1) - zoom) * (1 - Math.exp(-dt * 2.4));
+      const up = cm.up, back = (up ? 40 : 46) * zoom, ahead = (up ? 10 : 3) * zoom + (1 - zoom) * 8, tx = lerp(FW / 2, cm.fx, 0.75 + (1 - zoom) * 0.6);
+      v3.set(tx, 24 * zoom, -(cm.fy - back)); v3b.set(tx, 0, -(cm.fy + ahead));
       if (G.state === 'pre' && ps && ps.mode !== 'ko' && !s.plain) {     // start close behind the formation, then pull out
         let e = clamp((G.preT - 0.1) / 1.15, 0, 1); e = e * e * (3 - 2 * e);
         v3.x = lerp(cm.fx + 2.5, v3.x, e); v3.y = lerp(7.5, v3.y, e); v3.z = lerp(-(cm.fy - (up ? 15 : 24)), v3.z, e);

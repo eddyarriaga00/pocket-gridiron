@@ -612,7 +612,7 @@ function openPause(){if(!G.ros||G.state==='over'||G.paused)return;G.paused=true;
  draw(false)}
 function closePause(){$('#ov').hidden=true;$('#ov').innerHTML='';G.paused=false}
 $('#pz').onclick=openPause;
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.ros&&G.state!=='over'&&!AUTO)openPause()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.ros&&G.state!=='over'&&!AUTO&&!window.PG_TEST)openPause()});   // PG_TEST: screenshots in the test pane hide the page
 
 function drawArt(c,pl,def){const x=c.getContext('2d'),w=c.width=280,h=c.height=200,sc=7,ox=w/2,oy=def?h-26:h-62,X=d=>ox+d*sc,Y=d=>oy-d*sc;
  x.fillStyle='#1f6e36';x.fillRect(0,0,w,h);x.strokeStyle='rgba(255,255,255,.16)';x.lineWidth=2;

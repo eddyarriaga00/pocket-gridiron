@@ -24,7 +24,8 @@ what is next. Update it after every item.
 
 ## How to test
 
-1. Preview server: `.claude/launch.json` has a config named `game` (python http.server on 48231). It is
+1. Preview server: `.claude/launch.json` has a config named `game` that runs `python3 tools/serve.py 48231`
+   (a no-cache server: plain `http.server` let the browser serve stale scripts after edits). The file is
    gitignored; recreate it if missing. Start it with the preview tool, open
    `http://localhost:48231/index.html`, set the mobile viewport (375x812).
 2. Load the harness in the page (the query string defeats the cache):

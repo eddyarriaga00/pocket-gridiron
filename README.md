@@ -38,7 +38,7 @@ tools/bundle.py         inlines everything into one pocket-gridiron.html
 ## Run locally
 
 ```
-python3 -m http.server 8000
+python3 tools/serve.py 8000
 ```
 
 Then open http://localhost:8000. Any static file server works.

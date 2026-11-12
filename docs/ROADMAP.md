@@ -44,13 +44,17 @@ what is next. Update it after every item.
 
 - `index.html` page shell. `pocket-gridiron.html` is the same game inlined by `tools/bundle.py` (gitignored).
 - `css/game.css` all styles. Tokens on `:root`; `--acc` is set from settings.
+- `js/data.js` teams, formations, routes, playbooks (`PG.data`). Loaded first.
 - `js/game.js` engine (plays, AI, rules), 2D renderer, HUD, menus, exhibition, player-lock controls,
-  drive simulation. Exposes `window.PG`. `PG.dbg` has `auto(v)`, `step(dt)`, `G`, `ps`, `P`.
+  drive simulation. Exposes `window.PG`. `PG.dbg` has `auto(v)`, `seed(n)`, `step(dt)`, `render()`, `G`, `ps`, `P`.
+- `js/league.js` schedule, standings, playoffs. `js/season.js` Season mode.
 - `js/career.js` career mode: save (`localStorage` key `pg.career.v1`), league, XP, hub screens.
 - Coordinates are yards. x 0..53.33 across, y 0..100 between goal lines, end zones to -10 and 110.
   Team 0 is the user and attacks +y. `G` is game state, `ps` the current play, `P` the 22 players.
-- Planned: `js/audio.js` (sound engine, `PG.audio`), `js/render3d.js` (three.js renderer, `PG.r3d`), with
-  the existing canvas kept on top as a transparent overlay for markers, letters and the joystick.
+- `js/audio.js` sound engine (`PG.audio`). `js/render3d.js` three.js renderer (`PG.r3d`); the 2D canvas stays on top as a
+  transparent overlay for markers, letters and the joystick.
+- Formatting: `node tools/fmt.js <files>` then `node --expose-internals tools/astcheck.js before.js after.js`.
+  After any change that should not alter behaviour, `H.fingerprint()` must return the same string as before.
 
 ## Stages
 
@@ -111,12 +115,13 @@ what is next. Update it after every item.
 - [ ] Final presentation: player of the game, drive chart
 
 ### 9. Optimization
-- [ ] Measure FPS; cap pixel ratio; merge or instance meshes if draw calls are the limit
-- [ ] Fixed-timestep simulation; remove per-frame allocations
-- [ ] Lazy work: skip rendering hidden screens
+- [x] Measured: simulation 0.013 ms per step, render 0.5 ms of CPU per frame, 68 draw calls, 151k triangles, about 1 KB of garbage per frame. Pixel ratio is capped (Sharpness setting). Body parts are instanced.
+- [x] The one per-frame coin flip (computer juke) is now a rate, so the game plays the same at 30, 60 and 120 Hz. A fixed timestep was judged unnecessary after that.
+- [x] Lazy work: the field is not rendered while a full-screen menu covers it
 
 ### 10. Code quality
-- [ ] Split `game.js` into readable modules with normal formatting
+- [x] `game.js`, `career.js` and the harness reformatted with `tools/fmt.js` (one statement per line); data tables moved to `js/data.js`.
+      The engine itself is still one file with section headers: its parts share too much state to split cheaply.
 - [ ] README update (controls, modes, layout, libraries)
 
 ### Round 2 (added during the night)
@@ -126,7 +131,7 @@ what is next. Update it after every item.
 - [x] Season mode (`js/season.js`): one team, seven weeks, playoffs, standings, schedule, team stats
 - [x] `js/league.js`: schedule, standings, simulated scores and playoffs shared by Career and Season
 - [x] Career extras: league leaders at your position, 12 trophies, free agency between seasons, a retirement screen
-- [ ] Seedable RNG, then split and reformat `game.js` with a same-seed equivalence check
+- [x] Seedable RNG (`PG.dbg.seed(n)`), reformat with a syntax-tree check (`tools/astcheck.js`) and a same-seed check (`H.fingerprint()`)
 - [ ] README refresh
 
 ### Stretch
@@ -159,6 +164,19 @@ what is next. Update it after every item.
   a three-season WR run earned six trophies, free agency moves the player and starts the next season.
   League-leader baselines per game at 3-minute quarters: QB 150 yds, RB 60, WR 58, LB 3.4 tackles, CB 0.8 passes defended
   (a scripted bot gets about 143, 67, 60, 2.6 and 0.25, so a real player should be in the race).
+
+- 03:49 Code clean-up. Wrote a small formatter (no formatter was installed and installing one needs the owner's say-so).
+  Proof of no behaviour change: identical syntax trees, and `H.fingerprint()` (seeded simulations plus a traced game)
+  returns the same string before and after. Data tables moved to `js/data.js`.
+
+### Round 3 (planned at 03:49; the owner's top request is better models and animation, so that goes first)
+- [ ] Models: body types by position, facemask bars, pant stripes, socks, wristbands; real body-shaped shadows on the turf
+- [ ] Animation: better run cycle, catch, tackle wrap, handoff, throw follow-through, referee, celebration variety
+- [ ] Weather and time of day: day, dusk, night, rain, snow
+- [ ] Ball-carrier and defender moves: stiff arm, truck, hurdle, hit stick, strip; fumbles
+- [ ] Sound round 2: announcer calls (speech synthesis, a setting), chants, footsteps, stings between plays
+- [ ] Presentation: pre-game intro, player of the game, drive summary
+- [ ] README refresh, final regression, morning summary
 
 ## Morning hand-off
 

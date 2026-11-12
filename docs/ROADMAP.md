@@ -259,6 +259,11 @@ what is next. Update it after every item.
   after such a score an onside kick is the right call. The window is the last 27% of the fourth quarter.
   `H.fingerprint()` unchanged.
 
+- 07:59 Run cycle and tackles. The renderer now keeps its own stride phase per figure (`f.ph`), advanced by ground covered over
+  a step length of 0.8 to 2.5 yards. Checked by two close-up screenshots (a back at full stride, a tackler lying across the
+  carrier). Motion itself cannot be judged from stills. In `H.fingerprint()` only the position trace changed (downed players
+  now slide a little after the whistle); scores, stats and step counts are identical. Re-baselined.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -271,7 +276,9 @@ what is next. Update it after every item.
       Audible steps through the coverage calls. Players slide to their new spots (keys V and X)
 - [x] Two-point tries (you choose after your own touchdown and play one snap from the 2; the computer follows the usual chart)
       and onside kicks in the last minute when trailing by 16 or less (about 1 in 8 is recovered)
-- [ ] Run cycle with a proper foot plant and arm drive; a two-man tackle animation (wrap and take down)
+- [x] Run cycle: stride length follows speed so feet no longer skate, the thigh drives forward further than back, arms pump
+      from hip to chin, shoulders counter-rotate, the body leans into cuts. Tackles: the ball carrier falls away from the hit
+      (back, front or side), the tackler lands on him with his arms wrapped, and the pair slides to a stop
 - [ ] Career: a coach who reacts to your last game in the hub, and a rival player at your position to chase on the leaders board
 - [ ] Season mode: roster screen with names and ratings, and stat leaders
 - [ ] Holding and pass interference, with a Settings switch for penalties

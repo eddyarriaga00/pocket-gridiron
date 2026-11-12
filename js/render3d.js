@@ -178,7 +178,8 @@
     f.chest.add(f.num);
     f.cur = new Float32Array(NPOSE); f.cur[PELY] = HIP;
     f.bodyS = new T.Vector3(1, 1, 1); f.limbS = new T.Vector3(1, 1, 1); f.hide = null;
-    f.heading = 0; f.fall = 0; f.fallDir = 1; f.seed = Math.random() * 6.28; f.snap = true;
+    f.heading = 0; f.fall = 0; f.fallDir = 1; f.fallSide = 0; f.seed = Math.random() * 6.28; f.snap = true;
+    f.ph = Math.random() * 6.28; f.lean = 0;      // stride phase and how far he is leaning into a cut
     return f;
   }
   function applyPose(f) {
@@ -278,7 +279,11 @@
   }
   function poseFor(f, p, s, dt) {
     const tg = TG, ps = s.ps; tg.fill(0);
-    const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5), ph = p.anim * 2.4, sn = Math.sin(ph), cs = Math.cos(ph);
+    const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
+    /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
+       ground actually covered. That keeps the feet moving at the pace of the turf instead of skating over it. */
+    f.ph += sp * dt * Math.PI / clamp(0.75 + 0.19 * sp, 0.8, 2.5);
+    const sn = Math.sin(f.ph), cs = Math.cos(f.ph);
     const carrier = ps.carrier === p && !ps.air, inPocket = carrier && p === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open;
     let hx = null, hy = 0, snap = false;
     const flat = p.flat > 0 && !p.down && !p.fell;              // run over: on his back for a moment
@@ -286,11 +291,25 @@
     tg[PELY] = HIP; tg[EL] = 0.25; tg[ER] = 0.25; tg[CHRX] = -0.05;
 
     if (p.down || p.fell || flat) {                           // on the turf
-      f.fall = Math.min(1, f.fall + dt / 0.28);
-      const e = f.fall * f.fall * (3 - 2 * f.fall);
-      tg[PELY] = lerp(HIP, 0.24, e); tg[PELRX] = -1.5 * e * (flat ? -1 : f.fallDir);
-      tg[SLX] = 2.5; tg[SRX] = 2.8; tg[SLZ] = -0.5; tg[SRZ] = 0.4; tg[EL] = 0.5; tg[ER] = 0.3;
-      tg[HL] = 0.2; tg[KL] = -0.4; tg[HR] = -0.1; tg[KR] = -0.15; tg[HEADRX] = 0.2;
+      if (f.fall === 0) {                                     // decide once which way he goes down
+        const tk = ps.tackler;
+        f.fallSide = 0;
+        if (p.down && tk && tk !== p) {                       // the ball carrier: away from the hit
+          let rel = Math.atan2(-(tk.x - p.x), tk.y - p.y) - f.heading; rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+          if (Math.abs(rel) < 1.0) f.fallDir = -1;            // met head on: onto his back
+          else if (Math.abs(rel) > 2.1) f.fallDir = 1;        // caught from behind: face down
+          else { f.fallDir = 1; f.fallSide = rel > 0 ? -1 : 1; }   // hit from the side: bowled over the other way
+        } else if (p.fell) f.fallDir = 1;                     // the tackler lands forward, on his man
+      }
+      f.fall = Math.min(1, f.fall + dt / 0.3);
+      const e = f.fall * f.fall * (3 - 2 * f.fall), wrap = p.fell && !p.down && !flat;
+      tg[PELY] = lerp(HIP, wrap ? 0.34 : 0.24, e);
+      if (f.fallSide && !flat) { tg[PELRZ] = 1.45 * e * f.fallSide; tg[PELRX] = -0.25 * e; }
+      else tg[PELRX] = -1.5 * e * (flat ? -1 : f.fallDir);
+      if (wrap) { tg[SLX] = 1.35; tg[SRX] = 1.35; tg[SLZ] = 0.55; tg[SRZ] = -0.55; tg[EL] = 0.75; tg[ER] = 0.75; tg[HEADRX] = 0.45; }   // arms locked around him
+      else { tg[SLX] = 2.5; tg[SRX] = 2.8; tg[SLZ] = -0.5; tg[SRZ] = 0.4; tg[EL] = 0.5; tg[ER] = 0.3; tg[HEADRX] = 0.2; }
+      tg[HL] = 0.2; tg[KL] = -0.4; tg[HR] = -0.1; tg[KR] = -0.15;
+      if (wrap && ps.carrier && ps.carrier.down) { hx = ps.carrier.x - p.x; hy = ps.carrier.y - p.y; }   // facing the man he brought down
       snap = true;
     } else if (p.dive > 0 && p.hit > 0) {                     // hit stick: stays on his feet and drives a shoulder through
       tg[PELY] = HIP - 0.22; tg[PELRX] = -0.75; tg[CHRX] = -0.3; tg[HEADRX] = 0.5; tg[SLX] = 1.7; tg[SRX] = 1.7; tg[SLZ] = 0.35; tg[SRZ] = -0.35; tg[EL] = 0.5; tg[ER] = 0.5;
@@ -338,12 +357,18 @@
       const cover = s.live && p.team !== ps.offTeam && !ps.open && !ps.air && p.asg !== 'rush' && ps.qb;
       if (inPocket) { hx = 0; hy = s.dir; facing = p.vy * s.dir >= 0 ? 1 : -1; }
       else if (cover) { hx = ps.qb.x - p.x; hy = ps.qb.y - p.y; facing = p.vx * hx + p.vy * hy >= 0 ? 1 : -1; }   // eyes on the quarterback
-      const amp = facing < 0 ? 0.6 : 0.95, dirn = facing < 0 ? -1 : 1;
-      tg[HL] = sn * amp * run * dirn; tg[HR] = -sn * amp * run * dirn;
-      tg[KL] = -(0.2 + 1.2 * Math.max(0, cs * dirn)) * run; tg[KR] = -(0.2 + 1.2 * Math.max(0, -cs * dirn)) * run;
-      tg[SLX] = -sn * 0.75 * run * dirn; tg[SRX] = sn * 0.75 * run * dirn; tg[EL] = 0.3 + 1.2 * run; tg[ER] = 0.3 + 1.2 * run;
-      tg[CHRX] = facing < 0 ? 0.04 : -(0.08 + 0.26 * run); tg[HEADRX] = -tg[CHRX] * 0.6;
-      tg[PELY] = HIP - 0.04 * run + Math.abs(cs) * 0.05 * run;
+      const back = facing < 0, dirn = back ? -1 : 1, moving = Math.min(1, run * 3), amp = (back ? 0.5 : 0.42 + 0.58 * run) * moving;
+      /* legs: the thigh drives further forward than it reaches behind; the knee folds as the leg comes through and opens for the plant */
+      const thigh = v => (v * 0.85 + 0.22 * run) * amp * dirn, knee = v => -(0.16 + (0.5 + 1.1 * run) * Math.pow(Math.max(0, v * dirn), 0.8)) * moving;
+      tg[HL] = thigh(sn); tg[HR] = thigh(-sn); tg[KL] = knee(cs); tg[KR] = knee(-cs);
+      /* arms: opposite the legs, elbows held near a right angle, hands driving from hip to chin */
+      const arm = (0.2 + 0.8 * run) * moving;
+      tg[SLX] = (-sn * 0.95 + 0.12) * arm * dirn; tg[SRX] = (sn * 0.95 + 0.12) * arm * dirn;
+      tg[EL] = 0.3 + (1.25 - sn * 0.3) * run; tg[ER] = 0.3 + (1.25 + sn * 0.3) * run;
+      tg[CHRY] = sn * 0.2 * run * dirn;                        // the shoulders turn against the hips
+      tg[CHRX] = back ? 0.04 : -(0.08 + 0.28 * run); tg[HEADRX] = -tg[CHRX] * 0.6;
+      tg[PELY] = HIP - 0.05 * run + Math.abs(sn) * 0.07 * run;  // the body rises between plants
+      tg[PELRZ] = f.lean;                                      // and leans into a cut
       if (sp < 0.5) {                                          // standing: breathe, and some rest hands on hips
         tg[CHRX] += Math.sin(time * 2 + f.seed) * 0.012;
         if (!s.live && f.seed > 3.6) { tg[SLZ] = -0.45; tg[SRZ] = 0.45; tg[EL] = 1.6; tg[ER] = 1.6; tg[SLX] = 0.15; tg[SRX] = 0.15; }
@@ -378,7 +403,8 @@
       const want = Math.atan2(-hx, hy);
       let d = want - f.heading; d = Math.atan2(Math.sin(d), Math.cos(d));
       f.heading += f.snap ? d : d * (1 - Math.exp(-dt * 13));
-    }
+      f.lean += ((f.snap ? 0 : clamp(d * 0.9 * run, -0.32, 0.32)) - f.lean) * (1 - Math.exp(-dt * 9));
+    } else f.lean *= Math.exp(-dt * 9);
     if (p.spinT > 0) f.heading += dt * Math.PI * 2 / 0.5;
     /* ease the pose */
     const k = f.snap || snap ? (f.snap ? 1 : 1 - Math.exp(-dt * 60)) : 1 - Math.exp(-dt * 28);

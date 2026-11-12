@@ -205,7 +205,7 @@
     const p = { team, role, x, y, vx: 0, vy: 0, dvx: 0, dvy: 0, spd: r.spd, acc: ol || role[0] === 'D' ? 9 : 13, rt: r.rt, num: r.num, name: r.name,
       eng: null, block: null, shed: 0, immune: 0, beat: 0, stun: 0, down: false, tcd: 0, route: null, wp: 0, juke: 0, jcd: 0, dive: 0, anim: rnd(6), rd: 0, isOL: ol, asg: null, man: null,
       callT: 0, manT: 0, bt: null, rx: rnd(0.2, 0.45), thrT: 0, spinT: 0, fell: 0, jog: 0,
-      stiff: 0, truck: 0, hurdle: 0, pcd: 0, hcd: 0, hit: 0, strip: 0, dcd: 0, flat: 0 };  // move timers: power, hurdle, hit stick, strip, knocked flat
+      stiff: 0, truck: 0, hurdle: 0, pcd: 0, hcd: 0, hit: 0, strip: 0, dcd: 0, flat: 0, sl: 0 };  // move timers: power, hurdle, hit stick, strip, knocked flat
     if (r.x) Object.assign(p, r.x);
     p.sx = x;
     p.sy = y;
@@ -1056,6 +1056,10 @@
             credit(o, 'ff', 1);
           }
           const pw = clamp(0.45 + hyp(o.vx - c2.vx, o.vy - c2.vy) / 14, 0.5, 1.3);
+          /* the pair keeps a little of its momentum and slides to a stop together */
+          c2.slx = o.slx = o.vx * 0.45 + c2.vx * 0.3;
+          c2.sly = o.sly = o.vy * 0.45 + c2.vy * 0.3;
+          c2.sl = o.sl = 0.32;
           c2.down = true;
           o.fell = 1;
           o.vx = o.vy = 0;
@@ -3485,7 +3489,17 @@
     ps.after = (ps.after || 0) + dt;
     if (ps.after < 0.8) record();
     for (const p of P) {
-      if (p.down || p.fell) continue;
+      if (p.down || p.fell) {
+        if (p.sl > 0) {
+          // the tackle's last yard
+          p.sl -= dt;
+          p.x += p.slx * dt;
+          p.y += p.sly * dt;
+          p.slx *= Math.pow(0.02, dt);
+          p.sly *= Math.pow(0.02, dt);
+        }
+        continue;
+      }
       p.vx *= k;
       p.vy *= k;
       p.x += p.vx * dt;

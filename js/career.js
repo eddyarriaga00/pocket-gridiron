@@ -145,6 +145,9 @@
     } else if (his) C.po.rival = `${his.name} finished ahead of you.`;
     C.po.awards = aw;
     C.awards = (C.awards || []).concat(aw.map(n => ({ season: C.season, name: n })));
+    /* the season goes into the record book: where you played, how the team did, your line and your average grade */
+    C.hist = (C.hist || []).filter(h => h.season !== C.season).concat([{ season: C.season, team: C.team, rec: recTxt(C.team), finish, line: line(C.stats), g: C.stats.g,
+      grade: reg.length ? GRADES[Math.min(10, Math.round(avg))] : '', ovr: ovr(), awards: aw }]);
     C.po.bonus = bonus;
     C.xp += bonus;
     C.xpTotal += bonus;
@@ -221,12 +224,14 @@
     return `${m.tkl} tkl, ${m.int} INT, ${m.pbu} PBU`;
   }
 
+  const GRADES = ['F', 'D', 'C', 'C+', 'B', 'B+', 'A-', 'A', 'A', 'A+', 'A+'];
+
   /* a game grade from goals met, the result and the stat line, scaled so every position can reach an A */
   function gradeOf(m, won, met) {
     const scale = { QB: 1, RB: 0.8, WR: 1, LB: 3.6, CB: 4.4 }[C.pos], k = C.ql / 120 * share();  // a part-time player is judged on part-time numbers
     const stat = xpFor(m, false).filter(([l]) => l !== 'Game played').reduce((t, [, v]) => t + v, 0) * scale / k;
     const pts = met * 2 + (won ? 1 : 0) + (stat >= 650 ? 3 : stat >= 380 ? 2 : stat >= 170 ? 1 : 0);
-    return [pts, ['F', 'D', 'C', 'C+', 'B', 'B+', 'A-', 'A', 'A', 'A+', 'A+'][Math.min(10, pts)]];
+    return [pts, GRADES[Math.min(10, pts)]];
   }
 
   function headline(m, won, us, them, opp) {
@@ -543,8 +548,15 @@
   function tabStats() {
     const cols = COLS[C.pos], row = (l, m) => `<tr><td>${l}</td>${cols.map(([,k])=>`<td>${m[k]}</td>`).join('')}</tr>`;
     return `<table class="lg"><tr><th></th>${cols.map(([h])=>`<th>${h}</th>`).join('')}</tr>${row('Season',C.stats)}${row('Career',C.career)}</table>
-  ${leadersHtml()}${trophiesHtml()}
+  ${leadersHtml()}${historyHtml()}${trophiesHtml()}
   ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}${g.grade?' · '+g.grade:''}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`;
+  }
+
+  /* season by season; a career begun before this table existed only lists the seasons finished since */
+  function historyHtml() {
+    const h = C.hist || [];
+    if (!h.length) return '';
+    return `<h2>Season by season</h2><table class="lg">${h.map(x=>`<tr><td>Season ${x.season} · ${team(x.team).name} ${x.rec} · ${x.finish||'Missed the playoffs'}<small>${x.line}${x.grade?' · average grade '+x.grade:''} · ${x.ovr} overall${x.awards&&x.awards.length?' · '+x.awards.join(', '):''}</small></td></tr>`).join('')}</table>`;
   }
 
   function leadersHtml() {
@@ -578,7 +590,7 @@
   <div class="nx"><small>Hall of fame case</small><h4>${fame.verdict}</h4>
   <div class="trust" style="margin:8px 0 6px"><span>Score · 100 is a first-ballot career</span><b>${fame.score}</b><div class="bar"><i style="width:${Math.min(100,fame.score)}%"></i></div></div>
   <p>${fame.parts.map(([l,v])=>`${l} ${v}`).join(' · ')}</p></div>
-  ${trophiesHtml()}
+  ${historyHtml()}${trophiesHtml()}
   <button class="go" id="keep">Keep playing</button><div class="stack"><button class="btn2 warn" id="nc">Erase and start a new career</button></div>
   <p class="note">A new career replaces this one. It cannot be undone.</p></div>`;
     $('#nc').onclick = () => {

@@ -349,6 +349,9 @@ what is next. Update it after every item.
   grazed the jersey hem and the socks (the hem flares, the sock steps in under the knee).
   Also: leaving a game in the middle of a replay left the replay badge on the menu. `H.fingerprint()` unchanged.
 
+- 09:02 Career history. `closeSeason` adds one row to `C.hist`. Two scripted quarterback seasons and one running-back season
+  produced the right rows on both screens; `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -400,7 +403,8 @@ what is next. Update it after every item.
       chest instead of floating as flat cards; soft contact shading is baked into the vertices of both models. The far
       model still draws during play. Settings has "Close-up player models", and a replay that drags switches it off
 - [x] Touchdown celebrations: already there (three for the scorer, two for teammates); struck from this round
-- [ ] Career history: a season-by-season table (team, record, stat line, average grade, honors) on the hub and at retirement
+- [x] Career history: a season-by-season table (team, record, finish, stat line, average grade, overall, honors) on the
+      Stats tab and the retirement screen. Seasons finished before this existed are not listed
 - [ ] Fair catches and muffed punts on live punt returns
 - [ ] Milestones outside Career: a short list across all modes, shown from the menu
 

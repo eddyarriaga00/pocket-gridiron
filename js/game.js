@@ -92,10 +92,13 @@
   const FX = [], CONF = [];
 
   function mkRoster(ti, delta, ovr) {
-    const o = (ovr ?? TEAMS[ti].ovr) + (delta || 0), r = {};
+    const o = (ovr ?? TEAMS[ti].ovr) + (delta || 0), r = {}, worn = new Set();
     for (const role of [...OFFR, ...DEFR]) {
       const g = role === 'S2' ? 'S' : role.replace(/\d/, ''), rt = Math.round(clamp(o + rnd(-9, 7), 58, 99)), nr = NUM[g] || [60, 79];
-      r[role] = { rt, spd: BASE[g] * (1 + (rt - 80) * 0.004), num: Math.floor(rnd(nr[0], nr[1] + 1)), name: pick(SUR) };
+      let num = Math.floor(rnd(nr[0], nr[1] + 1));
+      for (let i = 0; worn.has(num) && i < 12; i++) num = Math.floor(rnd(nr[0], nr[1] + 1));  // no two players in the same number
+      worn.add(num);
+      r[role] = { rt, spd: BASE[g] * (1 + (rt - 80) * 0.004), num, name: pick(SUR) };
     }
     return r;
   }
@@ -137,7 +140,7 @@
   /* opt: {a,b,ql,diff,mode,lock,hero,ovr,mustWin,onEnd,onQuit} */
   function startGame(o) {
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
-    G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
+    G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
       sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
@@ -1734,7 +1737,7 @@
       } else if (w < 0) snd('lose');
       say(w === 0 ? `It ends in a tie, ${G.score[0]} all.` : `${tname(w > 0 ? 0 : 1)} win it, ${Math.max(G.score[0], G.score[1])} to ${Math.min(G.score[0], G.score[1])}.`, true);
     }
-    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml() });
+    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box });
     else showFinal();
   }
 
@@ -3582,7 +3585,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor,
+    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

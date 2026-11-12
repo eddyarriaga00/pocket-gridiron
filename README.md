@@ -14,7 +14,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   goals earn XP for ratings and abilities. Each week has practice, a game grade and a headline; a season has league
   leaders, honors and playoffs; you can ask for a trade or change teams between seasons. The coach has a word for you
   after every game, and a rival at your position on the best other team is the man to beat. There are 14 trophies.
-- **Season.** Take one team through seven weeks and a four-team playoff, calling and playing every snap.
+- **Season.** Take one team through seven weeks and a four-team playoff, calling and playing every snap. Your roster
+  keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.
 
 ## On the field

@@ -268,6 +268,10 @@ what is next. Update it after every item.
   rival (657 yards to 604) and earned the trophy; the hub shows the coach's card. Word choices use `Math.random`, so
   `H.fingerprint()` is unchanged.
 
+- 08:03 Season roster. `startGame({ros0})` plays with a saved roster; `onEnd` now carries the box score. Two bot games: the
+  Roster tab shows leaders (rushing 334 yards, 8 tackles) and lines per player. `mkRoster` re-rolls duplicate numbers, which
+  changes the seeded sequence, so `H.fingerprint()` was re-baselined. `H.sim(12,180)`: 32 points a game, no errors.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -286,7 +290,8 @@ what is next. Update it after every item.
 - [x] Career: the coach says something after every game (the performance, a weakness to fix, the next opponent, role changes),
       and a rival at your position on the best other team: marked on the leaders board, +300 XP for beating his team,
       a trophy for finishing a season ahead of him
-- [ ] Season mode: roster screen with names and ratings, and stat leaders
+- [x] Season mode: one roster for the whole season (names, numbers, ratings that move between seasons), every player's stat
+      line from the box score, and team leaders, on a new Roster tab. Jersey numbers no longer repeat within a team
 - [ ] Holding and pass interference, with a Settings switch for penalties
 - [ ] Menu: a slow camera path around the stadium and a 3D preview of your team's uniform on the team picker
 - [ ] Career difficulty: measure with scripted seasons and tune so an average player wins about half

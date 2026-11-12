@@ -218,6 +218,9 @@
 
   /* Lines both teams up for G.op against G.dp. With shift = true it is a change at the line (an audible or a flip):
      the same snap, so nothing is counted again and the players slide to their new spots instead of breaking a huddle. */
+  /* punts are returned live when you run the whole team; simulations, practice and career games take a simulated return */
+  const liveReturn = () => !AUTO && !QUIET && !G.lock && !G.drill;
+
   function setupPlay(shift) {
     const was = shift ? Object.fromEntries(P.map(p => [p.team + p.role, [p.x, p.y]])) : null, selRole = shift && G.sel ? G.sel.role : null;
     if (!shift) {
@@ -326,6 +329,14 @@
         taken.add(b);
         b.bt = r;
       }
+    }
+    if (kick && op.n === 'Punt' && liveReturn()) {
+      // the free safety drops back to field the punt
+      const r = d.FS;
+      r.x = FW / 2;
+      r.y = clamp(los + dir * 40, 5, 95);
+      r.asg = 'ret';
+      ps.ret = r;
     }
     G.me = G.lock && !kick ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : null;
     G.sel = G.lock ? G.me : off === 1 ? (selRole && d[selRole]) || d.MLB : null;
@@ -1413,7 +1424,7 @@
       }
       big = 'Touchdown!';
       G.sig = 'td';
-      sub = tname(t) + (ps.mode === 'ko' ? ' · kick return' : '') + tryTxt;
+      sub = tname(t) + (ps.mode === 'ko' ? (ps.punt ? ' · punt return' : ' · kick return') : '') + tryTxt;
       score = true;
       if (ps.mode === 'ko') {
         /* a return: no yards from scrimmage, nobody's turnover */
@@ -1454,7 +1465,7 @@
       if (ps.mode === 'ko') {
         stop = true;
         const ez = t === 0 ? y <= 0 : y >= 100, ry = Math.max(0, Math.round((y - ps.land) * dir));
-        big = ez ? 'Touchback' : 'Kick return';
+        big = ez ? 'Touchback' : ps.punt ? 'Punt return' : 'Kick return';
         sub = ez ? tname(t) + ' ball' : `${c.name} · ${ry} yard${ry===1?'':'s'}`;
         setBall(t, ez ? (t === 0 ? 25 : 75) : y, x);
         if (ry >= 30) react(t, 0.8, 2.5);
@@ -1562,7 +1573,7 @@
       const pick6 = big === 'Interception!', sack = big === 'Sack!';
       const sc = (kind === 'td' ? 60 + gain * 0.6 : pick6 ? 55 : kind === 'fumble' ? 50 : sack ? 22 : gain) * (c.team === 0 ? 1.2 : 1);
       if (sc >= 15 && (!G.potd || sc > G.potd.score)) {
-        const how = ps.mode === 'ko' ? 'kick return' : c.team !== off ? 'return' : ps.caught ? 'catch' : 'run';
+        const how = ps.mode === 'ko' ? (ps.punt ? 'punt return' : 'kick return') : c.team !== off ? 'return' : ps.caught ? 'catch' : 'run';
         const text = kind === 'td' ? `${c.name}, ${gain > 0 ? gain + '-yard ' : ''}touchdown ${how}` : pick6 ? `${c.name}, interception` : kind === 'fumble' ? `${c.name}, fumble recovery`
           : sack ? `${ps.tackler ? ps.tackler.name : 'The defense'}, sack` : `${c.name}, ${gain}-yard ${how}`;
         G.hl = { score: sc, text };
@@ -2050,6 +2061,34 @@
     a.x = lerp(a.x0, a.x1, s);
     a.y = lerp(a.y0, a.y1, s);
     a.z = 0.3 + a.h * 4 * s * (1 - s);
+    const punt = ps.mode === 'kick' && ps.ret && ps.kick && ps.kick.type === 'punt' && !ps.kick.arg.tb;
+    if (punt) {
+      const recv = 1 - ps.offTeam, dir = recv === 0 ? 1 : -1, r = ps.ret;  // the coverage runs down, the return team drops to block
+      for (const p of P) {
+        if (p === r) seek(p, a.x1, a.y1, 1);
+        else if (p.team === recv) seek(p, lerp(p.sx, a.x1, 0.45), a.y1 + dir * clamp((p.sy - a.y1) * dir * 0.45, 6, 24), 0.8);
+        else seek(p, lerp(p.sx, a.x1, 0.3), a.y1, 0.96, true);
+      }
+      integrate(dt);
+      if (s >= 1) {
+        // caught: from here it is a return, played like a kickoff return
+        ps.air = null;
+        for (const p of P) {
+          p.eng = null;
+          p.block = null;
+        }
+        Object.assign(ps, { mode: 'ko', punt: true, offTeam: recv, qb: null, carrier: r, open: true, turnover: true, handoff: true, land: a.y1, t: 0 });
+        r.x = a.x1;
+        r.y = a.y1;
+        G.dir = dir;
+        G.sel = null;
+        G.state = 'live';
+        hudKey = '';
+        snd('catch');
+        if (!AUTO && !QUIET) toast(recv === 0 ? 'Punt return: run!' : 'Cover the punt');
+      }
+      return;
+    }
     if (ps.mode === 'ko') {
       const dir = G.dir, r = ps.ret;  // everyone runs under the kick
       for (const p of P) {
@@ -2714,7 +2753,7 @@
     $('#qt').textContent = G.q > 4 ? 'OT' : ORD[G.q - 1];
     $('#clk').textContent = G.drill ? (G.drill.n - G.drill.left + 1) + '/' + G.drill.n : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     if (G.drill) $('#qt').textContent = 'Rep';
-    G.dnTxt = ko ? 'Kickoff' : downTxt();
+    G.dnTxt = ko ? (ps.punt ? 'Punt return' : 'Kickoff') : downTxt();
     $('#dn').textContent = G.dnTxt;
     for (const t of [0, 1]) $('#a' + t).dataset.to = G.drill ? '' : '●'.repeat(G.to[t]) + '○'.repeat(3 - G.to[t]);
     $('#sd0').classList.toggle('has', G.poss === 0);
@@ -3616,7 +3655,7 @@
     } else if (st === 'kickm') G.meter += dt;
     else if (st === 'kicka') {
       kickTick(dt);
-      if (ps && ps.mode === 'ko') record();
+      if (ps && (ps.mode === 'ko' || ps.ret)) record();
     } else if (st === 'dead') {
       coast(dt);
       G.deadT -= dt;

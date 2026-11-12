@@ -311,6 +311,11 @@ what is next. Update it after every item.
   and rejected (it sent HB Draw to 16.8). All four new plays ran in a scripted user game. `H.fingerprint()` re-baselined.
   The same measurement for passes: Smash 12.6 and Stick 11.5 yards a play are the strongest; not changed.
 
+- 08:26 Punt returns. A punt with a returner (`ps.ret`) becomes a 'ko' play at the catch (`ps.punt`). 24 scripted punts each way:
+  the computer returning averages 9.7 yards, the user's returner (run by the computer in the test) 13.4; no touchdowns in the
+  sample, though one turned up in an earlier single try. Career games, practice and simulations keep the simulated return.
+  `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -346,7 +351,8 @@ what is next. Update it after every item.
       can be watched again from the final screen in Exhibition, Season and Career
 - [x] Playbook: HB Screen, QB Sneak, Counter and Bootleg (17 offensive plays), Cover 4 and Goal Line (8 defenses); the computer
       calls goal line on short yardage and deep shells on long yardage. The run game was rebalanced play by play
-- [ ] Live punt returns in Exhibition and Season
+- [x] Live punt returns in Exhibition and Season: the free safety drops back, the coverage runs down, and the catch turns
+      the play into a return you play (or cover) like a kickoff return. No fair catches or muffs
 - [ ] Camera choice in Settings (standard, close, high)
 - [ ] Training camp: three guided drills (passing, running, tackling) with medals, offered on first launch
 - [ ] Left-handed layout: the buttons on the left

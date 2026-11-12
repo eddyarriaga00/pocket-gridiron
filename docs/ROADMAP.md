@@ -280,6 +280,11 @@ what is next. Update it after every item.
   Also learned from that measurement: most computer incompletions are inaccurate throws to wide-open backs behind the line.
   `H.fingerprint()` re-baselined.
 
+- 08:10 Menu shots and portraits. `PG.r3d.portrait(team, home, number)` renders one figure in its own small scene to an off-screen
+  target and returns a PNG data URL (cached per team, kit and number). Checked by screenshot on the Exhibition screen (home and
+  away kits) and the Career card. With 3D switched off the portraits are simply absent. The four menu shots were not
+  watched in motion. `H.fingerprint()` unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -302,7 +307,8 @@ what is next. Update it after every item.
       line from the box score, and team leaders, on a new Roster tab. Jersey numbers no longer repeat within a team
 - [x] Holding (2% of gains of four yards or more: ten yards back, replay the down) and defensive pass interference
       (a first down at the spot); Settings has a Penalties switch that turns every flag off
-- [ ] Menu: a slow camera path around the stadium and a 3D preview of your team's uniform on the team picker
+- [x] Menu: four slow camera shots behind the menus (high orbit, sideline, behind the posts, a crane onto midfield), and 3D
+      uniform portraits on the Exhibition and Season team pickers and on the Career player card
 - [ ] Career difficulty: measure with scripted seasons and tune so an average player wins about half
 
 ### Next ideas (nothing here is started)

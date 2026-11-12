@@ -21,7 +21,7 @@
   let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks;
   let hemiLight, sunLight, fillLight, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
   const shadowSets = [], towerGlow = [], towerPanels = [], refs = [];
-  let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null;
+  let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null, menuShot = -1;
   const FLASHES = 48, flashLife = new Float32Array(FLASHES);
   const TOWERS = [[-70, -78], [FW + 70, -78], [-70, 178], [FW + 70, 178]];   // the four light towers, as field [x, y]
   const posts = [];
@@ -890,8 +890,20 @@
     /* camera */
     const cm = s.cam, menu = G.state === 'menu';
     if (menu) {
-      const a = time * 0.06;
-      v3.set(FW / 2 + Math.sin(a) * 58, 30 + Math.sin(a * 0.7) * 6, -50 + Math.cos(a) * 95); v3b.set(FW / 2, 2, -50);
+      /* behind the menus: four slow shots, sixteen seconds each, with a hard cut between them */
+      const shot = Math.floor(time / 16) % 4, u = (time % 16) / 16;
+      if (shot !== menuShot) { menuShot = shot; cm.snap = true; }
+      if (shot === 0) {                                                  // high and wide, drifting around the bowl
+        const a = -0.6 + u * 0.9;
+        v3.set(FW / 2 + Math.sin(a) * 58, 30 + u * 5, -50 + Math.cos(a) * 95); v3b.set(FW / 2, 2, -50);
+      } else if (shot === 1) {                                           // along the sideline at head height
+        v3.set(-7, 2.3, -lerp(18, 62, u)); v3b.set(FW / 2 + 6, 3, -lerp(34, 78, u));
+      } else if (shot === 2) {                                           // rising behind the goal posts
+        v3.set(FW / 2 + lerp(-10, 10, u), lerp(3.5, 26, u * u), 26); v3b.set(FW / 2, 5, -50);
+      } else {                                                           // a crane coming down on midfield
+        const a = 1.9 + u * 0.7;
+        v3.set(FW / 2 + Math.sin(a) * lerp(60, 22, u), lerp(46, 9, u), -50 + Math.cos(a) * lerp(60, 22, u)); v3b.set(FW / 2, 1, -50);
+      }
     } else if (G.state === 'intro') {                                    // before kickoff: sweep down into the stadium
       let e = clamp((G.introT || 0) / 3.8, 0, 1); e = e * e * (3 - 2 * e);
       const a = lerp(-1.15, -0.25, e);
@@ -930,8 +942,57 @@
     else { renderer.setRenderTarget(null); renderer.render(scene, camera); }
   }
 
+  /* ---------- uniform portraits ----------
+     A single figure in a team's kit, drawn once into a small off-screen target and handed back as an image URL, for
+     the team pickers. It is its own little scene: ordinary meshes on the same skeleton and the same geometry. */
+  let studio = null;
+  const portraits = new Map();
+  function portrait(team, home, num) {
+    if (!renderer) return null;
+    const key = team.ab + (home ? 'h' : 'a') + num;
+    if (portraits.has(key)) return portraits.get(key);
+    const PW = 264, PH = 352;
+    if (!studio) {
+      const sc = new T.Scene(), f = makeFigure(), cam = new T.PerspectiveCamera(26, PW / PH, 0.5, 60);
+      sc.add(new T.HemisphereLight(0xe6eeff, 0x2a3a4a, 2.6));
+      const key1 = new T.DirectionalLight(0xffffff, 2.4); key1.position.set(-3, 6, 5); sc.add(key1);
+      sc.add(f.root);
+      const meshes = {};
+      for (const [name, joints, color] of PART_DEFS) {
+        meshes[name] = joints.map(j => {
+          const m = new T.Mesh(GEO[name], name === 'helmet' ? new T.MeshPhongMaterial({ shininess: 120, specular: 0x9aa0aa }) : new T.MeshLambertMaterial());
+          m.userData.color = color; f[j].add(m);
+          return m;
+        });
+      }
+      f.cur.fill(0); f.cur[PELY] = HIP; f.cur[CHRX] = -0.04; f.cur[CHRY] = 0.18; f.cur[EL] = 0.35; f.cur[ER] = 0.5; f.cur[SLZ] = -0.12; f.cur[SRZ] = 0.12; f.cur[SRX] = 0.25;
+      applyPose(f);
+      f.root.rotation.y = Math.PI + 0.5;                                // three-quarter view, facing the camera
+      f.root.scale.setScalar(1);
+      cam.position.set(0, 1.05, 5.4); cam.lookAt(0, 0.98, 0);
+      const rt = new T.WebGLRenderTarget(PW, PH, { samples: 4 });
+      rt.texture.colorSpace = T.SRGBColorSpace;
+      studio = { sc, f, cam, rt, meshes, buf: new Uint8Array(PW * PH * 4) };
+    }
+    const st = studio, c = teamColors(team, home, SKIN[(num * 3) % SKIN.length]);
+    for (const name in st.meshes) for (const m of st.meshes[name]) m.material.color.set(c[m.userData.color]);
+    st.f.num.material = numberMaterial(num, c.number);
+    const keepTarget = renderer.getRenderTarget(), keepColor = renderer.getClearColor(col2).getHex(), keepAlpha = renderer.getClearAlpha();
+    renderer.setRenderTarget(st.rt); renderer.setClearColor(0x000000, 0); renderer.clear();
+    renderer.render(st.sc, st.cam);
+    renderer.readRenderTargetPixels(st.rt, 0, 0, PW, PH, st.buf);
+    renderer.setRenderTarget(keepTarget); renderer.setClearColor(keepColor, keepAlpha);
+    const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH;
+    const x = cv.getContext('2d'), img = x.createImageData(PW, PH), row = PW * 4;
+    for (let y = 0; y < PH; y++) img.data.set(st.buf.subarray((PH - 1 - y) * row, (PH - y) * row), y * row);   // the target is stored bottom row first
+    x.putImageData(img, 0, 0);
+    const url = cv.toDataURL('image/png');
+    portraits.set(key, url);
+    return url;
+  }
+
   PG.r3d = {
-    init, resize, render, project,
+    init, resize, render, project, portrait,
     cheer(v) { cheer = Math.max(cheer, v); },
     get info() { return renderer ? renderer.info.render : null; },
     get scene() { return scene; },                       // test hook

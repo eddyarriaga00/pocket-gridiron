@@ -2931,6 +2931,7 @@
       G.tm = [me, opp];
       G.env = { time: tod, weather: wx };  // the stadium behind the menu shows the choice
       scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Exhibition</h1>
+  ${kitsHtml([[me, true, 'Home'], [opp, false, 'Away']])}
   <h2>Your team</h2><div class="teams" id="tms">${TEAMS.map((t,i)=>tmBtn(t,i,i===me)).join('')}</div>
   <h2>Opponent</h2><div class="row"><button class="nav" id="opl" aria-label="Previous opponent">‹</button>${tmBtn(TEAMS[opp],opp,false)}<button class="nav" id="opr" aria-label="Next opponent">›</button></div>
   <h2>Difficulty</h2><div class="seg" id="dif">${['Rookie','Pro','All-Pro'].map((d,i)=>`<button data-d="${i}" class="${i===diff?'on':''}">${d}</button>`).join('')}</div>
@@ -2976,6 +2977,16 @@
       };
     };
     draw();
+  }
+
+  /* the teams' uniforms as small 3D portraits: [team index, home kit?, caption] each. Empty when 3D is off. */
+  function kitsHtml(list) {
+    if (!R3 || !R3.portrait) return '';
+    const fig = ([ti, home, cap]) => {
+      const url = R3.portrait(TEAMS[ti], home, home ? 12 : 21);
+      return url ? `<figure><img src="${url}" alt="${TEAMS[ti].name} ${home?'home':'away'} uniform"><figcaption>${TEAMS[ti].ab} · ${cap}</figcaption></figure>` : '';
+    };
+    return `<div class="kits">${list.map(fig).join('<em>vs</em>')}</div>`;
   }
 
   /* redraw a menu without losing the scroll position */
@@ -3635,7 +3646,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster,
+    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster, kitsHtml,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

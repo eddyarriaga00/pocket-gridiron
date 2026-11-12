@@ -12,6 +12,7 @@ app.innerHTML=`<canvas id="gl" hidden></canvas><canvas id="c"></canvas>
     <div class="side r" id="sd1"><i></i><b id="a1"></b><em></em><u id="s1">0</u></div>
   </div>
   <div class="sub"><button id="pz" aria-label="Pause"><span></span><span></span></button><div id="dn"></div></div>
+  <div id="mine" hidden></div>
 </div>
 <div id="banner"></div><div id="toast"></div>
 <div id="meter" hidden><p id="mtxt"></p><div class="bar"><i id="ndl"></i></div></div>
@@ -117,14 +118,15 @@ function startGame(o){
  const lock=o.lock||null,first=o.mode==='career'&&rnd()<0.5?1:0;
  G={state:'dead',mode:o.mode||'exh',tm:[o.a,o.b],ros:[mkRoster(o.a,0,o.ovr&&o.ovr[0]),mkRoster(o.b,[-6,0,5][o.diff??1],o.ovr&&o.ovr[1])],
   score:[0,0],q:1,ql:o.ql||180,clock:o.ql||180,stats:[0,1].map(()=>({pass:0,rush:0,comp:0,att:0,to:0})),stam:1,pad:null,deadT:0,ot:false,final:false,
-  sel:null,me:null,preT:0,meter:0,lock,lockSide:lock?(OFFR.includes(lock)?'off':'def'):null,first,mustWin:!!o.mustWin,onEnd:o.onEnd||null,onQuit:o.onQuit||null,paused:false,last:'',
+  sel:null,me:null,preT:0,meter:0,lock,lockSide:lock?(OFFR.includes(lock)?'off':'def'):null,first,drill:o.drill?{n:o.drill,left:o.drill}:null,lineFn:o.line||null,goalsFn:o.goals||null,mustWin:!!o.mustWin,onEnd:o.onEnd||null,onQuit:o.onQuit||null,paused:false,last:'',
   my:{att:0,comp:0,pyd:0,ptd:0,pint:0,car:0,ryd:0,rtd:0,rec:0,recyd:0,rectd:0,tgt:0,tkl:0,sack:0,int:0,pbu:0}};
  if(lock&&o.hero)G.ros[0][lock]=o.hero;
  kickoff(first);P=[];ps=null;camUpd(0,true);hudKey='';scr.innerHTML='';FX.length=0;CONF.length=0;if(PG.audio)PG.audio.scene('game');
  $('#hud').hidden=false;$('#a0').textContent=ab(0);$('#a1').textContent=ab(1);
  $('#sd0').style.setProperty('--c',TEAMS[o.a].c1);$('#sd1').style.setProperty('--c',TEAMS[o.b].c1);
  try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(_){}
- banner('Kickoff',tname(first)+' ball',1500);startCall()}
+ if(G.drill){const t=G.lockSide==='off'?0:1;setBall(t,t===0?30:70,FW/2);G.pendKO=null;banner('Practice',G.drill.n+' reps',1500)}else banner('Kickoff',tname(first)+' ball',1500);
+ startCall()}
 
 /* ---------- play setup ---------- */
 function mkRoute(p,name,dir){const d=ROUTES[name],s=d.abs?1:(p.x<G.bx-0.01?1:-1);
@@ -252,7 +254,7 @@ function qbAI(q,dt,past){
  let best=null,bo=0,bsc=-1e9;const range=armRange(q)-2,hot=!AUTO&&G.me&&G.me.team!==q.team?G.me.man:null;
  for(const r of ps.recs){if(r.down||(r.wp<1&&ps.t<2.3))continue;if(dist(r,q)>range)continue;let open=99;
   for(const o of P)if(o.team!==q.team&&!o.down)open=Math.min(open,dist(o,r));
-  const sc=Math.min(open,7)+clamp((r.y-ps.los)*G.dir,-3,25)*0.05+rnd(1.2)+(r===me?(me.role==='RB'?1.2:3.5):0)+(hot&&r===hot?1.2:0);if(sc>bsc){bsc=sc;best=r;bo=open}}
+  const sc=Math.min(open,7)+clamp((r.y-ps.los)*G.dir,-3,25)*0.05+rnd(1.2)+(r===me?(me.role==='RB'?1.2:3.5):0)+(hot&&r===hot?2.2:0);if(sc>bsc){bsc=sc;best=r;bo=open}}
  const pr=pressure(q);if(pr&&rnd()<0.5)return;   // rattled: holds the ball a beat too long
  let need=ps.t>3.4?1.3:pr?1.2:2.7-(ps.t-1.5)*0.35;if(best&&best===me)need*=0.65;
  if(best&&bo>=need)throwTo(best);
@@ -295,7 +297,7 @@ function integrate(dt){
  for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++){const a=P[i],b=P[j];if(a.down||b.down||a.eng===b||b.eng===a)continue;
   const dx=b.x-a.x,dy=b.y-a.y,d=hyp(dx,dy);if(d<0.9&&d>0.001){const q=(0.9-d)/2/d;a.x-=dx*q;a.y-=dy*q;b.x+=dx*q;b.y+=dy*q}}}
 function tick(dt){
- ps.t+=dt;G.clock=Math.max(0,G.clock-dt);const off=ps.offTeam;
+ ps.t+=dt;if(!G.drill)G.clock=Math.max(0,G.clock-dt);const off=ps.offTeam;
  if(ps.mode==='run'&&!ps.handoff){const rn=ps.runner,dl=G.op.run.delay||0;
   if(rn===ps.qb?ps.t>0.45:ps.t>dl+0.3&&(dist(rn,ps.qb)<1.3||ps.t>dl+0.9)){ps.handoff=true;ps.carrier=rn;openField(0.24,0.62)}}
  const cl=new Set(),c=ps.carrier,uod=userOnD(),me=AUTO?null:G.me;
@@ -379,12 +381,15 @@ function finish(kind,arg){
 /* Quarter and game-end bookkeeping. Returns true when the game is over. */
 function advance(){
  if(G.final)return true;
+ if(G.drill)return false;
  if(G.clock<=0){const tie=G.score[0]===G.score[1];
   if(G.q===2){G.q=3;G.clock=G.ql;kickoff(1-G.first);banner('Halftime',tname(1-G.first)+' ball',1600)}
   else if(G.q>=4){if(tie&&(G.q===4||(G.mustWin&&G.q<8))){G.q++;G.ot=true;G.clock=G.ql;kickoff(rnd()<.5?0:1);banner('Overtime','Next score wins',1600)}else{G.final=true;return true}}
   else{G.q++;G.clock=G.ql;banner('End of quarter','',1200)}}
  return false}
-function next(){if(G.rp){G.rp=false;if(REC.length>50)return startReplay()}if(advance())return endGame();startCall()}
+function next(){if(G.rp){G.rp=false;if(REC.length>50)return startReplay()}
+ if(G.drill){if(--G.drill.left<=0)return endGame();const t=G.lockSide==='off'?0:1;setBall(t,t===0?30:70,FW/2);G.pendKO=null;G.score=[0,0];return startCall()}   // practice: same spot every rep
+ if(advance())return endGame();startCall()}
 /* Instant replay: every live frame is recorded (positions, pose flags, the ball); big plays are shown again
    at half speed from a low sideline camera. */
 const REC=[];
@@ -405,7 +410,7 @@ function replayStep(dt){G.rpI+=dt*60*0.5;const i=Math.floor(G.rpI);if(i>=REC.len
  ps.air=a?Object.assign({},a,{target:a.ti>=0?P[a.ti]:null,x:lerp(a.x,b.x,u),y:lerp(a.y,b.y,u),z:lerp(a.z,b.z,u),t:lerp(a.t,b.t,u)}):null;
  ps.carrier=f.c>=0?P[f.c]:null;ps.thrown=f.thrown;ps.open=f.open;ps.t=f.t;ps.loose=f.loose}
 function endGame(){G.state='over';P=[];ps=null;G.me=null;setBrief('');setPad('none');
- if(!AUTO){const w=G.score[0]-G.score[1];snd('whistle',{long:true});if(w>0){snd('fanfare');react(0,1.2,5)}else if(w<0)snd('lose')}
+ if(!AUTO&&!G.drill){const w=G.score[0]-G.score[1];snd('whistle',{long:true});if(w>0){snd('fanfare');react(0,1.2,5)}else if(w<0)snd('lose')}
  if(G.onEnd)G.onEnd({score:G.score.slice(),my:G.my,stats:G.stats,ot:G.ot});else showFinal()}
 
 /* ---------- play calling ---------- */
@@ -416,7 +421,7 @@ function cpuOff(t){const toGoal=t===0?100-G.los:G.los,ld=G.score[t]-G.score[1-t]
  let pr=G.togo>7?0.3:G.togo<3?0.65:0.45;if(G.down>=3&&G.togo>4)pr=0.12;
  // career: the coach leans on the user's position so they stay involved
  const star=G.lock&&t===0&&!AUTO?G.lock:null;
- if(star==='RB')pr=Math.max(pr,G.down>=3&&G.togo>6?0.35:0.6);else if(star==='X')pr*=0.5;
+ if(star==='RB')pr=Math.max(pr,G.down>=3&&G.togo>6?0.35:0.6);else if(star==='X')pr*=G.drill?0:0.5;
  const foe=G.lock&&t===1&&!AUTO?G.lock:null;   // and the opponent tests a defender
  if(foe==='MLB')pr=Math.min(0.75,pr+0.15);else if(foe==='CB1')pr*=0.75;
  if(rnd()<pr)return pick(OFF.filter(p=>p.cat==='run'&&(star!=='RB'||p.run.who==='RB')));
@@ -580,15 +585,16 @@ let bT,tT;
 function banner(big,sub,ms=1600){if(QUIET)return;const b=$('#banner');b.innerHTML=`<b>${big}</b>${sub?`<span>${sub}</span>`:''}`;b.classList.add('on');clearTimeout(bT);bT=setTimeout(()=>b.classList.remove('on'),ms)}
 function toast(t){if(QUIET||AUTO)return;const b=$('#toast');b.textContent=t;b.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>b.classList.remove('on'),1300)}
 let hudKey='';
-function updHud(){if(!G.ros)return;const s=Math.ceil(G.clock),ko=!!ps&&ps.mode==='ko',k=[G.score,G.q,s,G.poss,G.down,G.togo|0,G.los|0,ko].join();if(k===hudKey)return;hudKey=k;
+function updHud(){if(!G.ros)return;const s=Math.ceil(G.clock),ko=!!ps&&ps.mode==='ko',ln=G.lineFn?G.lineFn(G.my):'',k=[G.score,G.q,s,G.poss,G.down,G.togo|0,G.los|0,ko,ln,G.drill&&G.drill.left].join();if(k===hudKey)return;hudKey=k;
+ const mine=$('#mine');mine.hidden=!ln;mine.textContent=ln;
  $('#s0').textContent=G.score[0];$('#s1').textContent=G.score[1];$('#qt').textContent=G.q>4?'OT':ORD[G.q-1];
- $('#clk').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');G.dnTxt=ko?'Kickoff':downTxt();$('#dn').textContent=G.dnTxt;
+ $('#clk').textContent=G.drill?(G.drill.n-G.drill.left+1)+'/'+G.drill.n:Math.floor(s/60)+':'+String(s%60).padStart(2,'0');if(G.drill)$('#qt').textContent='Rep';G.dnTxt=ko?'Kickoff':downTxt();$('#dn').textContent=G.dnTxt;
  $('#sd0').classList.toggle('has',G.poss===0);$('#sd1').classList.toggle('has',G.poss===1)}
 function toMenu(){if(PG.audio)PG.audio.scene('menu');G=menuState(G.tm);P=[];ps=null;FX.length=0;$('#hud').hidden=true;pad.innerHTML='';scr.innerHTML='';setBrief('');$('#banner').classList.remove('on');$('#meter').hidden=true;CONF.length=0}
 function openPause(){if(!G.ros||G.state==='over'||G.paused)return;G.paused=true;const ov=$('#ov');ov.hidden=false;
  const draw=sure=>{ov.innerHTML=sure
   ?`<div class="dlg"><h3>Leave game?</h3><p>${G.mode==='career'?'This game will not count. You can play it again from your career.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">Leave game</button><button class="btn2" id="pk">Keep playing</button></div>`
-  :`<div class="dlg"><h3>Paused</h3><button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pmu">Music: ${SET.mus?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
+  :`<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pmu">Music: ${SET.mus?'on':'off'}</button><button class="btn2 warn" id="pq">Leave game</button></div>`;
   const on=(id,f)=>{const el=$('#'+id);if(el)el.onclick=f};
   on('pr',closePause);on('pk',()=>draw(false));on('pq',()=>draw(true));
   on('psn',()=>{SET.snd=!SET.snd;save('pg.settings',SET);if(PG.audio)PG.audio.refresh();draw(false)});

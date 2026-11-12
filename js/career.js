@@ -23,6 +23,14 @@ const POS={
 const RANKS=[[0,'Rookie'],[4000,'Starter'],[10000,'Playmaker'],[20000,'All-Pro'],[35000,'Franchise player'],[55000,'Legend']];
 const ZERO=()=>({g:0,att:0,comp:0,pyd:0,ptd:0,pint:0,car:0,ryd:0,rtd:0,rec:0,recyd:0,rectd:0,tgt:0,tkl:0,sack:0,int:0,pbu:0});
 const GOAL_XP=250;
+/* Abilities: [name, what it does, rating boosts]. A slot opens at 74, 80 and 87 overall. */
+const PERKS={
+ QB:[['Quick Release','The ball comes out faster, with more zip.',{pow:7,thr:2}],['Pinpoint','Tighter throws at every depth.',{thr:7}],['Escape Artist','Harder to bring down in the pocket and on the run.',{elu:14}],['Wheels','A step faster when the play breaks down.',{spd:8}]],
+ RB:[['Bruiser','Runs through arm tackles.',{pwr:12}],['Ankle Breaker','Jukes and spins fool tacklers for longer.',{elu:14}],['Soft Hands','A reliable target out of the backfield.',{hnd:14}],['Breakaway','Extra top speed in the open field.',{spd:6}]],
+ WR:[['Sure Hands','Holds on through contact.',{hnd:9}],['Route Artist','Sharper cuts create separation.',{rte:12}],['Burner','Extra top speed.',{spd:6}],['After the Catch','Slips the first tackler.',{elu:14}]],
+ LB:[['Enforcer','Tackles that stick.',{tkl:9}],['Block Shedder','Gets off blocks sooner.',{shd:14}],['Lurker','Reads the quarterback in coverage.',{cov:12}],['Closing Speed','Covers ground faster.',{spd:6}]],
+ CB:[['Lockdown','Stays in the receiver\u2019s pocket.',{cov:9}],['Pick Artist','Turns tipped balls into interceptions.',{bsk:14}],['Closing Speed','Covers ground faster.',{spd:6}],['Sure Tackler','Gets the ball carrier down.',{tkl:14}]]};
+const SLOT_AT=[74,80,87];
 
 let C=load(KEY,null);
 if(C&&(C.v!==1||!POS[C.pos]))C=null;
@@ -32,9 +40,14 @@ const ovr=()=>ovrOf(C.pos,C.attrs);
 const cost=v=>Math.round((150+Math.max(0,v-60)*22)/10)*10;
 const rank=()=>{const pts=C.xpTotal+C.rings*4000;let r=RANKS[0][1];for(const [n,l] of RANKS)if(pts>=n)r=l;return r};
 const team=i=>TEAMS[i],full=i=>`${TEAMS[i].city} ${TEAMS[i].name}`;
+const slots=()=>SLOT_AT.filter(v=>ovr()>=v).length;
+/* ratings with equipped abilities applied: this is what the engine plays with */
+function effAttrs(){const a={...C.attrs};
+ for(const n of (C.perks||[]).slice(0,slots())){const pk=PERKS[C.pos].find(x=>x[0]===n);if(pk)for(const k in pk[2])a[k]=Math.min(99,a[k]+pk[2][k])}
+ return a}
 
 /* the player as the engine sees them: an overall, a top speed, and the specific ratings the engine reads */
-function hero(){const a=C.attrs,x={};
+function hero(){const a=effAttrs(),x={};
  if(C.pos==='QB'){x.thr=a.thr;x.pow=a.pow;x.brk=a.elu;x.jk=a.elu}
  if(C.pos==='RB'){x.jk=a.elu;x.brk=Math.round(a.pwr*0.7+a.elu*0.3);x.cat=a.hnd}
  if(C.pos==='WR'){x.cat=a.hnd;x.acc=13*(1+(a.rte-75)*0.012);x.brk=a.elu;x.jk=a.elu}
@@ -57,7 +70,12 @@ const simWinner=(a,b)=>{const [x,y]=simScore(a,b);return x>y?a:b};
 const seeds=()=>TEAMS.map((_,i)=>i).sort((a,b)=>{const A=C.tab[a],B=C.tab[b];return (B.w+B.t/2)-(A.w+A.t/2)||(B.pf-B.pa)-(A.pf-A.pa)});
 const recTxt=i=>{const r=C.tab[i];return `${r.w}-${r.l}${r.t?'-'+r.t:''}`};
 function nextOpp(){if(C.phase==='reg'){const m=C.sched[C.week].find(p=>p.includes(C.team));return m[0]===C.team?m[1]:m[0]}return C.po.opp}
-function closeSeason(finish){C.po.finish=finish;C.phase='done';const bonus={Champion:1500,'Runner-up':800,Semifinalist:400}[finish]||0;C.po.bonus=bonus;C.xp+=bonus;C.xpTotal+=bonus}
+function closeSeason(finish){C.po.finish=finish;C.phase='done';let bonus={Champion:1500,'Runner-up':800,Semifinalist:400}[finish]||0;
+ const reg=C.log.filter(g=>g.pts!==undefined&&/^Wk/.test(g.wk)),avg=reg.length?reg.reduce((t,g)=>t+g.pts,0)/reg.length:0,aw=[];
+ if(avg>=6.5){aw.push('All-League');bonus+=600}
+ if(avg>=7.5&&finish==='Champion'){aw.push('League MVP');bonus+=1200}
+ C.po.awards=aw;C.awards=(C.awards||[]).concat(aw.map(n=>({season:C.season,name:n})));
+ C.po.bonus=bonus;C.xp+=bonus;C.xpTotal+=bonus}
 function startPlayoffs(){const s=seeds().slice(0,4),i=s.indexOf(C.team);C.po={seeds:s};
  if(i<0){C.po.champ=simWinner(simWinner(s[0],s[3]),simWinner(s[1],s[2]));closeSeason('Missed the playoffs');return}
  const rest=[0,1,2,3].filter(k=>k!==i&&k!==3-i);C.phase='semi';C.po.opp=s[3-i];C.po.other=[s[rest[0]],s[rest[1]]];pickGoals()}
@@ -86,6 +104,28 @@ function line(m){
  if(C.pos==='WR')return `${m.rec} rec, ${m.recyd} yds, ${m.rectd} TD · ${m.tgt} targets`;
  if(C.pos==='LB')return `${m.tkl} tkl, ${m.sack} sack, ${m.int} INT, ${m.pbu} PBU`;
  return `${m.tkl} tkl, ${m.int} INT, ${m.pbu} PBU`}
+/* a game grade from goals met, the result and the stat line, scaled so every position can reach an A */
+function gradeOf(m,won,met){const scale={QB:1,RB:1,WR:1.25,LB:2.3,CB:2.8}[C.pos],k=C.ql/120;
+ const stat=xpFor(m,false).filter(([l])=>l!=='Game played').reduce((t,[,v])=>t+v,0)*scale/k;
+ const pts=met*2+(won?1:0)+(stat>=650?3:stat>=380?2:stat>=170?1:0);
+ return [pts,['F','D','C','C+','B','B+','A-','A','A','A+','A+'][Math.min(10,pts)]]}
+function headline(m,won,us,them,opp){const n=C.name,t=TEAMS[C.team].name,o=TEAMS[opp].name;let f='';
+ if(C.pos==='QB')f=m.ptd>=2?`throws ${m.ptd} touchdowns`:m.pyd>=150?`passes for ${m.pyd} yards`:m.ptd===1?'throws a touchdown':'';
+ if(C.pos==='RB')f=m.rtd>=2?`scores ${m.rtd} times`:m.ryd>=70?`runs for ${m.ryd} yards`:m.rtd===1?'finds the end zone':'';
+ if(C.pos==='WR')f=m.rectd>=2?`catches ${m.rectd} touchdowns`:m.recyd>=70?`has ${m.recyd} receiving yards`:m.rectd===1?'catches a touchdown':'';
+ if(C.pos==='LB')f=m.int>=1?'grabs an interception':m.sack>=1?`gets ${m.sack>1?m.sack+' sacks':'a sack'}`:m.tkl>=5?`makes ${m.tkl} tackles`:'';
+ if(C.pos==='CB')f=m.int>=1?`picks off ${m.int>1?m.int+' passes':'a pass'}`:m.pbu>=2?`breaks up ${m.pbu} passes`:'';
+ const sc=`${Math.max(us,them)}\u2013${Math.min(us,them)}`;
+ if(won)return f?`${n} ${f} as the ${t} beat the ${o} ${sc}`:`${t} get past the ${o} ${sc}`;
+ if(us===them)return `${t} and ${o} finish level at ${us}`;
+ return f?`${n} ${f}, but the ${t} fall to the ${o} ${sc}`:`${o} hand the ${t} a ${sc} loss`}
+/* the short line shown under the scorebug during a game */
+function chip(m){
+ if(C.pos==='QB')return `${m.comp}/${m.att} · ${m.pyd} yds · ${m.ptd} TD`;
+ if(C.pos==='RB')return `${m.car} car · ${m.ryd} yds · ${m.rtd} TD`;
+ if(C.pos==='WR')return `${m.rec} rec · ${m.recyd} yds · ${m.rectd} TD`;
+ if(C.pos==='LB')return `${m.tkl} tkl · ${m.sack} sack · ${m.int} int`;
+ return `${m.tkl} tkl · ${m.int} int · ${m.pbu} pbu`}
 const COLS={
  QB:[['G','g'],['Comp','comp'],['Att','att'],['Yds','pyd'],['TD','ptd'],['INT','pint']],
  RB:[['G','g'],['Car','car'],['Yds','ryd'],['TD','rtd'],['Rec','rec']],
@@ -121,15 +161,23 @@ function showCreate(){const st={name:'',num:'',pos:'QB',arch:0,team:-1};
 /* ---------- hub ---------- */
 function nextCard(){const t=C.team;
  if(C.phase==='done'){const po=C.po;return `<div class="nx"><small>Season ${C.season} complete</small><h4>${po.finish}</h4>
-  <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.bonus?` Postseason bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
+  <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
   <button class="go sm" id="nxs">Start season ${C.season+1}</button></div>`}
  const o=nextOpp(),lab=C.phase==='reg'?`Week ${C.week+1} of ${C.sched.length}`:C.phase==='semi'?'Playoffs · Semifinal':'Championship game';
  return `<div class="nx"><small>${lab}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}</p>
-  <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button></div>`}
+  <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
+  ${C.prac!==pracKey()?'<button class="btn2" id="prac" style="margin-top:8px">Practice first · bonus XP</button>':'<p class="note" style="margin-top:8px">Practice is done for this week.</p>'}</div>
+  ${C.news?`<p class="news">${esc(C.news)}</p>`:''}`}
+const pracKey=()=>C.season+'-'+C.week+'-'+C.phase;
 function tabUp(){const P=POS[C.pos];
  return P.attrs.map(([k,l])=>{const v=C.attrs[k],c=cost(v),max=v>=99;
   return `<div class="at"><b>${l}</b><u>${v}</u><div class="bar"><i style="width:${Math.max(4,(v-50)/49*100)}%"></i></div><button data-k="${k}" ${max||C.xp<c?'disabled':''}>${max?'Maxed':`+1 · ${fmt(c)} XP`}</button></div>`}).join('')
-  +`<p class="note">Play games to earn XP. Each point costs more as the rating climbs.</p>`}
+  +`<p class="note">Play games to earn XP. Each point costs more as the rating climbs.</p>`+tabPerks()}
+function tabPerks(){const n=slots(),on=(C.perks||[]).slice(0,n),nextAt=SLOT_AT[n];
+ return `<h2>Abilities · ${on.length} of ${n} slot${n===1?'':'s'} used</h2>`
+  +PERKS[C.pos].map(([name,what])=>{const eq=on.includes(name),full2=!eq&&on.length>=n;
+   return `<div class="pk"><b>${name}</b><span>${what}</span><button data-p="${name}" class="${eq?'on':''}" ${full2?'disabled':''}>${eq?'Equipped':n?'Equip':'Locked'}</button></div>`}).join('')
+  +`<p class="note">${nextAt?`Next slot opens at ${nextAt} overall.`:'All three slots are open.'}</p>`}
 function tabSeason(){const s=seeds();
  return `<table class="lg"><tr><th>Team</th><th>W-L</th><th>PF</th><th>PA</th></tr>${s.map((i,n)=>`<tr class="${i===C.team?'me':''}"><td>${n+1}. ${full(i)}</td><td>${recTxt(i)}</td><td>${C.tab[i].pf}</td><td>${C.tab[i].pa}</td></tr>`).join('')}</table>
   <p class="note">Top four make the playoffs.</p>
@@ -137,10 +185,10 @@ function tabSeason(){const s=seeds();
   ${C.log.length?`<h2>Your games</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${team(g.opp).ab}</td></tr>`).join('')}</table>`:''}`}
 function tabStats(){const cols=COLS[C.pos],row=(l,m)=>`<tr><td>${l}</td>${cols.map(([,k])=>`<td>${m[k]}</td>`).join('')}</tr>`;
  return `<table class="lg"><tr><th></th>${cols.map(([h])=>`<th>${h}</th>`).join('')}</tr>${row('Season',C.stats)}${row('Career',C.career)}</table>
-  ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`}
+  ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}${g.grade?' · '+g.grade:''}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`}
 function showHub(tab){tab=tab||'up';const t=team(C.team);let sure=false;
  const draw=()=>{scr.innerHTML=`<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
-  <div class="pc" style="--c:${t.c1}"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
+  <div class="pc" style="--c:${t.c1}"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="xp"><span>To spend</span><b>${fmt(C.xp)} XP</b></div>
   ${nextCard()}
   <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
@@ -149,7 +197,10 @@ function showHub(tab){tab=tab||'up';const t=team(C.team);let sure=false;
   <div class="stack"><button class="btn2 warn" id="ret">${sure?'Tap again to erase this career':'Retire and start over'}</button></div></div>`;
   $('#bk').onclick=PG.showMenu;
   scr.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;sure=false;draw()});
-  scr.querySelectorAll('.at button').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=cost(C.attrs[k]);if(C.xp<c||C.attrs[k]>=99)return;C.xp-=c;C.attrs[k]++;persist();PG.snd('buy');keepScroll(draw)});
+  scr.querySelectorAll('.at button').forEach(b=>b.onclick=()=>{const k=b.dataset.k,c=cost(C.attrs[k]),s0=slots();if(C.xp<c||C.attrs[k]>=99)return;C.xp-=c;C.attrs[k]++;persist();PG.snd('buy');keepScroll(draw);if(slots()>s0)PG.banner('New ability slot','Pick one below',2200)});
+  scr.querySelectorAll('.pk button').forEach(b=>b.onclick=()=>{const n=b.dataset.p,cur=(C.perks||[]).slice(0,slots()),i=cur.indexOf(n);
+   if(i>=0)cur.splice(i,1);else if(cur.length<slots())cur.push(n);else return;C.perks=cur;persist();keepScroll(draw)});
+  const pr=$('#prac');if(pr)pr.onclick=practice;
   scr.querySelectorAll('#hq button').forEach(b=>b.onclick=()=>{C.ql=+b.dataset.q;pickGoals();persist();keepScroll(draw)});
   const pl=$('#play');if(pl)pl.onclick=play;
   const ns=$('#nxs');if(ns)ns.onclick=()=>{C.season++;initSeason();persist();showHub('up')};
@@ -160,15 +211,25 @@ function keepScroll(draw){const el=scr.querySelector('.menu'),y=el?el.scrollTop:
 /* ---------- playing a game ---------- */
 function play(){const opp=nextOpp();PG.snd('whistle');
  PG.startGame({a:C.team,b:opp,ql:C.ql,mode:'career',lock:POS[C.pos].role,hero:hero(),ovr:[C.ovrs[C.team],C.ovrs[opp]],diff:1,
-  mustWin:C.phase!=='reg',onEnd:r=>gameEnd(r,opp),onQuit:()=>showHub('up')})}
+  mustWin:C.phase!=='reg',line:chip,goals:m=>goals().map(g=>({d:g.d,ok:!!g.t(m)})),onEnd:r=>gameEnd(r,opp),onQuit:()=>showHub('up')})}
+/* weekly practice: six reps with the first team, no clock, XP for what you do with them */
+function practice(){const opp=nextOpp();PG.snd('whistle');
+ PG.startGame({a:C.team,b:opp,ql:C.ql,mode:'career',lock:POS[C.pos].role,hero:hero(),ovr:[C.ovrs[C.team],C.ovrs[C.team]-4],diff:1,drill:6,line:chip,
+  onEnd:r=>{const m=r.my,items=xpFor(m,false).filter(([l])=>l!=='Game played').map(([l,v])=>[l,Math.round(v*0.5)]);items.unshift(['Practice reps',80]);
+   const xp=items.reduce((t,[,v])=>t+v,0);C.xp+=xp;C.xpTotal+=xp;C.prac=pracKey();persist();
+   scr.innerHTML=`<div class="sheet"><div class="shd"><b>Practice done</b><span>${line(m)}</span></div>
+    <ul class="gl">${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}<li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
+    <button class="go" id="rc">Continue</button></div>`;
+   $('#rc').onclick=()=>{PG.toMenu();showHub('up')}},
+  onQuit:()=>showHub('up')})}
 function gameEnd(r,opp){let us=r.score[0],them=r.score[1];const m=r.my;
  if(C.phase!=='reg'&&us===them){if(rnd()<0.5)us+=3;else them+=3}   // a playoff game cannot end level
  const won=us>them,res=won?'W':us===them?'T':'L',gl=goals().map(g=>({d:g.d,ok:!!g.t(m)}));
- const items=xpFor(m,won),xp=items.reduce((s,[,v])=>s+v,0)+gl.filter(g=>g.ok).length*GOAL_XP,before=ovr();
+ const items=xpFor(m,won),met=gl.filter(g=>g.ok).length,xp=items.reduce((t,[,v])=>t+v,0)+met*GOAL_XP,[pts,grade]=gradeOf(m,won,met);
  for(const k in m){C.stats[k]=(C.stats[k]||0)+m[k];C.career[k]=(C.career[k]||0)+m[k]}C.stats.g++;C.career.g++;
  C.xp+=xp;C.xpTotal+=xp;
  const wk=C.phase==='reg'?`Wk ${C.week+1}`:C.phase==='semi'?'Semifinal':'Final';
- C.log.push({wk,opp,us,them,res,line:line(m)});
+ C.log.push({wk,opp,us,them,res,line:line(m),grade,pts});C.news=headline(m,won,us,them,opp);
  if(C.phase==='reg'){record(C.team,opp,us,them);C.around=[];
   for(const [a,b] of C.sched[C.week])if(a!==C.team&&b!==C.team){const [sa,sb]=simScore(a,b);record(a,b,sa,sb);C.around.push([a,sa,b,sb])}
   C.week++;if(C.week>=C.sched.length)startPlayoffs();else pickGoals()}
@@ -177,7 +238,7 @@ function gameEnd(r,opp){let us=r.score[0],them=r.score[1];const m=r.my;
  else if(C.phase==='final'){if(won){C.rings++;C.po.champ=C.team;closeSeason('Champion')}else{C.po.champ=opp;closeSeason('Runner-up')}}
  persist();
  scr.innerHTML=`<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>
-  <div class="nx" style="margin-top:0"><small>Your game</small><h4>${line(m)}</h4></div>
+  <div class="nx" style="margin-top:0"><small>Your game · grade ${grade}</small><h4>${line(m)}</h4><p style="margin:4px 0 0">${esc(C.news)}</p></div>
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>

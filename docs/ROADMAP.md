@@ -94,11 +94,12 @@ what is next. Update it after every item.
 - [ ] Penalties and fumbles (rare), timeouts
 
 ### 7. Career depth
-- [ ] Abilities: unlock slots at 74, 80, 87 overall; pick from four per position
-- [ ] Weekly practice drill for bonus XP
-- [ ] Game grades, headlines, season awards
-- [ ] In-game stat chip and goals in the pause menu
-- [ ] More action for defenders
+- [x] Abilities: slots open at 74, 80 and 87 overall; four per position; they boost the ratings the engine plays with
+- [x] Weekly practice: six reps, no clock, XP at half rate plus 80 (`startGame({drill:6})`)
+- [x] Game grades (F to A+), a headline after each game, season honors (All-League, League MVP) with XP bonuses
+- [x] Live stat chip under the scorebug; goals with check marks in the pause menu
+- [x] The computer quarterback tests the receiver a user cornerback is covering more often
+- [ ] Combine and draft opening, earning the starting job, contract and trade requests, coach trust
 
 ### 8. UX
 - [ ] First-time tips for each control context
@@ -133,6 +134,8 @@ what is next. Update it after every item.
 
 - 04:30 Kickoffs, replays, video boards, jog-in, loose ball. Regression clean. Note: the pane's `zoom` action can return a
   stale capture; use `screenshot` after `PG.dbg.render()`.
+
+- 04:50 Career depth pass. All five positions: practice, game, grade, headline, ability equip verified by script.
 
 ## Morning hand-off
 

@@ -102,7 +102,7 @@ function showCreate(){const st={name:'',num:'',pos:'QB',arch:0,team:-1};
    <div><label class="lbl" for="cj">Number</label><input id="cj" inputmode="numeric" maxlength="2" placeholder="1–99" value="${esc(st.num)}"></div></div>
    <h2>Position</h2><div class="seg" id="cp">${Object.keys(POS).map(k=>`<button data-p="${k}" class="${k===st.pos?'on':''}">${k}</button>`).join('')}</div>
    <h2>${P.label} build</h2><div class="arch" id="ca">${P.arch.map(([n,a],i)=>`<button data-a="${i}" class="${i===st.arch?'on':''}"><b>${n} · ${ovrOf(st.pos,a)} OVR</b><span>${P.attrs.map(([k,l])=>`${l} ${a[k]}`).join(' · ')}</span></button>`).join('')}</div>
-   <h2>Team</h2><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--gold);grid-column:1/3"><i></i><b>Let the league decide</b><span>Enter the draft</span><u>?</u></button>
+   <h2>Team</h2><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Let the league decide</b><span>Enter the draft</span><u>?</u></button>
    ${TEAMS.map((t,i)=>`<button class="tm ${i===st.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`).join('')}</div>
    <button class="go" id="cgo">Start career</button></div>`;
   const keep=()=>{st.name=$('#cn').value;st.num=$('#cj').value.replace(/\D/g,'')};
@@ -137,7 +137,7 @@ function tabSeason(){const s=seeds();
   ${C.log.length?`<h2>Your games</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${team(g.opp).ab}</td></tr>`).join('')}</table>`:''}`}
 function tabStats(){const cols=COLS[C.pos],row=(l,m)=>`<tr><td>${l}</td>${cols.map(([,k])=>`<td>${m[k]}</td>`).join('')}</tr>`;
  return `<table class="lg"><tr><th></th>${cols.map(([h])=>`<th>${h}</th>`).join('')}</tr>${row('Season',C.stats)}${row('Career',C.career)}</table>
-  ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}<br><span style="color:var(--mute);font-size:15px">${g.line}</span></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`}
+  ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`}
 function showHub(tab){tab=tab||'up';const t=team(C.team);let sure=false;
  const draw=()=>{scr.innerHTML=`<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc" style="--c:${t.c1}"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>

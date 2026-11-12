@@ -8,11 +8,11 @@ def png(path, n):
         row = bytearray([0])
         for x in range(n):
             px, py = x / s, y / s
-            c = (7, 11, 20)
+            c = (6, 10, 19)
             if py >= 300: c = (42, 132, 64)
             if 300 <= py < 310: c = (255, 255, 255)
             if 400 <= py < 406: c = (170, 206, 179)
-            if py < 16: c = (255, 207, 51)
+            if py < 16: c = (76, 154, 255)
             dx, dy = px - 256, py - 236
             u, v = dx * ca - dy * sa, dx * sa + dy * ca   # rotate into the ball's frame
             if (u / 150) ** 2 + (v / 92) ** 2 <= 1:

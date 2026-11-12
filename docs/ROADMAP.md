@@ -246,6 +246,17 @@ what is next. Update it after every item.
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
 - List what changed, what was verified and how, and what is still rough.
 
+### Round 4 (queued at 07:45; work through these in order)
+- [ ] Loose-ball scramble: a fumble stays live for about a second and the nearest players dive for it
+- [ ] Audibles at the line: change the play or flip it before the snap; a blitz or drop-back adjustment on defense
+- [ ] Two-point conversions and onside kicks when trailing late
+- [ ] Run cycle with a proper foot plant and arm drive; a two-man tackle animation (wrap and take down)
+- [ ] Career: a coach who reacts to your last game in the hub, and a rival player at your position to chase on the leaders board
+- [ ] Season mode: roster screen with names and ratings, and stat leaders
+- [ ] Holding and pass interference, with a Settings switch for penalties
+- [ ] Menu: a slow camera path around the stadium and a 3D preview of your team's uniform on the team picker
+- [ ] Career difficulty: measure with scripted seasons and tune so an average player wins about half
+
 ### Next ideas (nothing here is started)
 - Listen to the sound on a real device and tune it: nobody has heard the mix or the announcer yet.
 - Play on a real phone: touch feel, frame rate with shadows and the glow pass on, button reach with five buttons on the pad.

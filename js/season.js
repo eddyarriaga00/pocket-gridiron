@@ -95,7 +95,7 @@
   }
   function gameEnd(r, opp) {
     let us = r.score[0], them = r.score[1];
-    if (S.phase !== 'reg' && us === them) { if (Math.random() < 0.5) us += 3; else them += 3; }   // a playoff game cannot end level
+    if (S.phase !== 'reg' && us === them) { if (PG.rnd() < 0.5) us += 3; else them += 3; }   // a playoff game cannot end level
     const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', wk = LG.short(S), table = PG.statTable();
     S.log.push({ wk, opp, us, them, res });
     const s = S.stats;

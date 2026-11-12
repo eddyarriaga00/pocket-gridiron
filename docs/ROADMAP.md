@@ -241,13 +241,20 @@ what is next. Update it after every item.
   bot careers at all five positions and a two-season run finish with no errors; `H.fingerprint()` unchanged.
   Not checked by a person: how the dash feels to tap, and whether trust rises at a fair pace for a real player.
 
+- 07:50 Fumble scramble. Forcing a fumble on 292 computer plays: 53% lost, 46% kept, one returned for a touchdown, none stuck,
+  1.4 seconds on average. Natural rate in seeded computer games: 0.36 fumbles a game, 0.14 lost. `H.fingerprint()` re-baselined.
+  Noticed while testing: the scripted exhibition user (who only ever calls the first play and kicks on every fourth down) now
+  loses by about 27 points a game; with fumbles switched off it is the same, so it is not the scramble. Computer against
+  computer is steady at about 32 points a game combined. A smarter test bot is needed before reading anything into that.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
 - List what changed, what was verified and how, and what is still rough.
 
 ### Round 4 (queued at 07:45; work through these in order)
-- [ ] Loose-ball scramble: a fumble stays live for about a second and the nearest players dive for it
+- [x] Loose-ball scramble: a fumble is a live ball. Players near it dive, a miss squirts it away, the user steers the nearest
+      teammate (Sprint and Dive). Out of bounds or three seconds untouched and it stays with the team that lost it
 - [ ] Audibles at the line: change the play or flip it before the snap; a blitz or drop-back adjustment on defense
 - [ ] Two-point conversions and onside kicks when trailing late
 - [ ] Run cycle with a proper foot plant and arm drive; a two-man tackle animation (wrap and take down)

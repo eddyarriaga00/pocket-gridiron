@@ -182,10 +182,12 @@
       add('Interceptions', m.int * 220);
       add('Pass breakups', m.pbu * 70);
       add('Forced fumbles', (m.ff || 0) * 220);
+      add('Fumble recoveries', (m.fr || 0) * 160);
     }
     if (C.pos === 'CB') {
       add('Pass breakups', m.pbu * 90);
       add('Forced fumbles', (m.ff || 0) * 220);
+      add('Fumble recoveries', (m.fr || 0) * 160);
       add('Interceptions', m.int * 250);
       add('Tackles', m.tkl * 40);
     }

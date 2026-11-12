@@ -747,7 +747,7 @@
     carrierAI(p);
   }
 
-  const userOnD = () => !AUTO && G.state === 'live' && (!G.lock || !!G.me) && (ps.carrier ? ps.carrier.team === 1 : !!(ps.air && ps.offTeam === 1));
+  const userOnD = () => !AUTO && G.state === 'live' && (!G.lock || !!G.me) && (ps.fum ? true : ps.carrier ? ps.carrier.team === 1 : !!(ps.air && ps.offTeam === 1));  // a loose ball is anyone's
   const canPass = () => !AUTO && G.state === 'live' && ps.mode === 'pass' && !ps.thrown && !ps.turnover && ps.carrier === ps.qb && userP(ps.qb) && (ps.qb.y - ps.los) * G.dir < 0.3;
 
   function resolvePass() {
@@ -910,6 +910,19 @@
         continue;
       }
       if (p.eng || p.block) continue;
+      if (ps.fum) {
+        // a loose ball: everyone close goes for it, and dives when he is near enough
+        const b = ps.loose, d = hyp(p.x - b.x, p.y - b.y);
+        if (d < 15) {
+          seek(p, b.x, b.y, 1, true);
+          if (d < 2.3 && ps.fum.t > 0.3 && (AUTO || p !== G.sel)) {
+            p.vx = (b.x - p.x) / (d || 1) * p.spd * 1.5;
+            p.vy = (b.y - p.y) / (d || 1) * p.spd * 1.5;
+            p.dive = 0.26;
+          }
+        } else p.dvx = p.dvy = 0;
+        continue;
+      }
       if (p === c) {
         carrierCtl(p, dt);
         continue;
@@ -987,6 +1000,7 @@
       a.z = 1.8 * (1 - s) + 1.2 * s + a.h * 4 * s * (1 - s);
       if (s >= 1) resolvePass();
     }
+    if (ps.fum && G.state === 'live' && scramble(dt)) return;
     // tackles
     const c2 = ps.carrier;
     if (c2 && G.state === 'live') {
@@ -1017,10 +1031,8 @@
           if (o.strip > 0) fum += 0.13;
           if (c2.hurdle > 0) fum *= 2.5;
           if (rnd() < fum) {
-            const near = t => P.reduce((n, q) => n + (q.team === t && !q.down && q !== c2 && dist(q, c2) < 6 ? 1 : 0), 0);
-            const lost = rnd() < clamp(0.5 + 0.12 * (near(o.team) - near(c2.team)), 0.2, 0.85);
-            ps.fumble = { lost, forced: o };
-            ps.loose = { x: c2.x, y: c2.y, z: 1.1, vx: rnd(-3, 3), vy: rnd(-3, 3), vz: 3 };
+            ps.fum = { t: 0, by: c2, forced: o };
+            ps.loose = { x: c2.x, y: c2.y, z: 1.1, vx: c2.vx * 0.4 + rnd(-3, 3), vy: c2.vy * 0.4 + rnd(-3, 3), vz: 3.2 };
             if (!AUTO && G.me && o === G.me) G.my.ff = (G.my.ff || 0) + 1;
             credit(o, 'ff', 1);
           }
@@ -1032,7 +1044,22 @@
           snd('hit', { power: pw });
           if (pw > 1.05 && !QUIET && !AUTO && PG.audio) PG.audio.crowd.ooh(0.6);
           hitFx(c2.x, c2.y);
-          finish(ps.fumble && ps.fumble.lost ? 'fumble' : 'tackle');
+          if (ps.fum) {
+            // the whistle waits: the ball is live until somebody falls on it
+            ps.carrier = null;
+            G.sel = G.lock ? G.me : null;
+            for (const p of P) {
+              p.eng = null;
+              p.block = null;
+            }
+            if (!AUTO && !QUIET) {
+              toast('Fumble! Get on it');
+              say('Fumble!', true);
+              if (PG.audio) PG.audio.crowd.ooh(0.9);
+            }
+            return;
+          }
+          finish('tackle');
           return;
         }
         release(o);
@@ -1070,7 +1097,7 @@
     let best = null, top = 0;
     for (const key in G.box) {
       const b = G.box[key];
-      const sc = (n(b.pyd) / 25 + n(b.ptd) * 4 - n(b.pint) * 2 + n(b.ryd) / 10 + n(b.recyd) / 10 + n(b.td) * 6 + n(b.tkl) + n(b.sack) * 2 + n(b.int) * 3 + n(b.ff) * 2) * (b.team === win ? 1.2 : 1);
+      const sc = (n(b.pyd) / 25 + n(b.ptd) * 4 - n(b.pint) * 2 + n(b.ryd) / 10 + n(b.recyd) / 10 + n(b.td) * 6 + n(b.tkl) + n(b.sack) * 2 + n(b.int) * 3 + n(b.ff) * 2 + n(b.fr) * 2) * (b.team === win ? 1.2 : 1);
       if (sc > top) {
         top = sc;
         best = b;
@@ -1086,6 +1113,7 @@
     if (b.sack) parts.push(`${b.sack} sack${b.sack > 1 ? 's' : ''}`);
     if (b.int) parts.push(`${b.int} INT`);
     if (b.ff) parts.push(`${b.ff} forced fumble${b.ff > 1 ? 's' : ''}`);
+    if (b.fr) parts.push(`${b.fr} fumble recover${b.fr > 1 ? 'ies' : 'y'}`);
     return { name: b.name, num: b.num, team: b.team, role: b.role, line: parts.join(' · ') };
   }
 
@@ -1093,6 +1121,81 @@
     const p = playerOfGame();
     return p ? `<p class="potg"><small>Player of the game</small><b>#${p.num} ${p.name} · ${ab(p.team)}</b><span>${p.line}</span></p>` : '';
   };
+
+  /* a ball on the ground: gravity, a dead bounce or two with a random kick, then it rolls to a stop */
+  function bounce(b, dt) {
+    b.vz -= 14 * dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.z += b.vz * dt;
+    if (b.z < 0.16) {
+      b.z = 0.16;
+      if (b.vz < -1.2) {
+        b.vz = -b.vz * 0.45;
+        b.vx = b.vx * 0.6 + rnd(-1.6, 1.6);
+        b.vy = b.vy * 0.6 + rnd(-1.6, 1.6);
+      } else {
+        b.vz = 0;
+        const fr = Math.pow(0.04, dt);
+        b.vx *= fr;
+        b.vy *= fr;
+      }
+    }
+  }
+
+  /* The ball is loose. Anyone who reaches it can fall on it; a miss sends it squirting away again. Out of bounds, or
+     three seconds with nobody on it, and it stays with the team that lost it. Returns true when the play is over. */
+  function scramble(dt) {
+    const b = ps.loose, f = ps.fum;
+    f.t += dt;
+    bounce(b, dt);
+    if (b.x < 0 || b.x > FW || b.y < -10 || b.y > 110) return recover(null);
+    if (f.t > 0.35 && b.z < 1.3) for (const p of P) {
+      if (p.down || p.fell || p.stun > 0 || p.flat > 0 || p === f.by || hyp(p.x - b.x, p.y - b.y) > 1.15) continue;
+      const mine = !AUTO && p === G.sel && p.team === 0;  // the player you are steering is surer of it
+      if (rnd() < (mine ? 0.8 : 0.5)) return recover(p);
+      b.vx = rnd(-4.5, 4.5);
+      b.vy = rnd(-4.5, 4.5);
+      b.vz = 2.6;
+      p.stun = 0.8;
+      p.dive = 0;
+      snd('hit', { power: 0.3 });
+    }
+    if (f.t > 3.2) {
+      let best = null, bd = 1e9;
+      for (const p of P) if (!p.down && !p.fell) {
+        const d = hyp(p.x - b.x, p.y - b.y);
+        if (d < bd) {
+          bd = d;
+          best = p;
+        }
+      }
+      return recover(best);
+    }
+    return false;
+  }
+
+  /* p falls on the ball; null means it went out of bounds and goes back to the team that fumbled */
+  function recover(p) {
+    const f = ps.fum, b = ps.loose, own = !p || p.team === f.by.team;
+    f.own = own;
+    if (p) {
+      p.fell = 1;
+      p.vx = p.vy = 0;
+      b.x = p.x;
+      b.y = p.y;
+      b.z = 0.3;
+      b.vx = b.vy = b.vz = 0;
+      credit(p, 'fr', 1);
+      if (!AUTO && G.me && p === G.me) G.my.fr = (G.my.fr || 0) + 1;
+    }
+    /* the play is scored from where the ball ended up, by whoever has it */
+    ps.carrier = p || Object.assign({}, f.by, { x: clamp(b.x, 0.5, FW - 0.5), y: clamp(b.y, -9.5, 109.5) });
+    if (p && (p.team === 0 ? b.y >= 100 : b.y <= 0)) finish('td');  // fallen on in the end zone he is attacking
+    else if (own) finish(p ? 'tackle' : 'oob');
+    else finish('fumble', { team: p.team });
+    return true;
+  }
 
   function addYds(t, g, td, sack) {
     if (ps.caught) G.stats[t].pass += g;
@@ -1149,8 +1252,10 @@
       else if (t === off) addYds(off, Math.round(((t === 0 ? 100 : 0) - los) * dir), true);
       else {
         G.stats[off].to++;
-        credit(c, 'int', 1);
-        credit(ps.passer, 'pint', 1);
+        if (!ps.fum) {
+          credit(c, 'int', 1);
+          credit(ps.passer, 'pint', 1);
+        }
       }
       credit(c, 'td', 1);
       if (t === off && ps.mode !== 'ko' && G.drive && !AUTO) {
@@ -1166,13 +1271,13 @@
       }
       react(t, 1.4, 5.5);
     } else if (kind === 'fumble') {
-      const t = 1 - c.team, f = ps.fumble.forced;
+      const t = arg.team, f = ps.fum.forced, ez = t === 0 ? c.y <= 0 : c.y >= 100;
       stop = true;
       big = 'Fumble!';
-      sub = `${tname(t)} recover` + (f ? ` · forced by ${f.name}` : '');
-      G.stats[c.team].to++;
+      sub = `${c.name} recovers for the ${tname(t)}` + (f ? ` · forced by ${f.name}` : '');
+      G.stats[1 - t].to++;
       react(t, 1.2, 3);
-      setBall(t, c.y, c.x);
+      setBall(t, ez ? (t === 0 ? 20 : 80) : c.y, c.x);
     } else if (kind === 'tackle' || kind === 'oob') {
       const t = c.team, y = c.y, x = c.x;
       if (me && ps.tackler === me) G.my.tkl++;
@@ -1267,7 +1372,7 @@
       stop = true;
       react(1 - off, 0.9, 2.5);
     }
-    if (kind === 'tackle' && ps.fumble && !ps.fumble.lost) sub += ' · fumble, recovered';
+    if ((kind === 'tackle' || kind === 'oob') && ps.fum) sub += ' · fumble, recovered';
     G.runoff = !stop && !score ? Math.min(13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle
     G.clock -= G.runoff;
     cpuTimeout();
@@ -1851,7 +1956,7 @@
       G.sel = mine[(mine.indexOf(G.sel) + 1) % mine.length];
       return;
     }
-    const t = ps.carrier || (ps.air ? { x: ps.air.x1, y: ps.air.y1 } : null);
+    const t = ps.carrier || (ps.fum ? ps.loose : ps.air ? { x: ps.air.x1, y: ps.air.y1 } : null);
     if (!t) return;
     let b = null, bd = 1e9;
     for (const p of mine) {
@@ -1868,7 +1973,7 @@
   function diveDef() {
     const s = G.sel;
     if (!s || s.dive > 0 || s.stun > 0 || s.eng || s.down) return;
-    const c = ps.carrier;
+    const c = ps.carrier || (ps.fum ? ps.loose : null);  // dive at the ball carrier, or at the ball itself
     let ux = inp.x, uy = inp.y;
     if (c && dist(s, c) < 5) {
       ux = c.x - s.x;
@@ -1987,6 +2092,7 @@
     if (G.state === 'kickm') return 'kick';
     if (G.state === 'live') {
       const c = ps.carrier;
+      if (ps.fum) return userOnD() ? 'loose' : 'none';
       if (c && userP(c)) return canPass() ? 'pass' : 'carry';
       if (userOnD()) return lk ? 'deflock' : 'def';
       if (lk && me && ps.offTeam === 0 && !ps.turnover && !me.down && me !== ps.qb) return me.route && ps.mode === 'pass' && !ps.thrown ? 'route' : 'offball';
@@ -1996,7 +2102,7 @@
 
   const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter first to change his route.', pass: 'Tap a letter for a bullet pass. Hold it for a lob.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
-    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control.' };
+    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control.' };
   let tipT;
 
   function tip(kind) {
@@ -2079,6 +2185,10 @@
     } else if (kind === 'offball') spr();
     else if (kind === 'defpre') B('Switch', '', () => act('switch'));
     else if (kind === 'timeout') B('Time out', '', () => act('timeout'));
+    else if (kind === 'loose') {
+      spr();
+      B('Dive', '', () => act('dive'));
+    }
   }
 
   addEventListener('keydown', e => {
@@ -2192,7 +2302,8 @@
     const any = a => a[Math.floor(Math.random() * a.length)], team = c ? TEAMS[G.tm[c.team]] : null, who = c ? c.name : '';
     let line = '', urgent = true;
     if (kind === 'td') line = any([`Touchdown, ${team.name}!`, `${who} scores! Touchdown, ${team.city}!`, `He is in! Touchdown ${team.name}!`]);
-    else if (kind === 'fumble') line = `Fumble! ${tname(1 - c.team)} recover.`;
+    else if (kind === 'fumble') line = any([`${tname(c.team)} ball!`, `${who} falls on it. ${tname(c.team)} ball!`]);
+    else if (ps && ps.fum && (kind === 'tackle' || kind === 'oob')) line = any(['They get it back.', `${tname(c.team)} keep the ball.`]);
     else if (big === 'Interception!') line = any(['Intercepted!', `Picked off by ${who}!`, `${team.name} take it away!`]);
     else if (big === 'Sack!') line = any(['Sacked!', 'They get to the quarterback. Sack!']);
     else if (big === 'Safety!') line = 'Safety! Two points.';
@@ -2569,7 +2680,7 @@
     scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard.</li></ul>
   <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, tap a lettered receiver or the matching button to throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Tap a letter for a bullet pass, hold it for a lob. Before the snap, tap a receiver\u2019s letter to change his route.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
-  <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
+  <h2>Defense</h2><ul class="how"><li>Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. 1–5 pass.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, C call for the ball, P pause.</li></ul></div>`;
     $('#bk').onclick = showMenu;
@@ -2692,6 +2803,10 @@
           fx = ps.carrier.x;
           fy = ps.carrier.y;
           up = ps.carrier.team === 0;
+        } else if (ps.fum && ps.loose) {
+          // stay on the loose ball
+          fx = ps.loose.x;
+          fy = ps.loose.y;
         } else {
           fx = cam.fx;
           fy = cam.fy;
@@ -2844,7 +2959,7 @@
   function isCtl(p) {
     if (AUTO || !ps) return false;
     if (G.lock) return p === G.me;
-    return (ps.carrier === p && p.team === 0 && G.state === 'live') || (G.sel === p && ps.offTeam === 1 && (G.state === 'pre' || G.state === 'live'));
+    return (ps.carrier === p && p.team === 0 && G.state === 'live') || (G.sel === p && (ps.offTeam === 1 || !!ps.fum) && (G.state === 'pre' || G.state === 'live'));
   }
 
   function drawPlayer(p) {
@@ -3185,25 +3300,7 @@
   function coast(dt) {
     if (!ps) return;
     const k = Math.pow(0.03, dt), b = ps.loose;
-    if (b) {
-      b.vz -= 14 * dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      b.z += b.vz * dt;  // an incomplete pass bounces away
-      if (b.z < 0.16) {
-        b.z = 0.16;
-        if (b.vz < -1.2) {
-          b.vz = -b.vz * 0.45;
-          b.vx = b.vx * 0.6 + rnd(-1.6, 1.6);
-          b.vy = b.vy * 0.6 + rnd(-1.6, 1.6);
-        } else {
-          b.vz = 0;
-          const fr = Math.pow(0.04, dt);
-          b.vx *= fr;
-          b.vy *= fr;
-        }
-      }
-    }
+    if (b) bounce(b, dt);  // an incomplete pass bounces away
     ps.after = (ps.after || 0) + dt;
     if (ps.after < 0.8) record();
     for (const p of P) {

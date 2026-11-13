@@ -1222,6 +1222,19 @@ what is next. Update it after every item.
   7.8 yd deep behind the quarterback, the zone slid on every motion without a man defender, the man defender followed
   on 6, every position finite. Checked: fingerprint unchanged, careers (QB and WR), exhibition, drills, audit empty at
   320x568 and 390x844, no console errors.
+- 07:20 Automatic run: the formation shift, which finishes pre-snap motion. `planShift` lines the offense up in another
+  formation with the same men (single, pistol and slot share theirs; gun, empty and bunch theirs), either way round,
+  or in the mirror of the called one, keeping only the men who move 1 to 12 yards (two at least; it tries every
+  option and picks one at random). `shiftStep`: once the quarterback has called it and everybody has stopped, they all
+  move at once (jog speed held to 3 yd/s and 70% of each man's speed), then set for a full second ('from', 'move',
+  'set', 'done'); the corners walk out over whoever is outermost the whole time, at up to 6 yd/s. The computer's
+  offense and a career receiver's coach shift on 12% of snaps (a formation that cannot shift sends a man in motion
+  instead), and the automatic snap waits for the second set. A career receiver who moves reads "The offense shifts
+  first" in the brief. The End Around stays a true end around (the receiver starts after the snap): it is not a
+  motion play. Measured, a 10-minute exhibition: 11 shifts on 120 computer snaps (slot to single 3, slot to pistol 3,
+  mirrored heavy and trips, bunch or empty to gun, bunch to empty), 2 to 4 men each, set for 1.0 s every time, the
+  corners 0.0 yd from the outside men at the snap, every man at his spot; motion on 40 more. Checked: fingerprint
+  unchanged, careers (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844, no console errors.
 
 ## Morning hand-off
 
@@ -1537,9 +1550,6 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Pre-snap motion, the rest (zip, across, jet, orbit, the zone slide and the jet sweep are done, 06:23 and 06:51): a
-  shift from one formation to another (line up in one, everybody moves, then sets for a second; the corners realign
-  to the new outside men), and the End Around from motion too.
 - The coin toss call: as a captain you call heads or tails and choose to receive or defer (then you get the ball to
   start the second half).
 - More penalties with real enforcement: defensive pass interference at the spot, roughing the passer (15 yards and a

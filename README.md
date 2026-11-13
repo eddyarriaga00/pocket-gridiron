@@ -83,7 +83,9 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   he is at the snap, and if a defender runs with him it is man coverage; in a zone the safeties and linebackers slide
   over instead (the game tells you which). The computer's offense and a career receiver's coach put a man in motion on
   about a third of snaps (a short zip inside, across the formation, a jet, or an orbit that loops behind a shotgun
-  quarterback), and the snap comes when he gets there. The Jet Sweep is run from jet motion: the receiver is already
+  quarterback), and the snap comes when he gets there. On about one snap in eight they shift instead: the offense lines
+  up in another formation, moves to the real one all at once and sets for a second, and the corners walk out over the
+  new outside men. The Jet Sweep is run from jet motion: the receiver is already
   flying across when the ball is snapped and takes the handoff on the run. On defense you can change the coverage.
 - The play-call sheet shows three plays at a time. On the Coach tab the first three are the coach's picks for this down,
   distance and score, shared out between the kinds of play by how likely each is (third and one: two runs and a pass),

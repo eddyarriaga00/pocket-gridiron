@@ -876,6 +876,67 @@
     }
   }
 
+  /* A shift: the offense lines up in another formation with the same men (or the mirror of this one), then on the
+     quarterback's word everybody moves to the called formation at once and sets for a full second before the snap, as
+     the rules ask. Nobody moves more than twelve yards. The corners walk out over whoever is outside. Like motion, only
+     in games someone is watching. */
+  function planShift() {
+    if (AUTO || QUIET || G.drill || !ps || ps.mot || ps.sh || (ps.mode !== 'pass' && ps.mode !== 'run')) return null;
+    const off = ps.offTeam, bx = ps.bx, los = ps.los, dir = G.dir, B = FORM[G.op.f];
+    if (!B) return null;
+    const roles = k => Object.keys(FORM[k]).filter(r => r !== 'QB').sort().join(), f0 = G.flip ? -1 : 1;
+    /* every way to start: each formation with the same men, either way round, and the mirror of this one */
+    const opts = Object.keys(FORM).filter(k => k !== G.op.f && roles(k) === roles(G.op.f)).flatMap(k => [[k, f0], [k, -f0]]).concat([[null, -f0]]);
+    const build = ([fk, fl]) => {
+      const A = fk ? FORM[fk] : B, men = [];
+      for (const p of P) {
+        if (p.team !== off || p.isOL || p === ps.qb || !A[p.role]) continue;
+        const x = clamp(bx + A[p.role][0] * fl, 1.5, FW - 1.5), y = los + dir * A[p.role][1], d = hyp(x - p.sx, y - p.sy);
+        if (d < 1 || d > 12) continue;
+        men.push({ p, x, y, bx: p.sx, by: p.sy });
+      }
+      return { fk, men };
+    };
+    const ok = opts.map(build).filter(o => o.men.length >= 2);
+    if (!ok.length) return null;
+    const { fk, men } = ok[Math.floor(Math.random() * ok.length)];
+    for (const m of men) {
+      m.p.sx = m.x;
+      m.p.sy = m.y;
+      if (m.p.jog) m.p.jog = Math.max(3, hyp(m.p.x - m.x, m.p.y - m.y) / 1.1);
+    }
+    ps.sh = { men, ph: 'from', t: 0, from: fk };
+    return ps.sh;
+  }
+
+  function shiftStep(dt) {
+    const s = ps && ps.sh;
+    if (!s) return;
+    if (s.ph === 'from' && G.cadence && G.preT > 1 && !P.some(p => p.jog)) {
+      s.ph = 'move';  // everybody at once
+      for (const m of s.men) {
+        m.p.sx = m.bx;
+        m.p.sy = m.by;
+        m.p.jog = clamp(hyp(m.p.x - m.bx, m.p.y - m.by) / 0.9, 3, m.p.spd * 0.7);
+      }
+    } else if (s.ph === 'move' && !P.some(p => p.jog)) {
+      s.ph = 'set';
+      s.t = 0;
+    } else if (s.ph === 'set' && (s.t += dt) >= 1) s.ph = 'done';  // a full second set
+    // the corners walk out over the outside men
+    const sk = P.filter(p => p.team === ps.offTeam && !p.isOL && p !== ps.qb);
+    if (!sk.length) return;
+    const lo = Math.min(...sk.map(p => p.x)), hi = Math.max(...sk.map(p => p.x));
+    for (const p of P) if (p.team !== ps.offTeam && (p.role === 'CB1' || p.role === 'CB2')) {
+      const ex = (p.role === 'CB1' ? lo : hi) - p.x, mv = Math.min(Math.abs(ex), 6 * dt);
+      p.vx = Math.abs(ex) < 0.05 ? 0 : Math.sign(ex) * 6;
+      p.vy = 0;
+      p.x += Math.sign(ex) * mv;
+      p.anim += mv;
+      p.sx = p.x;
+    }
+  }
+
   /* the user's quarterback sends a receiver in motion: across on a pass, a jet on a run */
   function userMotion() {
     if (G.state !== 'pre' || !ps || ps.mot || (ps.mode !== 'pass' && ps.mode !== 'run') || P.some(p => p.jog) || !userP(ps.qb)) return;
@@ -3139,7 +3200,10 @@
     G.audList = audibleList(G.op);
     setupPlay();
     if (!AUTO && !QUIET && !G.drill && G.op.run && /^Jet/.test(G.op.n)) planMotion('jet', ps.runner);  // a jet sweep is run from jet motion, for everybody
-    if (!AUTO && !QUIET && !G.drill && (G.poss === 1 || (G.lock && G.me !== ps.qb)) && Math.random() < 0.33) planMotion();  // the computer's offense, and a career receiver's coach, use motion on about a third of snaps
+    if (!AUTO && !QUIET && !G.drill && (G.poss === 1 || (G.lock && G.me !== ps.qb))) {
+      const r = Math.random();  // the computer's offense, and a career receiver's coach: a shift on about one snap in eight, motion on a third
+      if (!(r < 0.12 && planShift()) && r < 0.45) planMotion();  // a formation that cannot shift sends a man in motion instead
+    }  // the computer's offense, and a career receiver's coach, use motion on about a third of snaps
     if (G.aroundDue && !AUTO && !QUIET) {
       const q = G.aroundDue;
       G.aroundDue = 0;
@@ -3196,6 +3260,7 @@
       p.vx = p.vy = 0;
       p.jog = 0;
     }
+    if (ps.sh) for (const p of P) if (p.team !== ps.offTeam && (p.role === 'CB1' || p.role === 'CB2')) p.vx = 0;  // the corners' walk ends where they stand
     const mo = ps.mot;
     if (mo && mo.go) {
       // the man in motion keeps his speed; his route starts where he is, and so does the defender who came with him
@@ -3527,7 +3592,8 @@
       if (ps.rpo) t = me.route && ps.recs.includes(me) ? `Run your ${RNAME[me.rn]} route. The quarterback throws it or hands off: tap Call if you are open.` : 'It may be a run: block your man.';
       else if (ps.mode === 'run') t = me === ps.runner ? 'You get the ball. Follow your blocks.' : me.route ? 'Sell the route, then block downfield.' : 'Lead the way and block.';
       else t = me.route ? `Run your ${RNAME[me.rn]} route. Tap Call when you are open.` : 'Stay in and pass block.';
-      if (ps.mot && ps.mot.p === me) t = 'You go in motion first. ' + t;  // the coach's call has you moving before the snap
+      if (ps.mot && ps.mot.p === me) t = 'You go in motion first. ' + t;
+      else if (ps.sh && ps.sh.men.some(m => m.p === me)) t = 'The offense shifts first: you move to your spot. ' + t;  // the coach's call has you moving before the snap
       return `<b>${G.op.n}</b><span>${t}</span>`;
     }
     t = me.asg === 'rush' ? 'Blitz. Get to the quarterback.' : me.asg === 'man' && me.man ? `Man coverage on #${me.man.num} ${me.man.name}.` : me.deep ? 'Deep zone. Keep everything in front of you.' : 'Underneath zone. Break on short throws.';
@@ -5804,6 +5870,7 @@
       jogIn(dt);
       if (ps.mot && !ps.mot.go && G.cadence && G.preT > 0.9 && !P.some(p => p.jog)) ps.mot.go = true;
       motionStep(dt);
+      shiftStep(dt);
       if (!G.dcall && ps.mode !== 'ko' && G.preT > 0.08 && !P.some(p => p.jog)) {
         // the defense has seen the formation: most snaps, somebody calls it out before the quarterback starts
         G.dcall = true;
@@ -5821,7 +5888,7 @@
       } else {
         /* the computer snaps for itself, and for the user when their player is not the quarterback */
         const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1), wait = AUTO ? 0.3 : G.drill && G.drill.script ? 5 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2;
-        const set = !ps.mot || ps.mot.ready || G.preT > wait + 7;  // a man in motion: the snap comes when he gets there (a jet, as he passes the ball)
+        const set = ((!ps.mot || ps.mot.ready) && (!ps.sh || ps.sh.ph === 'done')) || G.preT > wait + 8;  // a man in motion: the snap comes when he gets there (a jet, as he passes the ball); a shift: after the second set
         if ((auto && G.preT > wait && set) || (ps.mot && ps.mot.sweep && ps.mot.ready)) snap();  // a jet sweep is snapped on his timing, whoever is the quarterback
       }
     } else if (st === 'replay') replayStep(dt);

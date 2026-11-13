@@ -35,6 +35,8 @@ nickname, short name, colors) on your own device; it stays in your browser. A se
 rivals twice and the four teams of another division of your conference, a different one each year. The four division
 winners of each conference make an eight-team playoff: the divisional round, the conference finals, the championship.
 A season saved in the old eight-team league finishes the old way and the next one starts in the full league.
+Every city has its own weather: eleven teams play under a roof (never rain or snow), the cold cities get snow late in
+the season, the wet ones more rain, the warm ones never snow; the career hub gives the next game's forecast.
 
 ## Modes
 

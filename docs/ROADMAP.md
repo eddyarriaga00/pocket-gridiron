@@ -1133,6 +1133,15 @@ what is next. Update it after every item.
   fingerprint unchanged, careers, a full QB season (3 primetime games at night, one Player of the Week), exhibition,
   drills, audit empty at 320x568 and 390x844 with and without the 34 px strip, no console errors. The NFL and Madden
   list for the loop is in "Next ideas", career first.
+- 02:49 Automatic run: weather by city. Every team has a climate (data.js CLIM): dome for the eleven roofed stadiums
+  (never rain or snow, always the lights), snow for the thirteen cold-weather cities, wet for five, warm for Miami,
+  Tampa Bay and Jacksonville. `envFor(season, week, late, home)` reads it (a career or season game is at the
+  player's home city, the only kind there is until home and away lands); the matchup card says "Indoors" and "Under the
+  roof". Over 40 seasons of 13 weeks: domes 0% rain and snow; snow cities 15% rain early, 37% snow late; wet 26% rain
+  early, 33% rain and 6% snow late; warm 19% then 12% rain, never snow. The career hub's next-game card gives the
+  forecast ("Night game · snow in the forecast", "Indoors, under the roof"), from the same function the game uses
+  (`gameEnv`), so it is what you get. Left: a roof drawn over those stadiums (in "Next ideas"). Checked: fingerprint
+  unchanged, careers, exhibition, drills, audit empty at 320x568 and 390x844 with and without the 34 px strip.
 
 ## Morning hand-off
 
@@ -1448,11 +1457,6 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Weather and roofs by city: domed and covered stadiums (Atlanta, Detroit, Minnesota, New Orleans, Indianapolis, Las
-  Vegas, Houston, Arizona, Dallas, Los Angeles, Hollywood) never get rain or snow, the cold cities (Green Bay, Buffalo,
-  Chicago, Cleveland, Pittsburgh, Denver, Kansas City, New England, New Jersey, New York, Philadelphia, Cincinnati,
-  Baltimore, Seattle) get snow late in the season, the warm ones (Miami, Tampa Bay, Jacksonville, Carolina) almost
-  never; `envFor` takes the home team. A dome could be drawn as a roof over the stands.
 - Home and away: a career and season schedule has road games. On the road the field is the other team's (end zones,
   midfield, the stadium's banners and the announcer's welcome are theirs), you wear white, the crowd cheers their side
   and makes its noise on your third downs (your hard count is drowned out: it never draws a jump there), and the
@@ -1472,6 +1476,8 @@ NFL and Madden, for a career first (Round 24), biggest that fits a run first:
 - An all-star game after the season for the best players of each conference (you, when you are one): a playable
   exhibition with its own presentation.
 - A record book: league single-game and season records; the booth and a card when one falls.
+- A roof drawn over the eleven roofed stadiums (data.js `clim: 'dome'`, `env.roof`): the sky and the light towers give
+  way to a dome and a ring of lights. The weather side is done (02:55).
 - Optimization: the voice pack is 7.4 MB now; load it in pieces (the calls of the two teams playing first), measure the
   first load and the frame rate on a phone-sized view, and trim draw calls.
 Animations and models, the owner's priority (the Round 21 plan above), one piece a run:

@@ -660,7 +660,7 @@
     :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
     const o = nextOpp(), lab = LG.label(C), pt = LG.prime(C);
-    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
+    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}<br>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
   ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
   ${C.rival&&C.rival.team===o&&C.phase!=='done'&&!(C.social&&C.social.mday===pracKey())?`<button class="btn2" id="mday" style="margin:0 0 8px">Media day \u00b7 one question about ${esc(C.rival.name)}</button>`:''}
   ${C.social&&C.social.offer?'<p class="note" style="margin:0 0 8px">An endorsement offer is waiting in the Social tab.</p>':''}
@@ -670,6 +670,18 @@
   }
 
   const pracKey = () => C.season + '-' + C.week + '-' + C.phase;
+
+  /* this week's game: the home city's weather, the same every time it is asked (so the forecast on the hub is what you
+     get), and a primetime game at night */
+  function gameEnv() {
+    const env = PG.envFor(C.season, LG.weekNo(C), C.phase !== 'reg' || C.week >= C.sched.length - 4, C.team);
+    if (LG.prime(C)) env.time = 'night';
+    return env;
+  }
+  const forecast = () => {
+    const e = gameEnv();
+    return e.roof ? 'Indoors, under the roof' : `${{ day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night'} game · ${{ rain: 'rain in the forecast', snow: 'snow in the forecast' }[e.weather] || 'clear skies'}`;
+  };
 
   /* ---------- the media (words in media.js) ----------
      C.social: followers, hype (0 to 100), the feed (newest first, the last 40 posts), your quotes, an open callout of
@@ -1317,8 +1329,7 @@
     const call = C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.kind : null;
     /* a rival game opens with the two of you face to face at midfield: his words, and yours if you called him out */
     const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
-    const pt = LG.prime(C), env = PG.envFor(C.season, LG.weekNo(C), C.phase !== 'reg' || C.week >= C.sched.length - 4);
-    if (pt) env.time = 'night';  // primetime is a night game
+    const pt = LG.prime(C), env = gameEnv();
     PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
       prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
       mustWin: C.phase !== 'reg', env, line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });

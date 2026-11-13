@@ -46,6 +46,12 @@
     T('Los Angeles', 'Surf', 'LA', '#e11d48', '#fff1f2', 86, 1, 3, 6),
     T('San Francisco', 'Fog', 'SF', '#64748b', '#f1f5f9', 89, 1, 3, 3)];
   const CONF = ['Union', 'Frontier'], DIV = ['East', 'North', 'South', 'West'];
+  /* Each city's weather. dome: a roof (domed, retractable or covered), so no rain or snow; snow: a cold-weather city,
+     snow likely late in the season; wet: rain more than most, snow now and then late; warm: rain sometimes, never snow. */
+  const CLIM = { ATL: 'dome', DET: 'dome', MIN: 'dome', NO: 'dome', IND: 'dome', LV: 'dome', HOU: 'dome', ARI: 'dome', DAL: 'dome', LA: 'dome', HOL: 'dome',
+    GB: 'snow', BUF: 'snow', CHI: 'snow', CLE: 'snow', PIT: 'snow', DEN: 'snow', KC: 'snow', NE: 'snow', NJ: 'snow', NYK: 'snow', PHI: 'snow', CIN: 'snow', BAL: 'snow',
+    SEA: 'wet', SF: 'wet', WAS: 'wet', TEN: 'wet', CAR: 'wet', MIA: 'warm', TB: 'warm', JAX: 'warm' };
+  for (const t of TEAMS) t.clim = CLIM[t.ab] || 'wet';
 
   /* surnames for generated players */
   const SUR = ['Carter', 'Reyes', 'Okafor', 'Lindqvist', 'Tran', 'Baptiste', 'Mendez', 'Holloway', 'Park', 'Achebe', 'Sullivan', 'Vega', 'Kowalski', 'Brooks', 'Nakamura', 'Diaz', 'Freeman', 'Petrov', 'Haddad', 'Whitaker', 'Osei', 'Marsh', 'Castillo', 'Rhodes', 'Ibarra', 'Quinn', 'Dalton', 'Singh', 'Moreau', 'Tucker'];

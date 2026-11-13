@@ -198,7 +198,7 @@
   function startIntro(o, first) {
     {
       /* a few seconds over the stadium with the matchup on screen; a tap skips it */
-      const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
+      const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = e.roof ? 'Indoors' : { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = e.roof ? 'Under the roof' : { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
       G.state = 'intro';
       const sty = i => (SCHEME[i] ? `<i>${SCHEME[i].n} offense</i>` : '');  // each team calls its own kind of game
       scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span>${sty(o.a)}</div><em>vs</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span>${sty(o.b)}</div></div>
@@ -5017,14 +5017,21 @@
 
   /* Career and Season pick the conditions for each game from the week, so a given week always looks the same:
      mostly clear nights and afternoons, some rain, snow late in the season and in the playoffs. */
-  function envFor(season, week, late) {
+  /* A league game's light and weather: the same for the same season and week (so a replayed game keeps them), and the
+     home city's climate decides the weather (data.js CLIM). Under a roof it never rains or snows and the lights are
+     always on; a cold city gets snow late in the season, a warm one never does. home: the home team's index. */
+  function envFor(season, week, late, home) {
     let h = (season * 7919 + week * 104729 + 12345) >>> 0;
     const r = () => {
       h = (h * 1664525 + 1013904223) >>> 0;
       return h / 4294967296;
     };
-    const time = ['night', 'day', 'dusk', 'day', 'night'][Math.floor(r() * 5)], k = r();
-    const weather = late ? (k < 0.3 ? 'snow' : k < 0.45 ? 'rain' : 'clear') : (k < 0.16 ? 'rain' : k < 0.22 ? 'snow' : 'clear');
+    const time = ['night', 'day', 'dusk', 'day', 'night'][Math.floor(r() * 5)], k = r(), clim = home != null && TEAMS[home] ? TEAMS[home].clim : null;
+    if (clim === 'dome') return { time: 'night', weather: 'clear', roof: true };
+    const weather = clim === 'snow' ? (late ? (k < 0.36 ? 'snow' : k < 0.5 ? 'rain' : 'clear') : (k < 0.15 ? 'rain' : 'clear'))
+      : clim === 'wet' ? (late ? (k < 0.32 ? 'rain' : k < 0.38 ? 'snow' : 'clear') : (k < 0.26 ? 'rain' : 'clear'))
+      : clim === 'warm' ? (k < (late ? 0.12 : 0.2) ? 'rain' : 'clear')
+      : late ? (k < 0.3 ? 'snow' : k < 0.45 ? 'rain' : 'clear') : (k < 0.16 ? 'rain' : k < 0.22 ? 'snow' : 'clear');
     return { time, weather };
   }
 

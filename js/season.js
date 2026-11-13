@@ -200,7 +200,7 @@
     const opp = LG.nextOpp(S);
     PG.snd('whistle');
     ensureRoster();
-    const pt = LG.prime(S), env = PG.envFor(S.year + 50, LG.weekNo(S), S.phase !== 'reg' || S.week >= S.sched.length - 4);
+    const pt = LG.prime(S), env = PG.envFor(S.year + 50, LG.weekNo(S), S.phase !== 'reg' || S.week >= S.sched.length - 4, S.team);  // the home city's weather
     if (pt) env.time = 'night';  // primetime is a night game
     PG.startGame({ a: S.team, b: opp, ql: S.ql, diff: S.diff, mode: 'season', ros0: S.roster, ovr: [S.ovrs[S.team], S.ovrs[opp]], mustWin: S.phase !== 'reg',
       prime: pt, around: LG.full(S) ? LG.preWeek(S) : null, env,

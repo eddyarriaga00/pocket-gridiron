@@ -901,6 +901,29 @@ what is next. Update it after every item.
   now "Your mentions start with your next game." The pane cannot show a real safe area, so every audit was run twice
   more with `--sb` set to 34 px (an iPhone's strip): empty at 320x568 and 390x844 both ways, as were exhibition,
   season, career and camp; fingerprint unchanged. On the phone itself it is still to be seen.
+- 00:05 Round 17 (the owner: "organize social better, add more visuals to the game, add more league leaders stats, make
+  it more realistic models wise keep improving things, research too and work smarter not harder"). Researched first
+  (four web searches): the parts of a football helmet (shell, jaw pads below the ears, ear holes, facemask on the
+  shell), the official passer rating formula, broadcast lower-third practice (legible, team colors, simple fades,
+  sparing), and social profile layouts (identity and stats header over a small tab bar). Built:
+  Social tab as a profile: avatar, handle, a four-stat row (followers, hype, callouts, partners), hype bar, waiting
+  items, then Mentions (this week open, earlier weeks in <details>), On the record, Partners.
+  League leaders: one generator per team and position (`starter()`, seeded by season and team) so every number one
+  man has agrees with the rest (his rating from his own attempts, yards, touchdowns and interceptions); five
+  categories for your position, four around the league; rate stats qualify on volume; `leaders()` (awards, rival,
+  trophies) now reads the same generator. Measured: other quarterbacks rate 90 to 102 after three games.
+  Broadcast cards (`#bcast`): `playerCard` after a touchdown (always) or a 20+ yard play (at most one per 25 s), your
+  man in a career; `teamStatsCard` at the change of ends; the career stat line fades while a card is up; role letters
+  shown as a broadcast names them (X, Z, S as WR); a card on a timer checks the game still exists (a fast test found
+  one firing into the menu).
+  Models: the helmet is now a shell (`helmetShell`): longer than wide, sides and back down past the ears into jaw pads,
+  the face open below the brow behind the mask, a slight brow ridge; ear holes; a skin-colored face under the mask
+  with a thin dark eye band in place of the dark ball that filled the front; the far model's shoulder pads get the
+  caps the near model had. New test hook `PG.r3d.headStrip(team)` draws the helmet from four sides. About +20k
+  triangles a frame in a game (+10%).
+  Checked: fingerprint unchanged; exhibition, careers (QB and WR, three games each), a WR season, drills clean; a drawn
+  game with every pose finite; cards seen in real career games; audit empty at 320x568 and 390x844, with and
+  without a simulated 34 px bottom strip, including every Social sub-tab, an opened week and four leader boards.
 
 ## Morning hand-off
 

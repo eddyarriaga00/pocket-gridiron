@@ -371,23 +371,71 @@
     return `${m.tkl} tkl · ${m.int} int · ${m.pbu} pbu`;
   }
 
-  /* League leaders: the other seven teams' starters at your position, generated from team strength so the same
-     season always shows the same race. [label, stat key (or a function of the stat line), per-game base at 3-minute quarters] */
-  const LEAD = { QB: ['Passing yards', 'pyd', 150], RB: ['Rushing yards', 'ryd', 60], WR: ['Receiving yards', 'recyd', 58], LB: ['Tackles', 'tkl', 3.4], CB: ['Passes defended', m => m.pbu + m.int, 0.8] };
+  /* League leaders. Every other team's starter at a position is a line of numbers drawn from that team's strength
+     and a seed for the season and the team, so the race is the same every time you look, and all of one man's numbers
+     agree with each other (his passer rating comes from his own attempts, yards, touchdowns and interceptions). Per
+     game at 3-minute quarters; your rival plays a little above his team. Your own row is your season. */
+  const rng = seed => {
+    let h = seed >>> 0;
+    return () => {
+      h = (h * 1664525 + 1013904223) >>> 0;
+      return h / 4294967296;
+    };
+  };
 
-  function leaders() {
-    const [label, key, base] = LEAD[C.pos], g = C.stats.g, k = C.ql / 180, val = m => typeof key === 'function' ? key(m) : m[key];
+  function starter(i, pos) {
+    const g = C.stats.g, k = C.ql / 180, r = rng(C.season * 131 + i * 977 + pos.charCodeAt(0) * 31 + pos.charCodeAt(1) * 7), riv = !!C.rival && C.rival.team === i && pos === C.pos;
+    const q = (1 + ((C.ovrs[i] || 83) - 83) * 0.02) * (riv ? 1.2 : 0.8 + r() * 0.45), name = riv ? C.rival.name : PG.NAMES[Math.floor(r() * PG.NAMES.length)];
+    const n = x => Math.round(x * g * k * (0.92 + r() * 0.16));
+    if (pos === 'QB') {
+      const att = n(19 + q * 3), comp = Math.round(att * clamp(0.53 + q * 0.09 + r() * 0.04, 0.5, 0.74)), pyd = Math.round(att * (6 + q * 1.3 + r() * 0.6));
+      return { name, att, comp, pyd, ptd: Math.round(att * (0.022 + q * 0.02 + r() * 0.008)), pint: Math.round(att * Math.max(0.008, 0.036 - q * 0.012 + r() * 0.008)), ryd: n(6 + r() * 16) };
+    }
+    if (pos === 'WR') {
+      const tgt = n(5.4 + q * 1.2), rec = Math.round(tgt * clamp(0.55 + q * 0.06 + r() * 0.05, 0.5, 0.76));
+      return { name, tgt, rec, recyd: Math.round(rec * (11 + q * 2 + r() * 2)), rectd: Math.round(rec * (0.055 + q * 0.03 + r() * 0.02)) };
+    }
+    if (pos === 'RB') {
+      const car = n(13 + q * 3);
+      return { name, car, ryd: Math.round(car * (3.6 + q * 0.7 + r() * 0.5)), rtd: Math.round(car * (0.03 + q * 0.012)) };
+    }
+    if (pos === 'DE') return { name, sack: Math.round((0.32 + q * 0.28) * g * k * (0.92 + r() * 0.16) * 2) / 2 };  // sacks are shared, so they come in halves
+    if (pos === 'CB') return { name, int: n(0.1 + q * 0.12) };
+    return { name, tkl: n(4.6 + q * 1.6) };  // LB
+  }
+
+  // passer rating: four per-attempt parts, each held between 0 and 2.375, averaged and put over 100 (top 158.3)
+  const rating = m => {
+    if (!m.att) return 0;
+    const f = x => clamp(x, 0, 2.375), a = f((m.comp / m.att - 0.3) * 5), b = f((m.pyd / m.att - 3) * 0.25), c = f((m.ptd / m.att) * 20), d = f(2.375 - (m.pint / m.att) * 25);
+    return ((a + b + c + d) / 6) * 100;
+  };
+
+  /* [label, value, shown as, qualifies (rate stats need volume: a backup's two throws do not lead the league)] */
+  const CATS = {
+    QB: [['Passing yards', m => m.pyd], ['Passing TD', m => m.ptd], ['Passer rating', rating, v => v.toFixed(1), (m, g) => m.att >= 8 * g * C.ql / 180],
+      ['Completion %', m => (m.att ? (m.comp / m.att) * 100 : 0), v => v.toFixed(1) + '%', (m, g) => m.att >= 8 * g * C.ql / 180], ['QB rushing yards', m => m.ryd || 0]],
+    WR: [['Receiving yards', m => m.recyd], ['Receptions', m => m.rec], ['Receiving TD', m => m.rectd], ['Yards per catch', m => (m.rec ? m.recyd / m.rec : 0), v => v.toFixed(1), (m, g) => m.rec >= 1.5 * g * C.ql / 180],
+      ['Targets', m => m.tgt]],
+  };
+  const AROUND = [['Rushing yards', 'RB', m => m.ryd], ['Sacks', 'DE', m => m.sack, v => (v % 1 ? v.toFixed(1) : String(v))], ['Interceptions', 'CB', m => m.int], ['Tackles', 'LB', m => m.tkl]];
+
+  /* one board: every team's man, best first; you are in it when it is your position */
+  function board(label) {
+    const mine = (CATS[C.pos] || []).find(c => c[0] === label), other = AROUND.find(c => c[0] === label), g = C.stats.g;
+    const [, val, show, qual] = mine || [label, other[2], other[3]], pos = mine ? C.pos : other[1];
     const rows = TEAMS.map((t, i) => {
-      if (i === C.team) return { name: C.name, ab: t.ab, v: val(C.stats), me: true };
-      let h = (C.season * 131 + i * 977 + C.pos.charCodeAt(0) * 31) >>> 0;
-      const r = () => {
-        h = (h * 1664525 + 1013904223) >>> 0;
-        return h / 4294967296;
-      };
-      const riv = !!C.rival && C.rival.team === i, per = base * k * (1 + (C.ovrs[i] - 83) * 0.02) * (riv ? 1.2 : 0.8 + r() * 0.45), other = PG.NAMES[Math.floor(r() * PG.NAMES.length)];
-      return { name: riv ? C.rival.name : other, ab: t.ab, v: Math.round(per * g * (0.92 + r() * 0.16)), me: false, riv };
+      const me = !!mine && i === C.team, m = me ? C.stats : starter(i, pos);
+      return { name: me ? C.name : m.name, ab: t.ab, v: val(m), me, riv: !!mine && !me && !!C.rival && C.rival.team === i, ok: !qual || qual(m, g) };
     });
-    return { label, rows: rows.sort((a, b) => b.v - a.v) };
+    const ranked = rows.filter(r => r.ok).sort((a, b) => b.v - a.v);
+    return { label, show: show || (v => String(Math.round(v))), rows: ranked, me: rows.find(r => r.me), around: !mine };
+  }
+
+  /* the race the career cares about (awards, the rival, trophies): your position's first category */
+  function leaders() {
+    const b = board(CATS[C.pos][0][0]);
+    return { label: b.label, rows: b.rows.map(r => ({ ...r, v: Math.round(r.v) })) };
   }
 
   /* Trophies: [id, name, how to earn it, test]. Checked after every game, upgrade and season. */
@@ -668,12 +716,32 @@
     return `<p class="callout"><small>${c.kind === 'guarantee' ? 'Your guarantee' : 'Your callout'} \u00b7 ${esc(TEAMS[c.team].name)}</small>\u201c${esc(c.quote)}\u201d<br>${c.kind === 'guarantee' ? 'Win that game' : 'Win and play well (a B or better)'}: +${CALL_XP[c.kind]} XP. Lose and it costs you coach trust and hype.</p>`;
   }
 
+  /* The Social tab, laid out like a profile: who you are and your numbers at the top, anything waiting on you (a
+     callout to back up, an offer to answer) under that, then three small tabs. Mentions shows this week open and the
+     earlier weeks folded. */
+  let socTab = 'feed';
+
   function tabSocial() {
-    const so = social();
-    return socHead(0) + `<p class="note">Big games, big moments and what you say at the podium move your following. Hype fades a little every week unless you keep giving people something to talk about.</p>`
-      + `<div class="xp"><span>Talk record</span><b>${so.backed} backed up \u00b7 ${so.ate} eaten</b></div>` + calloutHtml() + offerHtml() + dealsHtml()
-      + (so.quotes.length ? `<h2>On the record</h2><ul class="quotes">${so.quotes.slice(0, 4).map(q => `<li><span class="tone t-${q.tone}">${PG.media.TONE[q.tone] || q.tone}</span>\u201c${esc(q.q)}\u201d<small>${esc(q.wk)}</small></li>`).join('')}</ul>` : '')
-      + (so.feed.length ? `<h2>Your mentions</h2>` + feedHtml(so.feed) : `<p class="note">${C.log.length ? 'Your mentions start with your next game.' : 'Play a game and the internet will have something to say.'}</p>`);
+    const so = social(), t = TEAMS[C.team], L = PG.media.lastOf(C.name), deals = so.deals || [], ver = so.fol >= 10000;
+    const weeks = [];
+    for (const p of so.feed) {
+      if (p.kind === 'wk') weeks.push({ head: p.text, posts: [] });
+      else if (weeks.length) weeks[weeks.length - 1].posts.push(p);
+    }
+    const st = (k, l) => `<button data-st="${k}" class="${socTab === k ? 'on' : ''}">${l}</button>`;
+    let body = '';
+    if (socTab === 'feed') body = weeks.length ? weeks.map((w, n) => n === 0 ? `<h2 class="fwk">${esc(w.head)}</h2>${feedHtml(w.posts)}`
+      : `<details class="fwkd"><summary><span>${esc(w.head)}</span><small>${w.posts.length} posts</small></summary>${feedHtml(w.posts)}</details>`).join('')
+      : `<p class="note">${C.log.length ? 'Your mentions start with your next game.' : 'Play a game and the internet will have something to say.'}</p>`;
+    else if (socTab === 'rec') body = so.quotes.length ? `<ul class="quotes">${so.quotes.map(q => `<li><span class="tone t-${q.tone}">${PG.media.TONE[q.tone] || q.tone}</span>“${esc(q.q)}”<small>${esc(q.wk)}</small></li>`).join('')}</ul>`
+      : '<p class="note">Your answers at the podium and at media day are kept here.</p>';
+    else body = (deals.length ? deals.map(x => `<div class="xp deal"><span><i class="dot" style="--c:${x.col}"></i>${esc(x.name)} · ${esc(x.kind)}</span><b>+${fmt(x.pay)} XP a game</b></div>`).join('') : '<p class="note">No partners yet.</p>')
+      + '<p class="note">Two games in a row with hype at 55 or more bring an offer. A deal pays every game until your hype falls under 25. Two at most.</p>';
+    return `<div class="sprof" style="--c:${t.c1}"><span class="av" style="--c:${t.c1}">${esc(L.slice(0, 2).toUpperCase())}</span><div><b>${esc(C.name)}${ver ? '<i class="ver" aria-label="verified"></i>' : ''}</b><span>@${esc(L.toLowerCase())}${C.num} · ${esc(t.name)} ${C.pos} #${C.num}</span></div></div>
+  <div class="sstats"><div><b>${short(so.fol)}</b><span>Followers</span></div><div><b>${so.hype}</b><span>Hype</span></div><div><b>${so.backed}–${so.ate}</b><span>Callouts</span></div><div><b>${deals.length}</b><span>Partners</span></div></div>
+  <div class="hypebar"><i style="width:${so.hype}%"></i></div>
+  ${calloutHtml()}${offerHtml()}
+  <div class="seg stab">${st('feed', 'Mentions')}${st('rec', 'On the record')}${st('deals', 'Partners')}</div>${body}`;
   }
 
   /* ---------- endorsements ----------
@@ -713,11 +781,6 @@
     if (!o) return '';
     return `<div class="offer" style="--c:${o.col}"><small>Endorsement offer</small><b>${esc(o.name)}</b><span>${esc(o.kind)} \u00b7 +${fmt(o.bonus)} XP to sign \u00b7 +${fmt(o.pay)} XP every game</span>
   <div class="ofb"><button class="btn2" data-of="y">Sign</button><button class="btn2" data-of="n">Pass</button></div><p class="note">Keep your hype above 25 or the brand walks away. Two deals at most.</p></div>`;
-  }
-
-  function dealsHtml() {
-    const d = social().deals || [];
-    return d.length ? `<h2>Endorsements</h2>${d.map(x => `<div class="xp deal"><span><i class="dot" style="--c:${x.col}"></i>${esc(x.name)} \u00b7 ${esc(x.kind)}</span><b>+${fmt(x.pay)} XP a game</b></div>`).join('')}` : '';
   }
 
   /* the posts of the week go in under its heading (sign a deal after the reaction, and it is part of that week) */
@@ -917,11 +980,19 @@
     return `<h2>Season by season</h2><table class="lg">${h.map(x=>`<tr><td>Season ${x.season} · ${team(x.team).name} ${x.rec} · ${x.finish||'Missed the playoffs'}<small>${x.line}${x.grade?' · average grade '+x.grade:''} · ${x.ovr} overall${x.awards&&x.awards.length?' · '+x.awards.join(', '):''}</small></td></tr>`).join('')}</table>`;
   }
 
+  let ldCat = null;  // the leader board on show (kept while the hub is open)
+
   function leadersHtml() {
     if (!C.stats.g) return '';
-    const L = leaders();
-    return `<h2>League leaders · ${L.label}</h2><table class="lg">${L.rows.slice(0,5).map((r,i)=>`<tr class="${r.me?'me':''}"><td>${i+1}. ${esc(r.name)} <span style="color:var(--mute)">${r.ab}${r.riv?' · your rival':''}</span></td><td>${r.v}</td></tr>`).join('')}
-  ${L.rows.findIndex(r=>r.me)>4?`<tr class="me"><td>${L.rows.findIndex(r=>r.me)+1}. ${esc(C.name)}</td><td>${L.rows.find(r=>r.me).v}</td></tr>`:''}</table>`;
+    const mine = CATS[C.pos].map(c => c[0]), all = mine.concat(AROUND.map(c => c[0]));
+    if (!all.includes(ldCat)) ldCat = mine[0];
+    const B = board(ldCat), at = B.rows.findIndex(r => r.me), you = B.me;
+    const chip = l => `<button data-ld="${esc(l)}" class="${l === ldCat ? 'on' : ''}">${esc(l)}</button>`;
+    return `<h2>League leaders</h2><div class="ldk"><small>${esc(POS[C.pos].label)}s</small><div class="seg wrap ld">${mine.map(chip).join('')}</div>
+  <small>Around the league</small><div class="seg wrap ld">${AROUND.map(c => chip(c[0])).join('')}</div></div>
+  <table class="lg ldt"><tr><th>${esc(B.label)}</th><th></th></tr>${B.rows.slice(0, 5).map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td><i class="rk">${i + 1}</i>${esc(r.name)} <span style="color:var(--mute)">${r.ab}${r.riv ? ' \u00b7 your rival' : ''}</span></td><td>${B.show(r.v)}</td></tr>`).join('')}
+  ${!B.around && at > 4 ? `<tr class="me"><td><i class="rk">${at + 1}</i>${esc(C.name)}</td><td>${B.show(you.v)}</td></tr>` : ''}
+  ${!B.around && at < 0 && you ? `<tr class="me"><td><i class="rk">\u2013</i>${esc(C.name)} <span style="color:var(--mute)">not enough ${C.pos === 'QB' ? 'attempts' : 'catches'} yet</span></td><td>${B.show(you.v)}</td></tr>` : ''}</table>`;
   }
 
   function trophiesHtml() {
@@ -1117,6 +1188,15 @@
         keepScroll(draw);
       });
       scr.querySelectorAll('[data-of]').forEach(b => b.onclick = () => answerOffer(b.dataset.of === 'y', () => keepScroll(draw)));
+      scr.querySelectorAll('[data-ld]').forEach(b => b.onclick = () => {
+        ldCat = b.dataset.ld;
+        keepScroll(draw);
+      });
+      scr.querySelectorAll('[data-st]').forEach(b => b.onclick = () => {
+        socTab = b.dataset.st;
+        keepScroll(draw);
+      });
+      scr.querySelectorAll('.fwkd summary').forEach(b => b.onclick = () => setTimeout(() => PG.snd('tick'), 0));
       const md = $('#mday');
       if (md) md.onclick = showMediaDay;
       scr.querySelectorAll('#hc button').forEach(b => b.onclick = () => {

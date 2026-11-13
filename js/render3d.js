@@ -149,16 +149,46 @@
     return g;
   }
 
+  /* The helmet shell, after the real thing: a dome a little longer than it is wide whose sides and back come down past
+     the ears into the jaw pads, the back sweeping lower than the front, and the face left open below the brow (the
+     shell there is folded back behind the facemask, so the dark of the face shows through the bars). Built from a
+     sphere: each point moves by how squarely it faces front and how low it sits. The team decal stays on the side
+     above the ear hole. */
+  function helmetShell(seg, rows) {
+    const g = new T.SphereGeometry(0.17, seg, rows), p = g.attributes.position, v = new T.Vector3(), sm = x => x * x * (3 - 2 * x);
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const r = Math.hypot(v.x, v.z) || 1e-6, front = Math.max(0, -v.z / r), side = Math.abs(v.x) / r, low = Math.max(0, -v.y / 0.17);
+      v.y *= 1.02;
+      v.z *= 1.12;
+      if (v.y < 0) {
+        v.y -= 0.04 * (1 - front) * low * low;  // the sides and back reach down to the jaw
+        v.z -= 0.022 * side * sm(front) * low;  // the jaw pads come forward along the cheeks
+      }
+      const face = front > 0.5 && v.y < 0.012 ? sm(Math.min(1, (front - 0.5) / 0.28)) * sm(Math.min(1, (0.012 - v.y) / 0.045)) : 0;
+      v.z += face * 0.085;  // the face opening, tucked in behind the mask
+      if (v.y > 0.06) v.y += 0.006 * Math.max(0, 1 - Math.abs(v.x) / 0.03) * front;  // a slight ridge over the brow
+      p.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
+
+  const earHoles = s => merge([-1, 1].map(side => new T.CylinderGeometry(0.017, 0.017, 0.008, s).rotateZ(Math.PI / 2).translate(side * 0.158, -0.076, 0.004)));
+
   /* the far model: what you see from the gameplay camera, kept light because 45 figures are drawn every frame */
   const GEO = {
     torso: mkTorso(12),
-    pads: new T.SphereGeometry(0.22, 14, 8).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
+    pads: merge([new T.SphereGeometry(0.22, 14, 8).scale(1.58, 0.6, 0.98).translate(0, 0.565, 0),
+      ...[-1, 1].map(side => new T.SphereGeometry(0.13, 10, 6).scale(1, 0.64, 1.12).translate(side * 0.29, 0.566, 0))]),  // with a cap over each shoulder, as the near model has
     neck: new T.CylinderGeometry(0.068, 0.08, 0.12, 10).translate(0, 0.69, 0),
     hips: lathe([[0.01, -0.24], [0.11, -0.215], [0.166, -0.11], [0.17, -0.02], [0.13, 0.04], [0.01, 0.06]]).scale(1, 1, 0.78),  // a rounded top that stays inside the jersey
-    helmet: new T.SphereGeometry(0.17, 16, 12).scale(1, 1.02, 1.12),
+    helmet: helmetShell(16, 12),
+    ear: earHoles(8),
     stripe: new T.TorusGeometry(0.177, 0.016, 4, 14, Math.PI).rotateY(Math.PI / 2).scale(2.2, 1.02, 1.12),
     logo: merge([-1, 1].map(side => new T.CylinderGeometry(0.058, 0.058, 0.012, 12).rotateZ(Math.PI / 2).translate(side * 0.168, 0.01, 0.01))),
-    visor: new T.SphereGeometry(0.128, 10, 8).scale(1, 0.6, 0.6).translate(0, -0.035, -0.125),
+    face: new T.SphereGeometry(0.122, 10, 8).scale(1, 0.62, 0.6).translate(0, -0.04, -0.118),
+    visor: new T.SphereGeometry(0.128, 10, 4, 0, Math.PI * 2, Math.PI * 0.36, Math.PI * 0.2).scale(1, 0.6, 0.6).translate(0, -0.035, -0.125),
     mask: merge([
       new T.TorusGeometry(0.162, 0.011, 4, 12, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.05, -0.02),
       new T.TorusGeometry(0.158, 0.011, 4, 12, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.1, -0.02),
@@ -213,10 +243,12 @@
     hips: sculpt([[0.01, -0.245], [0.07, -0.24], [0.125, -0.205], [0.166, -0.11], [0.168, -0.02], [0.15, 0.03], [0.01, 0.06]], 20, (v, front, back) => {
       v.z = v.z * 0.76 + 0.012 * bell((v.y + 0.13) / 0.06) * back;  // the seat, kept below the hem of the jersey
     }),
-    helmet: new T.SphereGeometry(0.17, 24, 16).scale(1, 1.02, 1.12),
+    helmet: helmetShell(28, 18),
+    ear: earHoles(14),
     stripe: new T.TorusGeometry(0.177, 0.016, 6, 22, Math.PI).rotateY(Math.PI / 2).scale(2.2, 1.02, 1.12),
     logo: merge([-1, 1].map(side => new T.CylinderGeometry(0.058, 0.058, 0.012, 18).rotateZ(Math.PI / 2).translate(side * 0.168, 0.01, 0.01))),
-    visor: new T.SphereGeometry(0.128, 16, 10).scale(1, 0.6, 0.6).translate(0, -0.035, -0.125),
+    face: new T.SphereGeometry(0.122, 18, 12).scale(1, 0.62, 0.6).translate(0, -0.04, -0.118),
+    visor: new T.SphereGeometry(0.128, 18, 5, 0, Math.PI * 2, Math.PI * 0.36, Math.PI * 0.2).scale(1, 0.6, 0.6).translate(0, -0.035, -0.125),
     mask: merge([new T.TorusGeometry(0.162, 0.011, 6, 18, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.05, -0.02), new T.TorusGeometry(0.158, 0.011, 6, 18, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.1, -0.02),
       new T.TorusGeometry(0.15, 0.011, 6, 18, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.145, -0.01), new T.CylinderGeometry(0.011, 0.011, 0.11, 6).translate(0, -0.095, -0.178),
       new T.CylinderGeometry(0.011, 0.011, 0.11, 6).translate(-0.07, -0.095, -0.158), new T.CylinderGeometry(0.011, 0.011, 0.11, 6).translate(0.07, -0.095, -0.158)]),
@@ -283,7 +315,7 @@
   const PART_DEFS = [
     ['torso', ['chest'], 'jersey', 'body', 1], ['pads', ['chest'], 'jersey', 'body', 1], ['neck', ['chest'], 'skin'],
     ['hips', ['pelvis'], 'pants', 'body', 1],
-    ['helmet', ['head'], 'helmet', '', 1], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
+    ['helmet', ['head'], 'helmet', '', 1], ['ear', ['head'], 'visor'], ['face', ['head'], 'skin'], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
     ['upperArm', ['shL', 'shR'], 'skin', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
     ['foreArm', ['elL', 'elR'], 'skin', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
     ['thigh', ['hipL', 'hipR'], 'pants', 'limb', 1], ['pantStripe', ['hipL', 'hipR'], 'stripe', 'limb'],
@@ -3056,6 +3088,30 @@
     return url;
   }
 
+  /* test hook: the helmet close up, from the front, three quarters, the side and behind (the near model) */
+  function headStrip(team, cell) {
+    if (!renderer) return null;
+    const st = studioOf(), w = cell || 220, cv = document.createElement('canvas'), x = cv.getContext('2d'), h = new T.Vector3(), keep = { p: st.cam.position.clone(), r: st.f.root.rotation.y };
+    dress(st, team || PG.TEAMS[0], true, 12);
+    const angles = [Math.PI, Math.PI + 0.75, Math.PI * 1.5, 0];
+    cv.width = w * angles.length;
+    cv.height = Math.round(w * (st.ph || PH) / (st.pw || PW));
+    x.fillStyle = '#0d1524';
+    x.fillRect(0, 0, cv.width, cv.height);
+    angles.forEach((a, i) => {
+      st.f.root.rotation.y = a;
+      st.f.root.updateMatrixWorld(true);
+      st.f.head.getWorldPosition(h);
+      st.cam.position.set(h.x, h.y + 0.05, h.z + 1.45);
+      st.cam.lookAt(h.x, h.y - 0.02, h.z);
+      shoot(st, x, i * w, 0, w);
+    });
+    st.cam.position.copy(keep.p);
+    st.cam.lookAt(0, 0.98, 0);
+    st.f.root.rotation.y = keep.r;
+    return cv.toDataURL('image/png');
+  }
+
   /* ---------- test hooks for the stride ----------
      Nobody can watch the game move from a test, so the run is checked two ways: gait() measures the feet of a figure
      running at a steady speed, and strip() draws that run as a row of side views, one stride from left to right. */
@@ -3557,7 +3613,7 @@
   }
 
   PG.r3d = {
-    init, resize, render, project, portrait, celebStrip,
+    init, resize, render, project, portrait, celebStrip, headStrip,
     get ends() {
       return ends;
     },

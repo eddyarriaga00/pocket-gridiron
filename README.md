@@ -73,6 +73,15 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   hub keeps your mentions, your quotes, the follower count, the hype meter and your record of callouts backed up or
   eaten. Your teammates who post are the same players all career, and nobody in a feed says the same thing twice in a
   week. Every person, handle and outlet is invented.
+- The Social tab is laid out like a profile: your name and handle, followers, hype, callouts backed up and eaten,
+  partners; anything waiting on you (a callout, an offer); then Mentions (this week open, earlier weeks folded), On the
+  record (your quotes) and Partners.
+- League leaders by category: for quarterbacks passing yards, passing touchdowns, passer rating (the official
+  formula), completion percentage and rushing yards; for receivers receiving yards, receptions, touchdowns, yards per
+  catch and targets; and around the league rushing yards, sacks (in halves), interceptions and tackles. Rate stats
+  need volume to qualify, the way a real leaderboard does.
+- Broadcast graphics: a player card across the top after a touchdown or a big play (number, name, team, his line in
+  this game; yours, in a career), and both teams' numbers when they change ends after the first and third quarters.
 - Media day, the week of a rival game: one question about him from the hub, answered like the podium's, and a callout
   made there is settled in that game. The booth knows about your callout: it opens the game talking about it, cheers
   when your side scores to back it up, calls it shaky when you trail late, and settles it at the final whistle.

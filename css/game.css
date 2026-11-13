@@ -425,3 +425,44 @@ tr.me td{color:var(--acc);font-weight:700}
 .offer .note{margin:0}
 .dot{display:inline-block;width:9px;height:9px;margin-right:7px;border-radius:50%;background:var(--c);vertical-align:0}
 .post.k-brand{border-color:rgba(76,154,255,.35)}
+/* the Social tab's profile header and the leader boards */
+.sprof{display:flex;align-items:center;gap:11px;margin:4px 0 10px}
+.sprof .av{width:46px;height:46px;font-size:15px}
+.sprof b{display:flex;align-items:center;gap:5px;font-family:var(--display);font-weight:800;font-size:17px;line-height:1.2;overflow-wrap:anywhere}
+.sprof span:not(.av){display:block;font-size:12px;color:var(--mute);overflow-wrap:anywhere}
+.sstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;text-align:center}
+.sstats div{padding:8px 2px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.sstats b{display:block;font-family:var(--display);font-weight:800;font-size:17px;line-height:1.1}
+.sstats span{display:block;margin-top:2px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.hypebar{height:4px;margin:8px 0 2px;border-radius:2px;background:var(--panel3);overflow:hidden}
+.hypebar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--sticks))}
+.seg.stab{margin-top:12px}
+.fwkd{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.fwkd summary{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:44px;padding:0 12px;cursor:pointer;list-style:none;font-size:13px}
+.fwkd summary::-webkit-details-marker{display:none}
+.fwkd summary small{flex:none;color:var(--mute);font-size:11.5px}
+.fwkd summary::after{content:"";flex:none;width:7px;height:7px;border:solid var(--mute);border-width:0 1.5px 1.5px 0;transform:rotate(45deg);margin:-3px 2px 0 0}
+.fwkd[open] summary::after{transform:rotate(-135deg);margin-top:3px}
+.fwkd .feedl{padding:0 8px 8px}
+.ldk small{display:block;margin:2px 0 5px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.seg.wrap.ld button{flex:1 0 30%;font-size:10px;line-height:1.15}
+.ldt th:first-child{text-align:left}
+.ldt .rk{display:inline-block;min-width:18px;font-style:normal;color:var(--mute);font-family:var(--display);font-weight:700}
+/* broadcast cards across the top of the picture (game.js: playerCard, teamStatsCard) */
+#bcast{position:absolute;left:12px;right:12px;top:86px;z-index:4;pointer-events:none;opacity:0;transform:translateY(-6px);transition:opacity .35s ease,transform .35s ease}
+#bcast.on{opacity:1;transform:none}
+.bcard{display:flex;align-items:stretch;max-width:360px;margin:0 auto;border-radius:10px;overflow:hidden;background:rgba(9,14,26,.93);border:1px solid rgba(255,255,255,.12);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.bcard>b{display:grid;place-items:center;min-width:48px;background:var(--c);color:var(--k);font-family:var(--display);font-weight:800;font-size:21px}
+.bcard>div{min-width:0;padding:7px 12px 8px}
+.bcard strong{display:block;font-family:var(--display);font-weight:800;font-size:15px;line-height:1.15;letter-spacing:.02em;text-transform:uppercase;overflow-wrap:anywhere}
+.bcard span{display:block;font-size:11px;color:var(--mute)}
+.bcard em{display:block;margin-top:3px;font-style:normal;font-family:var(--display);font-weight:700;font-size:12.5px;letter-spacing:.04em;color:var(--ink)}
+.bstats{max-width:300px;margin:0 auto;border-radius:10px;overflow:hidden;background:rgba(9,14,26,.93);border:1px solid rgba(255,255,255,.12);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.bstats .bh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bstats .bh span{padding:5px 0;text-align:center;background:var(--c);color:var(--k);font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.06em}
+.bstats .bh small{padding:0 10px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.bstats table{width:100%;border-collapse:collapse;font-size:12.5px}
+.bstats td,.bstats th{padding:4px 10px;border-top:1px solid rgba(255,255,255,.07)}
+.bstats td{width:30%;text-align:center;font-family:var(--display);font-weight:700}
+.bstats th{font-weight:500;font-size:11px;color:var(--mute);text-align:center}
+#app.bcon #mine{opacity:0;transition:opacity .3s}

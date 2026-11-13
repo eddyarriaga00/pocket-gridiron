@@ -4,7 +4,7 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const app = document.getElementById('app');
-  app.innerHTML = `<canvas id="gl" hidden></canvas><canvas id="c"></canvas>
+  app.innerHTML = `<canvas id="gl" hidden></canvas><canvas id="c"></canvas><div id="bcast" aria-live="polite"></div>
 <div id="hud" hidden>
   <div class="bug">
     <div class="side" id="sd0"><i></i><b id="a0"></b><em></em><u id="s0">0</u></div>
@@ -154,7 +154,8 @@
       sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
-    G.callout = o.callout || null;  // a career player's callout of this opponent ('trash' or 'guarantee'): the booth knows
+    G.callout = o.callout || null;
+    bcHide();  // a career player's callout of this opponent ('trash' or 'guarantee'): the booth knows
     G.heroCeleb = o.hero && o.hero.celeb >= 0 ? o.hero.celeb : -1;  // a career player's own touchdown celebration
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
     G.wx = { rain: { fum: 1.8, cat: 0.94, kick: 0.05 }, snow: { fum: 1.5, cat: 0.96, kick: 0.07 } }[G.env.weather] || { fum: 1, cat: 1, kick: 0 };
@@ -1837,6 +1838,12 @@
     if (G.ot && score) G.final = true;
     G.last = sub === 'Turnover on downs' ? sub : big;
     callPlay(kind, kind === 'td' ? tryRes : arg, big, sub, rpGain, c, s0);
+    if (!AUTO && !QUIET && !G.drill && c && c.team === off) {
+      /* your man's line if he was in it (a career), otherwise the scorer's, or the runner's after 20 yards or more */
+      const caught = !!ps.caught, mine = G.me && (c === G.me || (ps.passer === G.me && caught)) ? G.me : null, who = mine || c, gain = rpGain;  // read now: the play is gone by the time the card goes up
+      if (kind === 'td') setTimeout(() => playerCard(who, mine && mine !== c ? 'Touchdown pass' : 'Touchdown'), 1600);
+      else if ((kind === 'tackle' || kind === 'oob') && gain >= 20 && performance.now() - bcAt > 25000 && (mine || c.team === 0)) setTimeout(() => playerCard(who, `${gain}-yard ${mine && mine !== c ? 'completion' : caught ? 'catch' : 'run'}`), 900);
+    }
     if (G.drive && (score || G.poss !== off)) G.drive.done = true;
     if (kind !== 'td') snd('whistle');
     for (const p of P) {
@@ -2040,6 +2047,7 @@
         G.q++;
         G.clock = G.ql;
         banner(`End of the ${G.q === 2 ? '1st' : '3rd'} quarter`, 'The teams switch ends', 1800);  // render3d.js turns the stadium round
+        if (!AUTO && !QUIET) setTimeout(() => teamStatsCard(`After ${G.q === 2 ? 'one' : 'three'}`), 1900);
         vo(G.q === 2 ? 'q.end1' : 'q.end3');
       }
     }
@@ -3381,6 +3389,69 @@
     else if (d === 4 && !kick) analyst('a.fourth', 0.5, { big: true });
   }
 
+  /* ---------- broadcast graphics ----------
+     Two cards across the top of the picture, the way a broadcast puts them up: a player's line in this game after a
+     touchdown or a big play (yours, in a career), and both teams' numbers when they change ends after the first and
+     third quarters. Short, in team colors, a plain fade in and out; never in simulations or practice. */
+  let bcT = 0, bcAt = -1e9;
+  const inkOn = hex => {
+    // white on a dark team color, near-black on a light one (WCAG luminance)
+    const v = parseInt(String(hex).slice(1), 16), ch = k => {
+      const c = ((v >> k) & 255) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * ch(16) + 0.7152 * ch(8) + 0.0722 * ch(0) < 0.19 ? '#fff' : '#06101f';
+  };
+  const bcEsc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+  const bcLive = () => !AUTO && !QUIET && !G.drill && !!G.ros && !!G.stats && G.state !== 'menu' && G.state !== 'over';  // a card on a timer may find the game gone
+
+  function bcShow(html, ms) {
+    if (!bcLive()) return;
+    const e = $('#bcast');
+    if (!e) return;
+    e.innerHTML = html;
+    e.className = 'on';
+    app.classList.add('bcon');  // the career stat line under the scorebug steps aside: the card says the same and more
+    bcAt = performance.now();
+    clearTimeout(bcT);
+    bcT = setTimeout(bcHide, ms);
+  }
+
+  function bcHide() {
+    clearTimeout(bcT);
+    const e = $('#bcast');
+    if (e) e.className = '';
+    app.classList.remove('bcon');
+  }
+
+  const ROLE_NAME = { X: 'WR', Z: 'WR', S: 'WR', S2: 'WR' };  // the formation's letters, as a broadcast names them
+
+  // one man's line in this game, from the box score
+  function boxLine(b) {
+    const n = k => b[k] || 0, out = [];
+    if (b.att) out.push(`${n('comp')}/${b.att}`, `${n('pyd')} YDS`, ...(n('ptd') ? [`${b.ptd} TD`] : []), ...(n('pint') ? [`${b.pint} INT`] : []));
+    if (b.rec) out.push(`${b.rec} REC`, `${n('recyd')} YDS`);
+    if (b.car && !b.att) out.push(`${b.car} CAR`, `${n('ryd')} YDS`);
+    if (n('td') && !b.att) out.push(`${b.td} TD`);
+    return out.join(' · ');
+  }
+
+  function playerCard(p, tag) {
+    if (!bcLive()) return;
+    const b = p && G.box && G.box[p.team + p.role], line = b && boxLine(b);
+    if (!line) return;
+    const t = TEAMS[G.tm[p.team]];
+    bcShow(`<div class="bcard" style="--c:${t.c1};--k:${inkOn(t.c1)}"><b>${p.num}</b><div><strong>${bcEsc(p.name)}</strong><span>${bcEsc(t.name)} · ${bcEsc(ROLE_NAME[p.role] || String(p.role).replace(/\d+$/, ''))}${tag ? ' · ' + tag : ''}</span><em>${line}</em></div></div>`, 4200);
+  }
+
+  function teamStatsCard(title) {
+    if (!bcLive()) return;
+    const s = G.stats, t0 = TEAMS[G.tm[0]], t1 = TEAMS[G.tm[1]], row = (l, a, b) => `<tr><td>${a}</td><th>${l}</th><td>${b}</td></tr>`;
+    bcShow(`<div class="bstats"><div class="bh"><span style="--c:${t0.c1};--k:${inkOn(t0.c1)}">${t0.ab}</span><small>${title}</small><span style="--c:${t1.c1};--k:${inkOn(t1.c1)}">${t1.ab}</span></div>
+  <table>${row('Total yards', s[0].pass + s[0].rush, s[1].pass + s[1].rush)}${row('Passing', s[0].pass, s[1].pass)}${row('Rushing', s[0].rush, s[1].rush)}${row('Completions', `${s[0].comp}/${s[0].att}`, `${s[1].comp}/${s[1].att}`)}${row('Turnovers', s[0].to, s[1].to)}</table></div>`, 5600);
+  }
+
   /* The call of the play that just ended: the play-by-play man says what happened, and the analyst, some of the time,
      says why. `good` is the kick's result, the punt's, or (after a touchdown) how the try went when it was settled on
      the spot; s0 is the score before the play. */
@@ -3552,6 +3623,7 @@
   }
 
   function toMenu() {
+    bcHide();
     if (PG.audio) PG.audio.scene('menu');
     clearTimeout(tipT);
     $('#tip').hidden = true;

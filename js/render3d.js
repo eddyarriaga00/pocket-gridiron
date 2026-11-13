@@ -531,6 +531,32 @@
   function actPose(f, p, tg, s) {
     const a = p.act;
     if (a === 'cheer') return celebrate(f, !!p.lead, tg, p.lead ? 4 : -1, 0);  // the leader roars, the rest jump, clap, wave
+    if (a === 'fold' || a === 'point' || a === 'chest') {
+      // standing tall, chin up; arms folded across the chest, or the right arm out at the other man, or a fist to the heart
+      const b = Math.sin(time * 1.6 + f.seed) * 0.01;
+      tg[CHRX] = 0.05 + b;
+      tg[HEADRX] = -0.12;
+      tg[SLX] = 0.14;  // upper arms down by the sides, elbows bent tight, fists drawn up against the chest
+      tg[SLZ] = 0.3;
+      tg[EL] = 2.3;
+      tg[SRX] = 0.14;
+      tg[SRZ] = -0.3;
+      tg[ER] = 2.3;
+      if (a === 'point') {
+        tg[SRX] = 1.55;
+        tg[SRZ] = -0.05;
+        tg[ER] = 0.08;
+        tg[CHRY] = -0.12;
+      } else if (a === 'chest') {
+        const k = Math.abs(Math.sin(time * 7));
+        tg[SRX] = 0.75 + k * 0.25;
+        tg[SRZ] = -0.55;
+        tg[ER] = 2.35;
+        tg[CHRX] = 0.12;
+        tg[HEADRX] = -0.3;
+      }
+      return false;
+    }
     return false;  // 'stand'
   }
 
@@ -632,6 +658,23 @@
 
   /* the camera for each scene: where it stands (v3) and what it looks at (v3b), from the scene's clock */
   const SCENECAM = {
+    faceoff(sc, P, v3, v3b) {
+      const t = sc.t, me = sc.me || P[0], him = sc.him || P[1], mx = (me.x + him.x) / 2, y = me.y;
+      if (t < 2.2) {
+        const u = t / 2.2;
+        v3.set(mx, 2.6, -(y - lerp(7.5, 5, u)));  // side on, both of them in profile, pushing in
+        v3b.set(mx, 2.3, -y);
+      } else if (t < 3.9) {
+        v3.set(me.x - 1.9, 2.75, -(y - 2.4));  // over your shoulder, on him
+        v3b.set(him.x, 2.6, -y);
+      } else if (t < 5.6) {
+        v3.set(him.x + 1.9, 2.75, -(y + 2.4));  // over his shoulder, on you
+        v3b.set(me.x, 2.6, -y);
+      } else {
+        v3.set(mx, 6, -(y - 11));  // up and away
+        v3b.set(mx, 1.8, -y);
+      }
+    },
     walkout(sc, P, v3, v3b) {
       const t = sc.t, L = sc.lead || P[0] || { x: FW / 2, y: 0 };
       if (t < 2.3) {
@@ -2902,7 +2945,7 @@
 
     /* ball */
     let bx = null, by = 0, bz = 0;
-    ball.visible = !!ps;
+    ball.visible = !!ps && G.state !== 'scene';  // a cutscene brings its own props
     if (ps) {
       const a = ps.air, c = ps.carrier;
       if (a) {

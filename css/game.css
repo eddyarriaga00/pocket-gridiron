@@ -487,3 +487,4 @@ tr.me td{color:var(--acc);font-weight:700}
 .scene .cap:empty{display:none}
 .scene .cap small{color:#aab6cc}
 .scene>small{color:#c3ccdc;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.scene>small{align-self:center;padding:3px 10px;border-radius:10px;background:rgba(6,10,19,.78)}

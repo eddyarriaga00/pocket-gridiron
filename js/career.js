@@ -1298,7 +1298,9 @@
     const opp = nextOpp();
     PG.snd('whistle');
     const call = C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.kind : null;
-    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call,
+    /* a rival game opens with the two of you face to face at midfield: his words, and yours if you called him out */
+    const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
+    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
       mustWin: C.phase !== 'reg', env: PG.envFor(C.season, C.week + (C.phase === 'reg' ? 0 : C.phase === 'semi' ? 8 : 9), C.phase !== 'reg' || C.week >= 5), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 

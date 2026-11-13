@@ -950,6 +950,16 @@ what is next. Update it after every item.
   its own, careers play through it with no errors (the harness steps through it), fingerprint unchanged (never in
   simulations); audit empty at 320x568 and 390x844, at three moments of the scene, with and without the 34 px strip.
   (The roadmap went up in a second commit; the first one's log script missed its anchor.)
+- 00:38 Cutscenes, 2 of 7: the rival face-off. Before a rival game, after the walkout: you and the rival at midfield,
+  fists drawn up to the chest, face to face; the caption carries his line from the week (`rivalSays`) and your
+  callout if you made one (the career passes `rivalry` to startGame). Shots: side on and pushing in, over your
+  shoulder as he points at you, over his as you answer with a fist to the chest, then up and away; an "ooh" from the
+  crowd at the point, a cheer at the answer. Fixed on the way: "arms folded" first read as hands to the face, then as
+  reaching for each other (now upper arms down, elbows tight, fists at the chest); the kickoff ball was left lying at
+  midfield (no ball in any cutscene now); the over-the-shoulder shots hid him behind your helmet (now wider); "Tap to
+  skip" failed contrast over a white jersey (now on a dark pill). Checked: a QB season with its rival game, careers,
+  exhibition, drills clean; fingerprint unchanged; audit empty at 320x568 and 390x844 at the walkout and three moments
+  of the face-off, with and without the 34 px strip.
 
 ## Morning hand-off
 
@@ -1207,7 +1217,7 @@ what is next. Update it after every item.
 ### Round 19 (the owner at 00:20 on 2026-11-13, after asking where cutscenes could go and being given seven places:
 ### "everything u gave work one at a time in order")
 - [x] Game-day walkout (career).
-- [ ] Rival face-off before rival games.
+- [x] Rival face-off before rival games.
 - [ ] Championship trophy.
 - [ ] Coin toss at midfield.
 - [ ] Draft day stage.

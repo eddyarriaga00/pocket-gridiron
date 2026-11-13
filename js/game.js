@@ -183,7 +183,8 @@
       banner(G.drill.title, G.drill.n + ' reps', 1500);
     } else if (!AUTO) {
       const intro = () => startIntro(o, first);
-      if (G.mode === 'career') playScene('walkout', {}, intro);  // a career game opens in the tunnel
+      G.rivalry = o.rivalry || null;
+      if (G.mode === 'career') playScene('walkout', {}, () => (G.rivalry ? playScene('faceoff', {}, intro) : intro()));  // a career game opens in the tunnel; a rival game then at midfield
       else intro();
       return;
     } else banner('Kickoff', tname(first) + ' ball', 1500);
@@ -323,6 +324,38 @@
         }],
       ],
     },
+  };
+
+  /* The rival face-off: you and him at midfield, arms folded, face to face. He points at you, you answer with a fist
+     to your chest, and his words (and yours, if you called him out) are on the caption. */
+  SCENES.faceoff = {
+    dur: 6.6,
+    setup(sc) {
+      const R = G.rivalry, role = G.lock || 'QB', me = rosterMan(0, role, 0), him = rosterMan(1, role, 1);
+      me.x = FW / 2 - 0.95;
+      him.x = FW / 2 + 0.95;
+      me.y = him.y = 50;
+      me.face = -Math.PI / 2;  // toward +x, at him
+      him.face = Math.PI / 2;
+      me.act = him.act = 'fold';
+      him.name = R.name;
+      sc.me = me;
+      sc.him = him;
+      const opp = TEAMS[G.tm[1]];
+      sc.cap = `<small>Rival game · ${esc(opp.city)} ${esc(opp.name)}</small><b>${esc(me.name)} vs ${esc(R.name)}</b>${R.quote ? `<span>“${esc(R.quote)}” — ${esc(R.name)}</span>` : ''}${R.mine ? `<span>You said: “${esc(R.mine)}”</span>` : ''}`;
+      return [me, him];
+    },
+    cues: [
+      [0.2, () => PG.audio && PG.audio.crowd.cheer(0.5, 2)],
+      [3.1, sc => {
+        sc.him.act = 'point';
+        snd('ooh');
+      }],
+      [4.7, sc => {
+        sc.me.act = 'chest';
+        if (PG.audio) PG.audio.crowd.cheer(0.9, 2.5);
+      }],
+    ],
   };
   const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 

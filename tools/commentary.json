@@ -89,6 +89,8 @@
     "drive.quick": { "v": "p", "e": 0.45, "t": ["That didn't take long.", "Quick strike."] },
     "punt": { "v": "p", "e": 0.2, "t": ["The punt is away.", "Here's the punt.", "Punt is up."] },
     "punt.fair": { "v": "p", "e": 0.2, "t": ["Fair catch."] },
+    "inj.down": { "v": "p", "e": 0.25, "t": ["He's slow to get up. The trainers are coming out to take a look.", "There's a man down on the field. They'll take a time out for him."] },
+    "inj.back": { "v": "p", "e": 0.3, "t": ["And he's back in the game. Good to see.", "He's back out there after that scare."] },
     "punt.muff": { "v": "p", "e": 0.9, "t": ["He muffed the punt! The ball is loose!"] },
     "flag": { "v": "p", "e": 0.4, "t": ["There's a flag on the play.", "Flag down."] },
     "timeout": { "v": "p", "e": 0.2, "t": ["Timeout on the field."] },

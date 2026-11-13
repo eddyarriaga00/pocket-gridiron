@@ -59,7 +59,8 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   broadcast says so the moment you pass one. Edit team names from the hub or the new-career screen too. Injuries:
   now and then you come out of a game questionable (a sore ankle, a jammed finger) and play the next one with one
   rating a few points down, and about one week in four the other team's injury report has a starter out, which makes
-  them a little weaker. A receiver is
+  them a little weaker. On the field (every mode), a ball carrier is now and then slow to get up: play stops, a
+  substitute comes in for his next three to six snaps, and the booth says when he is back. A receiver is
   also the kick returner (a switch on the hub): on their kickoffs and punts you are back deep, field it, and run it
   back yourself (or tap Fair catch on a punt). Returns go on your game line and earn XP, and the job has its own trust
   bar: long returns raise it, a fumble sits you down for the rest of that game and the next two, and a slump under 30

@@ -1301,6 +1301,16 @@ what is next. Update it after every item.
   never produced one: this generator's first numbers barely move between neighbouring seeds, so the seed is now
   multiplied through and three numbers are thrown away. Checked: fingerprint unchanged, careers (QB and WR, one game
   played questionable), exhibition, drills, audit empty at 320x568 and 390x844 and on a hub showing both lines.
+- 09:19 Automatic run: shaken-up players. After a tackle in a watched game (0.8%, never a career player's own man, two at
+  most at once) the ball carrier stays down (`shaken`): the dead ball lasts 2.6 s longer, the clock waits, the banner
+  reads "Injury timeout · #29 Nakamura is shaken up · Petrov comes in", and the roster slot is played by a
+  substitute (another name and number, 97% of his speed, six points lower) for the next three to six scrimmage snaps
+  (`G.hurt`, counted down by `healStep` in `setupPlay`); then the starter is back with a toast and a cheer. Four booth
+  lines recorded (`inj.down`, `inj.back`, two takes each), none flagged. Measured: at the first rate (1.2%) a game of
+  15-minute quarters had four (a running back twice, a quarterback, another back), each replaced on the field by the
+  named substitute and each back within the quarter or two; the rate came down to 0.8%. inj.down peaks -3.3 dB at
+  -14.4 RMS, inj.back -3.0 at -16.0. Checked: fingerprint unchanged, careers (QB and WR), exhibition, drills, audit
+  empty at 320x568 and 390x844.
 
 ## Morning hand-off
 
@@ -1616,9 +1626,9 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Injuries on the field (the career side is done, 08:50: your questionable week and the opponent's injury report): a
-  player shaken up after a big hit, down on the turf while the trainers come out, replaced for a play or a series
-  (needs a substitute from the roster and a short cutscene); the cart for the worst.
+- Injuries, the rest (the career side and shaken-up ball carriers are done, 09:19): the trainers drawn running out and
+  the man walked off (a short cutscene), defenders shaken up too, the cart for the worst, and a career player's own
+  in-game knock (sit a series).
 - An all-star game after the season for the best players of each conference (you, when you are one): a playable
   exhibition with its own presentation.
 - A record book: league single-game and season records; the booth and a card when one falls.

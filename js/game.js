@@ -696,6 +696,7 @@
   function setupPlay(shift) {
     const was = shift ? Object.fromEntries(P.map(p => [p.team + p.role, [p.x, p.y]])) : null, selRole = shift && G.sel ? G.sel.role : null;
     if (!shift) {
+      if (!AUTO && !QUIET && G.op.cat !== 'special') healStep();
       G.cadence = false;  // the quarterback has not called it out yet
       G.dcall = false;  // nor the defense
       G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc', 'to' (a timeout, or the two-minute warning)
@@ -2366,12 +2367,49 @@
     if (G.state !== 'live' && G.state !== 'kicka') return;
     const p0 = ps, s0 = G.score.slice();
     finish0(kind, arg);
+    if (kind === 'tackle' && p0 && p0.carrier && G.state === 'dead' && (p0.mode === 'pass' || p0.mode === 'run') && !AUTO && !QUIET && !G.drill && Math.random() < 0.008) shaken(p0.carrier);
     if (p0 && p0.rk && !p0.flagged && G.state === 'dead') return roughKick(p0, s0);
     if (!p0 || p0.flagged || G.state !== 'dead' || (p0.mode !== 'pass' && p0.mode !== 'run')) return;  // a flag during the play already decided it (holding, interference)
     if (p0.free) freePlay(p0, s0);
     else if (p0.ground !== undefined) grounding(p0, s0);
     else if (p0.dhold) defHold(p0, s0);
     else if (p0.lateFlag) lateFoul(p0, s0);
+  }
+
+  /* Shaken up: now and then a ball carrier is slow to get up after the tackle. Play stops while the trainers look at
+     him, he comes out, and a substitute (a little slower, six points lower) plays his spot for the next three to six
+     snaps; then he is back. Never a career player's own man, and only in games someone is watching. */
+  function shaken(c) {
+    const H = G.hurt || (G.hurt = []);
+    if ((G.lock && c.team === 0 && c.role === G.lock) || H.some(h => h.team === c.team && h.role === c.role) || H.length >= 2) return;
+    const orig = G.ros[c.team][c.role];
+    if (!orig) return;
+    H.push({ team: c.team, role: c.role, orig, left: 3 + Math.floor(Math.random() * 4) });
+    G.ros[c.team][c.role] = { ...orig, name: PG.NAMES[Math.floor(Math.random() * PG.NAMES.length)], num: (orig.num * 7 + 13) % 89 + 1, spd: orig.spd * 0.97, rt: orig.rt - 6 };
+    c.flat = 4;  // he stays down
+    G.deadT += 2.6;
+    G.runoff = 0;  // an injury timeout: the clock waits
+    setTimeout(() => {
+      if (!G.ros || G.state === 'menu' || G.state === 'over') return;
+      banner('Injury timeout', `#${orig.num} ${orig.name} is shaken up · ${G.ros[c.team][c.role].name} comes in`, 2300);
+      vo('inj.down', { pri: 1 });
+      if (PG.audio) PG.audio.crowd.settle();
+    }, 1500);
+  }
+
+  /* each snap brings a shaken-up player a play closer to coming back */
+  function healStep() {
+    const H = G.hurt;
+    if (!H || !H.length) return;
+    for (let i = H.length - 1; i >= 0; i--) {
+      const h = H[i];
+      if (--h.left > 0) continue;
+      G.ros[h.team][h.role] = h.orig;
+      H.splice(i, 1);
+      toast(`#${h.orig.num} ${h.orig.name} is back in`);
+      vo('inj.back', { pri: 0 });
+      if (PG.audio) PG.audio.crowd.cheer(h.team === (G.home || 0) ? 0.5 : 0.2, 1.5);
+    }
   }
 
   /* roughing the kicker: fifteen yards from the old spot and a first down for the kicking team, the kick and any

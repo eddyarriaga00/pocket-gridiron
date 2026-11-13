@@ -333,7 +333,7 @@
   function line(m) {
     if (C.pos === 'QB') return `${m.comp}/${m.att}, ${m.pyd} yds, ${m.ptd} TD, ${m.pint} INT` + (m.car ? ` · ${m.car} car, ${m.ryd} yds` : '');
     if (C.pos === 'RB') return `${m.car} car, ${m.ryd} yds, ${m.rtd} TD` + (m.rec ? ` · ${m.rec} rec, ${m.recyd} yds` : '');
-    if (C.pos === 'WR') return `${m.rec} rec, ${m.recyd} yds, ${m.rectd} TD · ${m.tgt} targets`;
+    if (C.pos === 'WR') return `${m.rec} rec, ${m.recyd} yds, ${m.rectd} TD · ${m.tgt} targets` + (m.car ? ` · ${m.car} car, ${m.ryd} yds` : '');  // an end around now and then
     if (C.pos === 'LB') return `${m.tkl} tkl, ${m.sack} sack, ${m.int} INT, ${m.pbu} PBU`;
     return `${m.tkl} tkl, ${m.int} INT, ${m.pbu} PBU`;
   }

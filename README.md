@@ -25,9 +25,18 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 
 ## On the field
 
-- Pass plays, run plays, run-pass options, play action, screens, bootlegs, field goals, punts, live kickoffs, kneel and
-  spike. Nineteen offensive plays and eight defensive calls. A tag under the field names the kind of play on every snap. Before the snap you can tap a receiver's letter to change his route, call an audible or flip
-  the play; on defense you can change the coverage.
+- Pass plays, run plays, run-pass options, play action, screens, bootlegs, trick plays (a jet sweep, an end around for
+  your receiver), field goals, punts, live kickoffs, kneel and spike. 49 offensive plays from nine formations (Singleback,
+  Shotgun, I-Form, Gun Trips, Gun Empty, Pistol, Gun Bunch, Jumbo, Gun Slot) and thirteen defensive calls, several of
+  which show their own look before the snap (a safety rolled down, a blitzer walked up). A tag under the field names the
+  kind of play on every snap. Before the snap you can tap a receiver's letter to change his route, call an audible (the
+  other plays from the same formation) or flip the play; on defense you can change the coverage.
+- Every team has its own offense, named on the matchup card before kickoff: air raid, power run, pistol option, west
+  coast, spread, vertical, run and shoot, pro style. Each favours its own formations, play action or trick plays, and
+  every play caller (the computer's, your coach's in a career, the "Suggested" card) remembers what it has called:
+  the last call is all but ruled out, the last few are unlikely, and a play gets less likely each time it is used. The
+  computer runs half its plays to the other side. In a two-game test career the coach called 29 different plays in 33
+  snaps (it was 18 in 42), never the same play twice in a row.
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - Kick with a swipe: field goals, punts and your kickoffs. The swipe's angle is the aim and its length and speed the
   power: a straight, strong swipe splits the uprights, a soft kickoff stays in play. The timing bar still works.
@@ -168,7 +177,7 @@ replays, penalties, the button side, volume, sound, music, the commentary, vibra
 ```
 index.html              page shell (GitHub Pages serves this from the main branch)
 css/game.css            all styles
-js/data.js              teams, formations, routes and both playbooks
+js/data.js              teams, formations, routes, both playbooks and each team's offense
 js/game.js              the engine: plays, AI, rules, controls, menus, the 2D overlay and 2D fallback renderer
 js/shaders.js           GLSL: turf, sky dome, crowd, rim light on players, glow and vignette pass
 js/render3d.js          three.js renderer: stadium, instanced player models (a far and a near level of detail),
@@ -235,6 +244,9 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 - `H.exh(2, 120)`, `H.career('QB', 2)`, `H.careerSeasons('WR', 2)` play scripted games in each mode (careers are QB or WR).
 - `H.camp('run', 4)` plays a training-camp drill (`'pass'`, `'run'` or `'tackle'`) with a simple test player.
 - `H.fingerprint()` is a seeded run. After a change that should not alter behaviour it must return the same string.
+- `PG.dbg.lab('Smash', 40)` runs one play 40 times from first and ten (clear weather, every other snap mirrored) and
+  returns each snap's yards, the throw's target and how it ended. Seed it the same way for every play
+  (`PG.dbg.seed(3)` before each) so the plays are compared with the same players.
 - `PG.dbg.seed(n)` makes any run repeatable.
 - `PG.audio.booth` shows the commentators: whether their clips loaded, what is being said, what is waiting, and
   `log`, every line the game has asked for (it fills with the sound off too, so a scripted game shows what they would

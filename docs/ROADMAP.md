@@ -52,6 +52,10 @@ what is next. Update it after every item.
    - `H.fingerprint()` must equal `localStorage['pg.fingerprint']` after any change that should not alter play. It pins
      the weather and the penalty switch itself, so what is saved in Settings cannot disturb it.
    - `H.camp('pass',4)`, and 'run', 'tackle': a training-camp drill played by a simple test player. `errs` empty.
+   - After a change to the playbook: `PG.dbg.lab(name, 40)` per play, with `PG.dbg.seed(s)` before each so every play
+     meets the same rosters (rosters are rolled per game, and a weak arm decides a batch). Compare each new play with the
+     old ones of its kind (runs about 4-5 yards a snap, short passes about 8, deep about 10), then `H.sim(12,180)` on a
+     few seeds against the numbers above.
    - `await H.fps(3)` with the pane visible, during a live play. Target 55+ in the pane.
 4. Screenshot the menu, a pre-snap view, a live play, the career hub. Synchronous stepping does not repaint,
    so wait a second before a screenshot.
@@ -1015,6 +1019,34 @@ what is next. Update it after every item.
   QB season, exhibition, drills clean; fingerprint unchanged; audit empty at 320x568 and 390x844 at three moments of
   the scene, with and without the 34 px strip. That finishes the seven cutscenes; each can be skipped with a tap and
   all of them turned off with the Cutscenes chip in settings.
+- 01:30 The playbook, after the owner wrote "it feels like i play the same plays over and over a lot". Measured
+  first: in two QB career games the coach called 18 different plays in 42 snaps from a book of 19 (Stick, Four
+  Verticals 5 times each), half of them from the Shotgun; a WR career saw 17 in 66, one play 8 times, three repeated
+  back to back. The book now has 49 plays (15 runs, 4 options, 17 short, 13 deep) in nine formations (new: Gun Trips,
+  Gun Empty, Pistol, Gun Bunch, Jumbo, Gun Slot, the last with X in the slot), 15 new routes (wheel, seam, skinny post,
+  fade, comeback, sail, slant and go, out and up, stop and go, angle, bubble, arrow, snag, swings) and trick plays (a
+  jet sweep, an end around that gives a WR career the ball). Defense: five new calls (Tampa 2, Cover 6, Cover 2 Man,
+  Fire Zone, Overload) and pre-snap looks (`al` in data.js). Play calling (`callOff`/`pickOff` in game.js): the old
+  situation rules, then a play weighted by the team's offense (`SCHEME`: each of the eight teams has one, shown on the
+  matchup card), the red zone (`rz`), and what that side has called this game (the last call x0.03, the last four
+  x0.15, the last ten x0.5, and /(1 + 0.5 per use)); the computer mirrors half its calls. The Suggested card uses the
+  same caller with Math.random and is put first on its tab; the QB's "Coach sends in" offers two other kinds of play
+  from other formations; Audible steps through the same formation's plays. After: 29 different plays in 33 QB snaps
+  (most-used twice), 30 in 40 WR snaps, nothing back to back, all nine formations used.
+  Balance, with a new play lab (`PG.dbg.lab`): the first version scored 46 points a game against 38. Causes found:
+  a seam route bending into the gap between deep zones averaged 38 yards a throw and a fade 40 (now both a go with a
+  release), routes that turn back sharply (whip, stop and go) were overthrown because a throw leads the receiver along
+  his route at full speed (whip gone, the double moves smoothed), a deep crosser was intercepted one throw in eight
+  (Yankee became PA Corner), and blitzers walked right up got home three times as often (now a step). The lab also
+  showed rosters, not plays, deciding a batch (one draw's quarterback could not reach the deep routes), so plays are
+  compared on the same three rosters. After: 36 seeded games average 4.1 yards a carry, 57.7% completions, 15.4 per
+  completion, 1.4% interceptions, 38.5 points (before: 3.9, 58%, 15.0, 1.5%, 38.3); sacks 3.6% (2.2%). Training camp
+  keeps the old five calls and plain spots, so its stars are unchanged (the test player: run drill 3,3,1,3,2,3). In a
+  bunch the receiver letters sat on each other: a letter that would cover another is now lifted above it, and a tap
+  takes the nearest letter. `H.fingerprint()` changes on purpose (the play calling is new); the new one is saved and
+  repeats. Checked: careers QB and WR, a QB season, exhibition (the scripted user scored 36 points in 8 games against
+  17 before), the drills, a drawn game, the WR end around (his carry, his line), audit empty at 320x568 and 390x844
+  with and without the 34 px strip, no console errors.
 
 ## Morning hand-off
 

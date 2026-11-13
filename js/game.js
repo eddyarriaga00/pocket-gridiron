@@ -91,7 +91,7 @@
   addEventListener('resize', resize);
 
   /* ---------- data (the tables are in data.js) ---------- */
-  const { TEAMS, SUR, OLR, OLX, OFFR, DEFR, BASE, NUM, FORM, FNAME, ROUTES, RNAME, OFF, DPOS, DEF, LCOL, ORD } = window.PG.data;
+  const { TEAMS, SUR, OLR, OLX, OFFR, DEFR, BASE, NUM, FORM, FNAME, ROUTES, RNAME, OFF, DPOS, DEF, SCHEME, LCOL, ORD } = window.PG.data;
 
   /* ---------- state ---------- */
   const menuState = tm => ({ state: 'menu', tm: tm || [SET.me, SET.opp], los: 50, fd: 60, bx: FW / 2, poss: 0, score: [0, 0] });
@@ -198,7 +198,8 @@
       /* a few seconds over the stadium with the matchup on screen; a tap skips it */
       const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
       G.state = 'intro';
-      scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span></div><em>vs</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span></div></div>
+      const sty = i => (SCHEME[i] ? `<i>${SCHEME[i].n} offense</i>` : '');  // each team calls its own kind of game
+      scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span>${sty(o.a)}</div><em>vs</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span>${sty(o.b)}</div></div>
   <p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><p class="toss">${TEAMS[G.tm[G.first]].name} won the toss · will receive</p><small>Tap to skip</small></button>`;
       $('#intro').onclick = endIntro;
       /* the coin toss was won by the side that receives: the referee says so over the speakers, then the broadcast opens
@@ -589,6 +590,11 @@
       G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc', 'to' (a timeout, or the two-minute warning)
       if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false, q0: G.q, c0: G.clock };  // a new possession
       G.drive.plays++;
+      if (G.op.cat !== 'special') {
+        // what each side has called this game, for the play callers (they avoid repeating themselves)
+        (G.called || (G.called = [[], []]))[G.poss].push(G.op.n);
+        (G.dcalled || (G.dcalled = [[], []]))[1 - G.poss].push(G.dp.n);
+      }
     }
     const off = G.poss, dir = off === 0 ? 1 : -1, op = G.op, dp = G.dp, bx = G.bx, los = G.los, fl = G.flip ? -1 : 1;
     G.dir = dir;
@@ -599,7 +605,7 @@
     for (const r in f) o[r] = mk(off, r, f[r][0] * fl, f[r][1]);  // fl mirrors the formation when the play is flipped
     const kick = op.cat === 'special';
     ps = { t: 0, mode: kick ? 'kick' : op.run ? 'run' : 'pass', rpo: !!op.rpo, offTeam: off, qb: o.QB, carrier: o.QB, thrown: false, air: null, caught: false, handoff: false, open: false, turnover: false,
-      think: 0, scr: false, runner: null, recs: [], pa: !!op.pa, los, fd: G.fd, bx, drop: { x: clamp(bx + (op.roll || 0) * fl, 4, FW - 4), y: los - dir * (op.f === 'gun' ? 7.5 : 6.5) }, kick: null, passer: null, tgt: null, tackler: null };
+      think: 0, scr: false, runner: null, recs: [], pa: !!op.pa, los, fd: G.fd, bx, drop: { x: clamp(bx + (op.roll || 0) * fl, 4, FW - 4), y: los - dir * (f && f.QB[1] <= -4 ? 7.5 : 6.5) }, kick: null, passer: null, tgt: null, tackler: null };
     if (kick) {
       o.QB.y = los - dir * (op.n === 'Punt' ? 13 : 7.5);
       o.RB.x = bx - 2.5;
@@ -632,7 +638,12 @@
     const el = P.filter(p => !p.isOL && p !== o.QB), byx = [...el].sort((a, b) => a.x - b.x), d = {};
     for (const r of DEFR) {
       let [dx, dy] = DPOS[r];
-      const a = kick ? 'rush' : (dp.a[r] || 'rush');
+      const a = kick ? 'rush' : (dp.a[r] || 'rush'), al = !kick && !G.drill && dp.al && dp.al[r];  // training camp keeps the plain spots it was tuned on
+      if (al) {
+        // the call's own look before the snap: a safety down in the box, a blitzer walked up
+        dx += al[0];
+        dy += al[1];
+      }
       if (r === 'CB1') {
         dx = byx[0].x - bx;
         if (a === 'man') dy = 3.5;
@@ -2575,9 +2586,52 @@
     else showFinal();
   }
 
-  /* ---------- play calling ---------- */
-  function cpuOff(t) {
-    const toGoal = t === 0 ? 100 - G.los : G.los, ld = G.score[t] - G.score[1 - t];
+  /* ---------- play calling ----------
+     The computer's play caller, and your coach in a career. First the situation (kneel it out when ahead late, fourth
+     down, how likely a run is at this down and distance, the two-minute drill), then one play from that bucket,
+     weighted by the team's offense (SCHEME: formations it likes, play action, trick plays), the field (short-field
+     plays near the goal line) and what this side has already called this game: the last call is all but ruled out,
+     anything from the last four is unlikely, and every play gets less likely each time it is used. R is the dice:
+     the seeded rnd for the computer, Math.random for a suggestion, so suggesting a play never moves a seeded run. */
+  const schemeOf = t => SCHEME[G.tm[t]] || SCHEME[SCHEME.length - 1];
+
+  /* one play of a category for side t. o.star: the career player's role (his coach leans on him); o.who: only runs by
+     that role; o.back: only passes with a route for the back; o.not: plays to leave out; o.f: a formation to stay away from */
+  function pickOff(t, cat, R, o = {}) {
+    const toGoal = t === 0 ? 100 - G.los : G.los, S = schemeOf(t), star = o.star, hist = (G.called && G.called[t]) || [], n = hist.length;
+    let list = OFF.filter(p => p.cat === cat && !p.quick && (!p.short || G.togo <= 2) && (p.rz !== 2 || toGoal <= 25) && !(o.not && o.not.includes(p)));
+    if (o.who) {
+      const w = list.filter(p => p.run && p.run.who === o.who);
+      if (w.length) list = w;
+    }
+    if (o.back) {
+      const w = list.filter(p => p.r && p.r.RB);
+      if (w.length) list = w;
+    }
+    if (!list.length) return null;
+    let tot = 0;
+    const ws = list.map(p => {
+      let w = S.f[p.f] ?? 1;
+      if (p.pa) w *= S.pa || 1;
+      if (p.gadget) w *= 0.3 * (S.gadget || 1) * (star === 'X' && p.run.who === 'X' ? 3 : 1);
+      if (toGoal <= 20) w *= p.rz ? 1.8 : cat === 'deep' ? 0.5 : 1;
+      if (star === 'X') w *= (p.r && p.r.X) || (p.run && p.run.who === 'X') ? 1.4 : 0.6;
+      if (o.f && p.f === o.f) w *= 0.25;
+      const last = hist.lastIndexOf(p.n), ago = last < 0 ? 99 : n - last;  // 1: it was the last call
+      w *= ago === 1 ? 0.03 : ago <= 4 ? 0.15 : ago <= 10 ? 0.5 : 1;
+      let used = 0;
+      for (const h of hist) if (h === p.n) used++;
+      w /= 1 + used * 0.5;
+      tot += w;
+      return w;
+    });
+    let x = R() * tot;
+    for (let i = 0; i < list.length; i++) if ((x -= ws[i]) <= 0) return list[i];
+    return list[list.length - 1];
+  }
+
+  function callOff(t, R) {
+    const toGoal = t === 0 ? 100 - G.los : G.los, ld = G.score[t] - G.score[1 - t], S = schemeOf(t);
     if (G.q === 4 && ld > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1 - t]) * 40) return OFF.find(p => p.quick === 'kneel');  // ahead late: run it out
     if (G.down === 4) {
       const desp = G.q >= 4 && ld < 0 && G.clock < 100;
@@ -2586,34 +2640,47 @@
     }
     let pr = G.togo > 7 ? 0.3 : G.togo < 3 ? 0.65 : 0.45;
     if (G.down >= 3 && G.togo > 4) pr = 0.12;
+    pr = clamp(pr * (1 + (S.run || 0) * 2), 0.03, 0.85);  // a running team runs a little more
+    const two = G.clock < 100 && (G.q === 2 || (G.q >= 4 && ld < 0));  // the two-minute drill: throw, and look deep
+    if (two) pr = Math.min(pr, 0.15);
     // career: the coach leans on the user's position so they stay involved
     const star = G.lock && t === 0 && !AUTO ? G.lock : null;
-    if ((star === 'QB' || star === 'X') && G.togo >= 3 && G.togo <= 10 && rnd() < 0.12) return pick(OFF.filter(p => p.rpo));  // your coach likes an option now and then (never rolled for a computer-only game)
+    if ((star === 'QB' || star === 'X') && G.togo >= 3 && G.togo <= 10 && R() < 0.12) return pickOff(t, 'rpo', R, { star });  // your coach likes an option now and then (never rolled for a computer-only game)
     if (star === 'RB') pr = Math.max(pr, G.down >= 3 && G.togo > 6 ? 0.3 : 0.5);  // measured: at 0.6 a back's team scored too little to win
     else if (star === 'X') pr *= G.drill ? 0 : 0.5;
     const foe = G.lock && t === 1 && !AUTO ? G.lock : null;  // and the opponent tests a defender
     if (foe === 'MLB') pr = Math.min(0.75, pr + 0.15);
     else if (foe === 'CB1') pr *= 0.75;
-    if (rnd() < pr) return pick(OFF.filter(p => p.cat === 'run' && (star !== 'RB' || p.run.who === 'RB') && (!p.short || G.togo <= 2)));
-    const pc = rnd() < (G.togo > 8 ? 0.5 : 0.3) ? 'deep' : 'short';
-    let list = OFF.filter(p => p.cat === pc);
-    if (star === 'RB') {
-      const withBack = list.filter(p => p.r && p.r.RB);
-      if (withBack.length) list = withBack;
-    }
-    return pick(list);
+    if (R() < pr) return pickOff(t, 'run', R, { star, who: star === 'RB' ? 'RB' : null });
+    const deep = clamp((G.togo > 8 ? 0.5 : 0.3) + (S.deep || 0) + (two && toGoal > 30 ? 0.15 : 0), 0.1, 0.75);
+    return pickOff(t, R() < deep ? 'deep' : 'short', R, { star, back: star === 'RB' });
+  }
+
+  /* the computer's call; half its plays are run to the other side (the formation and every route mirrored) */
+  function cpuOff(t) {
+    const op = callOff(t, rnd);
+    G.flipNext = op.cat !== 'special' && !G.drill && rnd() < 0.5;
+    return op;
   }
 
   const DEFN = n => DEF.find(d => d.n === n);
   const drillStep = () => G.drill.script[(G.drill.n - G.drill.left) % G.drill.script.length];
 
-  /* the computer's coverage: goal line when a yard or the goal is at stake, deep shells on long yardage, otherwise one of the five base calls */
+  /* The computer's coverage: goal line when a yard or the goal is at stake, deep shells on long yardage, otherwise one
+     of the base calls, weighted (the all-out pressure less often) and steering away from what it called last time. */
+  const DBASE = [['Cover 2', 1], ['Cover 3', 1.2], ['Cover 1 Man', 1], ['Man Blitz', 0.6], ['Zone Blitz', 0.8], ['Tampa 2', 0.8], ['Cover 6', 0.8], ['Cover 2 Man', 0.8], ['Fire Zone', 0.7], ['Overload', 0.45]];
+
   function cpuDef() {
     const toGoal = G.poss === 0 ? 100 - G.los : G.los;
     if ((G.togo <= 1.5 || toGoal <= 3) && rnd() < 0.55) return DEFN('Goal Line');
     if (G.togo > 12 && rnd() < 0.35) return DEFN('Prevent');
     if (G.togo > 10.5 && rnd() < 0.3) return DEFN('Cover 4');
-    return DEF[Math.floor(rnd(5))];
+    if (G.drill) return DEF[Math.floor(rnd(5))];  // training camp: the five base calls its star marks were set against
+    const hist = (G.dcalled && G.dcalled[1 - G.poss]) || [], recent = hist.slice(-2);
+    const ws = DBASE.map(([n, w]) => w * (recent.includes(n) ? 0.25 : 1)), tot = ws.reduce((a, b) => a + b, 0);
+    let x = rnd(tot);
+    for (let i = 0; i < DBASE.length; i++) if ((x -= ws[i]) <= 0) return DEFN(DBASE[i][0]);
+    return DEFN('Cover 2');
   }
 
   /* ---------- touchdown celebrations ----------
@@ -2731,6 +2798,7 @@
       /* a guided drill: its script names the play for each rep */
       G.op = OFF.find(p => p.n === drillStep().p) || cpuOff(G.poss);
       G.dp = DEFN(G.drill.dcall) || cpuDef();
+      G.flipNext = false;
       return begin();
     }
     if (AUTO) {
@@ -2796,8 +2864,10 @@
   function begin() {
     if (G.op.quick) return quickPlay();
     scr.innerHTML = '';
-    G.flip = false;
+    G.flip = !!G.flipNext && G.op.cat !== 'special';  // the computer's calls come mirrored half the time
+    G.flipNext = false;
     G.audI = -1;
+    G.audList = audibleList(G.op);
     setupPlay();
     G.preT = 0;
     if (G.op.cat === 'special') {
@@ -3079,6 +3149,8 @@
       G.dp = cpuDef();
       if (G.op.quick) quickPlay();
       else {
+        G.flip = !!G.flipNext && G.op.cat !== 'special';
+        G.flipNext = false;
         setupPlay();
         G.state = 'pre';
         snap();
@@ -3225,15 +3297,29 @@
      on defense Audible steps through the coverage calls. The other side does not get to answer. */
   const AUDIBLES = ['Inside Zone', 'Slants', 'Four Verticals', 'HB Draw'];
 
+  /* the standby plays for a call: itself, then a run, a short pass, a deep pass and an option from the same formation (so
+     the players only shift a little), topped up from the old four */
+  function audibleList(op) {
+    if (!op || op.cat === 'special') return AUDIBLES;
+    const out = [op.n], same = OFF.filter(p => p.f === op.f && p !== op && !p.quick && p.cat !== 'special' && !p.gadget && (!p.short || G.togo <= 2));
+    for (const c of ['run', 'short', 'deep', 'rpo']) {
+      const p = same.find(q => q.cat === c && !out.includes(q.n));
+      if (p && out.length < 4) out.push(p.n);
+    }
+    for (const n of AUDIBLES) if (out.length < 4 && !out.includes(n)) out.push(n);
+    return out;
+  }
+
   function audible(flipIt) {
     if (G.state !== 'pre' || !ps || ps.mode === 'kick' || ps.mode === 'ko' || P.some(p => p.jog)) return;
     const mine = G.lock ? G.me && G.me === ps.qb : G.poss === 0;
     if (mine) {
       if (flipIt) G.flip = !G.flip;
       else {
-        do G.audI = (G.audI + 1) % AUDIBLES.length;
-        while (AUDIBLES[G.audI] === G.op.n);
-        G.op = OFF.find(p => p.n === AUDIBLES[G.audI]);
+        const L = G.audList || AUDIBLES;
+        do G.audI = (G.audI + 1) % L.length;
+        while (L[G.audI] === G.op.n);
+        G.op = OFF.find(p => p.n === L[G.audI]);
         G.flip = false;
       }
       setupPlay(true);
@@ -3557,9 +3643,17 @@
       endReplay();
       return;
     }
-    if (canPass()) for (const r of ps.recs) if (r.hx !== undefined && hyp(x - r.hx, y - r.hy) < 30) {
-      startCharge(ps.recs.indexOf(r), e.pointerId);
-      return;
+    if (canPass()) {
+      // the nearest letter, not the first one close enough: in a bunch they sit close together
+      let best = null, bd = 30;
+      for (const r of ps.recs) if (r.hx !== undefined && hyp(x - r.hx, y - r.hy) < bd) {
+        bd = hyp(x - r.hx, y - r.hy);
+        best = r;
+      }
+      if (best) {
+        startCharge(ps.recs.indexOf(best), e.pointerId);
+        return;
+      }
     }
     if (G.state === 'pre' && ps.mode === 'pass' && userP(ps.qb) && !P.some(p => p.jog)) for (const r of ps.recs) if (r.hx !== undefined && hyp(x - r.hx, y - r.hy) < 26) {
       hotRoute(r);
@@ -4139,25 +4233,22 @@
 
   /* side: 'off' (exhibition offense), 'def' (exhibition defense), 'qb' (career quarterback: coach sends three plays) */
   /* What a coach would call here. It only marks one card on the sheet as "Suggested" (and opens the sheet on that
-     card's tab); the call is still yours. Plain rules and no dice, so it never disturbs a seeded run. */
+     card's tab); the call is still yours. The same play caller the computer uses, rolled with Math.random so it never
+     disturbs a seeded run, and steering away from what you have already called. */
   function suggestOff() {
-    const toGoal = 100 - G.los, ahead = G.score[0] - G.score[1];
-    if (G.try2 != null) return 'Slants';
+    const toGoal = 100 - G.los, ahead = G.score[0] - G.score[1], R = Math.random;
+    if (G.try2 != null) return (pickOff(0, R() < 0.3 ? 'run' : 'short', R) || OFF[0]).n;
     if (G.q === 4 && ahead > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1]) * 40) return 'QB Kneel';
-    if (G.down === 4) return toGoal <= 35 ? 'Field Goal' : G.togo <= 1 && toGoal < 60 ? 'QB Sneak' : G.q >= 4 && ahead < 0 && G.clock < 100 ? 'Four Verticals' : 'Punt';
-    if (G.q >= 4 && ahead < 0 && G.clock < 90) return toGoal > 25 ? 'Four Verticals' : 'Smash';
-    if (G.togo <= 1) return 'QB Sneak';
-    if (G.togo <= 3) return 'Inside Zone';
-    if (G.down >= 3) return G.togo >= 9 ? 'Dagger' : 'Slants';
-    if (G.down === 2 && G.togo >= 4 && G.togo <= 7) return 'RPO Slant';
-    if (G.togo >= 12) return 'Curl Flat';
-    return G.down === 1 || toGoal <= 12 ? 'Off Tackle' : 'Stick';
+    if (G.down === 4) return toGoal <= 35 ? 'Field Goal' : G.togo <= 1 && toGoal < 60 ? (R() < 0.5 ? 'QB Sneak' : 'Lead Dive') : G.q >= 4 && ahead < 0 && G.clock < 100 ? 'Four Verticals' : 'Punt';
+    if (G.q >= 4 && ahead < 0 && G.clock < 90) return pickOff(0, toGoal > 25 ? 'deep' : 'short', R).n;
+    return callOff(0, R).n;
   }
 
   function suggestDef() {
-    if (G.togo <= 1.5 || G.los <= 3) return 'Goal Line';
-    if (G.down >= 3) return G.togo >= 12 ? 'Prevent' : G.togo >= 7 ? 'Cover 4' : 'Cover 1 Man';
-    return G.togo >= 10 && G.down === 2 ? 'Cover 3' : 'Cover 2';
+    const pool = G.togo <= 1.5 || G.los <= 3 ? ['Goal Line'] : G.down >= 3 ? (G.togo >= 12 ? ['Prevent', 'Cover 4'] : G.togo >= 7 ? ['Cover 4', 'Cover 6', 'Tampa 2', 'Fire Zone'] : ['Cover 1 Man', 'Cover 2 Man', 'Man Blitz', 'Overload'])
+      : G.togo >= 10 && G.down === 2 ? ['Cover 3', 'Cover 6', 'Zone Blitz'] : ['Cover 2', 'Cover 3', 'Tampa 2', 'Cover 1 Man', 'Fire Zone'];
+    const last = G.dcalled && G.dcalled[0][G.dcalled[0].length - 1], fresh = pool.filter(n => n !== last), list = fresh.length ? fresh : pool;
+    return list[Math.floor(Math.random() * list.length)];
   }
 
   function showCall(side) {
@@ -4166,11 +4257,20 @@
     const cats = [['run', 'Run'], ['rpo', 'RPO'], ['short', 'Short'], ['deep', 'Deep'], ['special', 'Special']].filter(c => G.try2 == null || c[0] !== 'special');  // no kicks on a two-point try
     let qb = null;
     if (side === 'qb') {
-      const rest = OFF.filter(p => p.cat !== 'special' && p !== G.op);
-      qb = [G.op, pick(rest.filter(p => p.cat === 'run')), pick(rest.filter(p => p.cat !== 'run'))];
+      // the coach's call and two others of a different kind, from other formations where he can
+      const cats = G.op.cat === 'run' ? ['short', G.togo > 6 ? 'deep' : 'short'] : G.op.cat === 'deep' ? ['run', 'short'] : ['run', 'deep'];
+      if (G.down >= 3 && G.togo > 5) cats[cats.indexOf('run') < 0 ? 0 : cats.indexOf('run')] = 'short';
+      if (G.op.cat !== 'rpo' && G.down <= 3 && G.togo >= 3 && G.togo <= 10 && Math.random() < 0.25) cats[1] = 'rpo';
+      const picked = [G.op], skip = Math.random() < 0.75 ? OFF.filter(p => p.gadget) : [];  // a trick play is offered now and then, not every series
+      for (const c of cats) {
+        const p = pickOff(0, c, Math.random, { star: G.lock, not: [...picked, ...skip], f: G.op.f });
+        if (p) picked.push(p);
+      }
+      qb = picked;
     }
     const draw = () => {
-      const list = side === 'off' ? OFF.filter(p => p.cat === cat) : side === 'qb' ? qb : DEF;
+      const list = side === 'off' ? OFF.filter(p => p.cat === cat) : side === 'qb' ? qb : DEF.slice();
+      if (side !== 'qb') list.sort((a, b) => (b.n === sug) - (a.n === sug));  // the suggestion first: a tab holds up to fifteen plays now
       scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${side!=='def'&&hurry(G.poss)?'No huddle · ':''}${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${youChallenge()?`<button class="btn2" id="chal" style="margin:0 0 8px">Challenge the spot · ${G.chal?G.chal[0]:2} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card${p.n===sug?' sug':''}">${side==='qb'&&i===0?'<em>Coach’s pick</em>':p.n===sug?'<em>Suggested</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
       scr.querySelectorAll('.card').forEach((el, i) => {
         drawArt(el.querySelector('canvas'), list[i], side === 'def');
@@ -4337,7 +4437,7 @@
   function showHow() {
     scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard, and beside it − and + zoom the camera out and in.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through four standby plays, Flip to mirror the play.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through other plays from the same formation, Flip to mirror the play.</li><li>Every team has its own offense (air raid, power run, pistol option, spread and more) and nine formations to call from, and coaches do not like to repeat themselves: expect a different look most snaps.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
   <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. Hold 1–5 to build throw power, let go to throw.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul></div>`;
@@ -4700,7 +4800,11 @@
     drawTags(p, x, y - k * 2.35, ctl);
   }
 
-  /* what floats over a player's head: the YOU tag or control arrow, and the receiver letters */
+  /* what floats over a player's head: the YOU tag or control arrow, and the receiver letters. Letters placed this frame
+     are kept in TAGS, so in a bunch (three receivers a yard and a half apart) a letter that would sit on another is
+     lifted above it instead, and each stays its own target. */
+  const TAGS = [];
+
   function drawTags(p, x, ty, ctl) {
     if (ctl) {
       if (G.lock) {
@@ -4723,7 +4827,13 @@
     }
     p.hx = undefined;
     if (p.let && ps.offTeam === 0 && (ps.mode === 'pass' || (ps.rpo && !ps.handoff)) && !ps.thrown && userP(ps.qb) && (G.state === 'pre' || G.state === 'live')) {
-      const by = ty - 13;
+      let by = ty - 13;
+      for (let n = 0; n < 4; n++) {
+        const t = TAGS.find(t => Math.abs(t[0] - x) < 23 && Math.abs(t[1] - by) < 23);
+        if (!t) break;
+        by = t[1] - 25;
+      }
+      TAGS.push([x, by]);
       p.hx = x;
       p.hy = by;
       ctx.fillStyle = p.col;
@@ -4814,6 +4924,7 @@
   function render() {
     const top = scr.firstElementChild;
     if (top && top.classList.contains('solid')) return;  // a full screen is covering the field
+    TAGS.length = 0;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (R3) {
       ctx.clearRect(0, 0, W, H);
@@ -5202,6 +5313,42 @@
         SEED = n | 0;
       },
       step, render, startCall, resolveChallenge, playScene, endScene,
+      /* The play lab, for balancing the playbook: one offensive play run n times, headless, from first and ten at the
+         35 (o.los, o.down, o.togo to change that) against the computer's defense or o.def, every other snap mirrored.
+         Returns each snap's yards, the throw, and how it ended. It leaves a finished test game behind. */
+      lab(name, n = 40, o = {}) {
+        const op = OFF.find(p => p.n === name);
+        if (!op) throw new Error('no play ' + name);
+        const was = AUTO, out = [];
+        AUTO = true;
+        startGame({ a: o.a ?? 0, b: o.b ?? 3, ql: 900, env: { time: 'night', weather: o.wx || 'clear' } });  // the weather pinned: rain or snow would decide the numbers
+        QUIET = true;
+        try {
+          for (let i = 0; i < n; i++) {
+            Object.assign(G, { poss: 0, los: o.los ?? 35, down: o.down ?? 1, togo: o.togo ?? 10, bx: FW / 2, score: [0, 0], q: 1, clock: 900, try2: null, pendKO: null });
+            G.fd = G.los + G.togo;
+            G.op = op;
+            G.dp = o.def ? DEFN(o.def) : cpuDef();
+            G.flip = i % 2 === 1;
+            const s0 = { ...G.stats[0] };
+            setupPlay();
+            G.state = 'pre';
+            snap();
+            let k = 0;
+            while (G.state === 'live' && k++ < 4000) tick(0.02);
+            const s1 = G.stats[0];
+            const tg = ps && ps.tgt;
+            out.push({ y: s1.rush - s0.rush + s1.pass - s0.pass, comp: s1.comp - s0.comp, att: s1.att - s0.att, last: G.last, def: G.dp.n, to: tg ? tg.role + ':' + tg.rn : null });
+          }
+        } finally {
+          AUTO = was;
+          QUIET = false;
+          P = [];
+          ps = null;
+          G.state = 'over';
+        }
+        return out;
+      },
       get G() {
         return G;
       },

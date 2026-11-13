@@ -792,6 +792,19 @@ what is next. Update it after every item.
   fingerprint did not change (its games have no loose ball a defender reaches). Exhibition, both careers, the drills
   and a drawn game clean; audit empty at 320x568 and 390x844.
 
+- 22:24 The kick swipe (Round 14, part 1). On your field goal or punt (the timing bar's screen) and on your kickoff, a
+  finger swiped up the field kicks. Its angle is the aim and its power comes from length (55%) and speed (45%). A field
+  goal needs a straight swipe (accuracy falls to nothing at 23 degrees) and enough leg for its distance; that becomes
+  the same 0-to-1 strike the bar gives, so the make-or-miss rule is unchanged, and the swipe's side decides which way
+  a miss goes. A punt's power is its distance and its angle where it lands. Your kickoff waits for the swipe (or the
+  Kick button, or 8 s) and comes down by power: a full swipe deep in the end zone, a soft one around the 15. The bar,
+  Space and the button still work; computer kicks and simulations are untouched, and the generator is drawn the same
+  way either way. Checked with synthetic swipes on a 45-yarder: straight and strong good, 4 degrees left good, 12
+  right wide right, a weak one short; kickoffs: full to the back of the end zone, soft and left to the 17 near the
+  left sideline, none after 8 s to the goal line. A test swipe also grabbed the movement stick; the stick is off
+  during your kickoff now. `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at
+  320x568 (with the kickoff screen) and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -1024,6 +1037,15 @@ what is next. Update it after every item.
       `PG.r3d.celebStrip()` draws them all. Still to be judged in motion
 - [x] Run 13, the scoop-and-score: a defender who gets to a loose ball on his feet can pick it up and run it back.
       Still to be judged in play
+
+### Round 14 (the owner at 22:20 on 2026-11-12: "play clock with dekay of game, switching sides and coaches
+### challenge, and different celebrations for tocuhdowns, also add a kicking swipe so u can interact when there is
+### kicks, so they arent automatic yk")
+- [x] The kick swipe: field goals, punts and your kickoffs (which used to go by themselves).
+- [ ] Play clock with delay of game.
+- [ ] Coach's challenge.
+- [ ] More touchdown celebrations.
+- [ ] Teams switch ends between quarters.
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:

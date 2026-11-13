@@ -2361,7 +2361,7 @@
       if (G.poss === 0 && !AUTO && !G.lock) {
         G.state = 'kickm';
         G.meter = rnd(3);
-        $('#mtxt').textContent = fg ? `${d} yards · stop in the green` : 'Punt · stop in the green';  // one line on the narrowest phone; the tag below names the kick
+        $('#mtxt').textContent = fg ? `${d} yards · swipe up, or stop in the green` : 'Punt · swipe up, or stop in the green';  // one line on the narrowest phone; the tag below names the kick
         voPre();
         return;
       }
@@ -2414,11 +2414,13 @@
     snd('snap');
   }
 
-  function doKick(acc) {
+  /* acc: 0 to 1, how well it was struck. aim (from a swipe, radians, + to the right of the kicker): which way a field
+     goal misses, and where a punt goes; without it, as before. The game's generator is drawn the same either way. */
+  function doKick(acc, aim) {
     const off = G.poss, dir = G.dir, los = ps.los, k = ps.qb;
     let x1, y1, T, h;
     if (G.op.n === 'Field Goal') {
-      const d = ((off === 0 ? 100 : 0) - los) * dir + 17, thr = clamp(0.22 + Math.max(0, d - 22) * 0.019, 0.22, 0.96), good = acc >= thr + G.wx.kick && d <= 63, sg = rnd() < .5 ? -1 : 1;
+      const d = ((off === 0 ? 100 : 0) - los) * dir + 17, thr = clamp(0.22 + Math.max(0, d - 22) * 0.019, 0.22, 0.96), good = acc >= thr + G.wx.kick && d <= 63, sg0 = rnd() < .5 ? -1 : 1, sg = aim === undefined || Math.abs(aim) < 0.01 ? sg0 : (aim > 0) === (off === 0) ? 1 : -1;  // a swipe to the kicker's right misses right
       x1 = FW / 2 + sg * (good ? (1 - acc) * 3.5 : 4.4 + rnd(3));
       y1 = (off === 0 ? 110 : -10) + dir * 10;
       T = 1.5 + d * 0.014;
@@ -2433,7 +2435,7 @@
         ps.kick.post = { s: sp, sg, y: py, hit: false };
       }
     } else {
-      const d = 30 + acc * 20 + rnd(-3, 3), y = los + dir * d, x = clamp(ps.bx + rnd(-12, 12), 4, FW - 4), tb = off === 0 ? y >= 99 : y <= 1;
+      const d = 30 + acc * 20 + rnd(-3, 3), y = los + dir * d, xr = rnd(-12, 12), x = clamp(aim === undefined ? ps.bx + xr : ps.bx + dir * aim * 30 + xr * 0.25, 4, FW - 4), tb = off === 0 ? y >= 99 : y <= 1;
       const fy = tb ? (off === 0 ? 80 : 20) : clamp(y - dir * rnd(0, 9), 2, 98);
       x1 = x;
       y1 = tb ? (off === 0 ? 104 : -4) : y;
@@ -2855,7 +2857,7 @@
       } else if (G.state === 'kickm') {
         const pos = 0.5 + 0.5 * Math.sin(G.meter * 4.2);
         doKick(1 - Math.abs(pos - 0.5) * 2);
-      }
+      } else if (koMine()) kickoffBy(0.82, 0);
       return;
     }
     if (k === 'audible' || k === 'flip') return audible(k === 'flip');
@@ -2907,6 +2909,7 @@
     if (!ps) return 'none';
     const lk = G.lock, me = G.me;
     if (G.state === 'pre') {
+      if (koMine()) return 'kick';  // your kickoff: swipe, or this button for a standard kick
       if (ps.mode === 'kick' || ps.mode === 'ko') return 'none';
       if (lk) return me && me === ps.qb ? 'snap' : me ? 'ready' : 'none';
       return G.poss === 0 ? 'snap' : 'defpre';
@@ -3050,6 +3053,47 @@
     if (n >= 0) endCharge(n);
   });
 
+  /* ---------- the kick swipe ----------
+     Your field goals, punts and kickoffs are kicked with a swipe up the screen: its angle is the aim, its length and
+     speed the power. The timing meter (Space, or the Kick button) still works. */
+  const swipe = { id: null, x: 0, y: 0, t: 0 };
+  const swipeKick = () => !AUTO && !G.paused && (G.state === 'kickm' || koMine());
+  const koMine = () => G.state === 'pre' && !!ps && ps.mode === 'ko' && ps.offTeam === 1 && !G.lock && !G.drill;  // your team is kicking off
+
+  function kickBySwipe(dx, dy, ms) {
+    const H = cv.clientHeight || 600, len = Math.hypot(dx, dy), pw = clamp(0.55 * len / (0.42 * H) + 0.45 * (len / Math.max(60, ms)) / 2.2, 0, 1.15), aim = Math.atan2(dx, -dy);
+    if (G.state === 'kickm') {
+      const fg = G.op.n === 'Field Goal', d = ((G.poss === 0 ? 100 : 0) - ps.los) * G.dir + 17, need = clamp((d - 12) / 52, 0.15, 1);
+      const straight = clamp(1 - Math.abs(aim) / 0.4, 0, 1), leg = clamp(1 - Math.max(0, need - pw) * 3, 0, 1) * (1 - Math.max(0, pw - 1) * 0.6);
+      doKick(fg ? straight * leg : clamp(pw, 0, 1) * (1 - Math.min(0.5, Math.abs(aim) * 0.6)), clamp(aim, -0.6, 0.6));
+    } else kickoffBy(pw, aim);
+    toast(`Power ${Math.round(Math.min(1, pw) * 100)} · ${Math.abs(aim) < 0.03 ? 'straight' : Math.round(Math.abs(aim) * 57.3) + '° ' + (aim > 0 ? 'right' : 'left')}`);
+  }
+
+  /* your kickoff: the swipe decides where it comes down. Full power reaches the end zone; less leaves a ball to return. */
+  function kickoffBy(pw, aim) {
+    const k = ps.ko, own = 100, dir = -1, deep = -6 + (1 - clamp(pw, 0, 1.1)) * 42;
+    k.y = clamp(own + dir * deep, 55, 109);
+    k.x = clamp(FW / 2 + aim * 40, 6, FW - 6);
+    k.tb = (k.y - own) * dir < 0;
+    ps.land = k.y;
+    kickNow();
+  }
+
+  cv.addEventListener('pointerdown', e => {
+    if (!swipeKick() || swipe.id !== null) return;
+    swipe.id = e.pointerId;
+    [swipe.x, swipe.y] = xy(e);
+    swipe.t = performance.now();
+  }, true);
+  for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => {
+    if (e.pointerId !== swipe.id) return;
+    swipe.id = null;
+    if (ev === 'pointercancel' || !swipeKick()) return;
+    const [x, y] = xy(e), dx = x - swipe.x, dy = y - swipe.y;
+    if (dy < -36 && Math.abs(dx) < -dy * 1.4) kickBySwipe(dx, dy, performance.now() - swipe.t);  // up the screen, not a tap or a sideways drag
+  });
+
   /* a finger that came down on a receiver's letter throws wherever it comes up */
   for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => {
     if (G.chg && G.chg.pid !== null && G.chg.pid === e.pointerId) endCharge();
@@ -3072,7 +3116,7 @@
       hotRoute(r);
       return;
     }
-    if (stick.id === null && (G.state === 'live' || G.state === 'pre')) {
+    if (stick.id === null && (G.state === 'live' || G.state === 'pre') && !koMine()) {  // on your kickoff a finger on the field is a kick swipe, not the stick
       stick.id = e.pointerId;
       stick.ox = x;
       stick.oy = y;
@@ -4362,8 +4406,10 @@
         $('#pwl').textContent = (v < 1 / 3 ? 'Lob ' : v < 2 / 3 ? 'Touch ' : 'Bullet ') + key;
       }
     }
-    const m = $('#meter'), km = G.state === 'kickm';
+    const ko = koMine(), m = $('#meter'), km = G.state === 'kickm' || ko;
     if (m.hidden === km) m.hidden = !km;
+    m.classList.toggle('ko', ko);  // your kickoff: the words only, no needle
+    if (ko && $('#mtxt').textContent !== 'Kickoff · swipe up to kick') $('#mtxt').textContent = 'Kickoff · swipe up to kick';
     if (km) $('#ndl').style.left = (50 + 50 * Math.sin(G.meter * 4.2)) + '%';
   }
 
@@ -4427,7 +4473,9 @@
         snd('cadence', { x: ps.bx });
       }
       if (ps.mode === 'ko') {
-        if (G.preT > 1.5) kickNow();
+        if (koMine() && !AUTO) {
+          if (G.preT > 8) kickoffBy(0.82, 0);  // nobody swiped: a standard kick
+        } else if (G.preT > 1.5) kickNow();
       } else {
         /* the computer snaps for itself, and for the user when their player is not the quarterback */
         const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1);

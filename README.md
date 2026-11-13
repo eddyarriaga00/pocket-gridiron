@@ -29,6 +29,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   spike. Nineteen offensive plays and eight defensive calls. A tag under the field names the kind of play on every snap. Before the snap you can tap a receiver's letter to change his route, call an audible or flip
   the play; on defense you can change the coverage.
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
+- Kick with a swipe: field goals, punts and your kickoffs. The swipe's angle is the aim and its length and speed the
+  power: a straight, strong swipe splits the uprights, a soft kickoff stays in play. The timing bar still works.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, or scoop up and run back, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and

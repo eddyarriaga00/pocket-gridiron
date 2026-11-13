@@ -339,3 +339,4 @@ tr.me td{color:var(--acc);font-weight:700}
 .pc.hof p{line-height:1.45}
 .intro .toss{margin-top:4px;opacity:.85}
 .nx .riv{display:inline-block;margin-top:4px;color:var(--ink);font-style:normal}
+#meter.ko .bar{display:none}

@@ -58,8 +58,10 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   Player of the Week (+400 XP and a post from the league); every stat keeps your single-game career high, and the
   broadcast says so the moment you pass one. Edit team names from the hub or the new-career screen too. A receiver is
   also the kick returner (a switch on the hub): on their kickoffs and punts you are back deep, field it, and run it
-  back yourself (or tap Fair catch on a punt). Returns go on your game line and earn XP; fumble one and the coach sends
-  somebody else back for the rest of that game.
+  back yourself (or tap Fair catch on a punt). Returns go on your game line and earn XP, and the job has its own trust
+  bar: long returns raise it, a fumble sits you down for the rest of that game and the next two, and a slump under 30
+  costs you a week. The league board has a return yards race (every team's returner), kick return yards are a career
+  high the broadcast calls out, and the booth has its own calls for a long punt return and for you.
 - **Season.** Take one team through the ten-week season and the eight-team playoff, calling and playing every snap. Your roster
   keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.

@@ -333,6 +333,40 @@
     return it;
   }
 
+  /* The returner's job is its own: on by the hub switch, with its own trust. A return fumble they recover sits you
+     down for two games, a run of poor returns (trust under 30) for one. */
+  const retNow = () => C.pos === 'WR' && C.kr !== false && !(C.krOut > 0);
+  function retAfter(m) {
+    if (C.pos !== 'WR' || C.kr === false) return '';
+    if (C.rt === undefined) C.rt = 60;
+    if (C.krOut > 0) {
+      C.krOut--;  // a game watched from the sideline on returns
+      C.rt = Math.max(C.rt, C.krOut ? C.rt : 40);  // back deep next week with a clean-ish slate
+      return '';
+    }
+    const n = (m.kr || 0) + (m.pr || 0);
+    let d = n ? clamp(Math.round(((m.kry || 0) - 21 * (m.kr || 0)) / 5 + ((m.pry || 0) - 8 * (m.pr || 0)) / 2.5 + (m.krtd || 0) * 10), -12, 15) : 0;
+    if (m.krf) d -= 20;
+    C.rt = clamp(C.rt + d, 5, 100);
+    if (m.krf) {
+      C.krOut = 2;
+      C.krWhy = 'fumble';
+      return ' The coach has somebody else returning kicks for the next two games.';
+    }
+    if (C.rt < 30) {
+      C.krOut = 1;
+      C.krWhy = 'slump';
+      return ' The coach tries somebody else on returns next week.';
+    }
+    return '';
+  }
+  function retHtml() {
+    if (C.pos !== 'WR' || C.kr === false) return '';
+    const rt = C.rt ?? 60, out = C.krOut > 0;
+    return `<div class="trust"><span>Returner trust${out ? ' · sitting' : ''}</span><b>${rt}</b><div class="bar"><i style="width:${rt}%"></i></div></div>
+  <p class="note">${out ? `Somebody else returns kicks for ${C.krOut === 1 ? 'the next game' : `the next ${C.krOut} games`}${C.krWhy === 'fumble' ? ', after the fumble' : ''}.` : 'You field their kickoffs and punts and run them back. Long returns raise this, short ones lower it. Fumble one and somebody else goes back for the rest of that game and the next two; under 30 the coach tries somebody else for a week.'}</p>`;
+  }
+
   /* kick and punt returns, for a receiver who is the returner */
   const retLine = m => {
     const n = (m.kr || 0) + (m.pr || 0);
@@ -408,6 +442,10 @@
       const car = n(13 + q * 3);
       return { name, car, ryd: Math.round(car * (3.6 + q * 0.7 + r() * 0.5)), rtd: Math.round(car * (0.03 + q * 0.012)) };
     }
+    if (pos === 'KR') {
+      const kr = n(2.8 + r() * 1.6), pr = n(1.4 + r() * 1.6);  // about as many chances as a career returner gets, and some are a lot better at it
+      return { name, kr, kry: Math.round(kr * (17 + q * 3 + r() * 7)), pr, pry: Math.round(pr * (5 + q * 2 + r() * 6)) };
+    }
     if (pos === 'DE') return { name, sack: Math.round((0.32 + q * 0.28) * g * k * (0.92 + r() * 0.16) * 2) / 2 };  // sacks are shared, so they come in halves
     if (pos === 'CB') return { name, int: n(0.1 + q * 0.12) };
     return { name, tkl: n(4.6 + q * 1.6) };  // LB
@@ -425,14 +463,14 @@
     QB: [['Passing yards', m => m.pyd], ['Passing TD', m => m.ptd], ['Passer rating', rating, v => v.toFixed(1), (m, g) => m.att >= 8 * g * C.ql / 180],
       ['Completion %', m => (m.att ? (m.comp / m.att) * 100 : 0), v => v.toFixed(1) + '%', (m, g) => m.att >= 8 * g * C.ql / 180], ['QB rushing yards', m => m.ryd || 0]],
     WR: [['Receiving yards', m => m.recyd], ['Receptions', m => m.rec], ['Receiving TD', m => m.rectd], ['Yards per catch', m => (m.rec ? m.recyd / m.rec : 0), v => v.toFixed(1), (m, g) => m.rec >= 1.5 * g * C.ql / 180],
-      ['Targets', m => m.tgt]],
+      ['Targets', m => m.tgt], ['Return yards', m => (m.kry || 0) + (m.pry || 0), null, null, 'KR']],
   };
   const AROUND = [['Rushing yards', 'RB', m => m.ryd], ['Sacks', 'DE', m => m.sack, v => (v % 1 ? v.toFixed(1) : String(v))], ['Interceptions', 'CB', m => m.int], ['Tackles', 'LB', m => m.tkl]];
 
   /* one board: every team's man, best first; you are in it when it is your position */
   function board(label) {
     const mine = (CATS[C.pos] || []).find(c => c[0] === label), other = AROUND.find(c => c[0] === label), g = C.stats.g;
-    const [, val, show, qual] = mine || [label, other[2], other[3]], pos = mine ? C.pos : other[1];
+    const [, val, show, qual, as] = mine || [label, other[2], other[3]], pos = mine ? as || C.pos : other[1];  // 'as': a category from another job (each team's kick returner)
     const rows = TEAMS.map((t, i) => {
       const me = !!mine && i === C.team, m = me ? C.stats : starter(i, pos);
       return { name: me ? C.name : m.name, ab: t.ab, v: val(m), me, riv: !!mine && !me && !!C.rival && C.rival.team === i, ok: !qual || qual(m, g) };
@@ -1237,7 +1275,7 @@
   <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
   <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
   ${C.pos==='WR'?`<h2>Special teams</h2><div class="seg" id="hk">${[[1,'Return kicks'],[0,'Offense only']].map(([v,l])=>`<button data-k="${v}" class="${v===(C.kr===false?0:1)?'on':''}">${l}</button>`).join('')}</div>
-  <p class="note">The returner fields their kickoffs and punts and runs them back. Fumble one and the coach sends somebody else back for the rest of that game.</p>`:''}
+  ${retHtml()}`:''}
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
   <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>
   <div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
@@ -1351,7 +1389,7 @@
     const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
     const pt = LG.prime(C), env = gameEnv();
     PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
-      away: !LG.home(C), kr: C.pos === 'WR' && C.kr !== false, prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
+      away: !LG.home(C), kr: retNow(), prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
       mustWin: C.phase !== 'reg', env, line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
@@ -1402,7 +1440,7 @@
       C.potw = (C.potw || 0) + 1;
     }
     /* career highs: a single game's best, stat by stat */
-    const hi = C.highs || (C.highs = {}), HL = { pyd: 'passing yards', ptd: 'touchdown passes', comp: 'completions', recyd: 'receiving yards', rec: 'catches', rectd: 'touchdown catches', ryd: 'rushing yards' }, newHighs = [];
+    const hi = C.highs || (C.highs = {}), HL = { pyd: 'passing yards', ptd: 'touchdown passes', comp: 'completions', recyd: 'receiving yards', rec: 'catches', rectd: 'touchdown catches', ryd: 'rushing yards', kry: 'kick return yards' }, newHighs = [];
     for (const k in HL) if ((m[k] || 0) > (hi[k] || 0)) {
       if ((hi[k] || 0) > 0) newHighs.push(`${m[k]} ${HL[k]}`);
       hi[k] = m[k];
@@ -1433,6 +1471,7 @@
       if (callRes.backed) so.backed++;
       else so.ate++;
     }
+    const retNote = retAfter(m);
     const role1 = roleOf()[1], dTrust = C.trust - t0;
     const moved = role1 === role0 ? '' : ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) ? ` The coach moves you up: ${role1.toLowerCase()}.` : ` The coach moves you down: ${role1.toLowerCase()}.`;
     const wk = LG.short(C), playoff = C.phase !== 'reg';
@@ -1480,7 +1519,7 @@
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
   ${newHighs.length?`<p class="note hi">New career high${newHighs.length>1?'s':''}: ${newHighs.join(', ')}.</p>`:''}
-  ${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
+  ${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}${retNote}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">To the podium</button></div>`;
       $('#rc').onclick = () => {
         PG.toMenu();

@@ -2100,6 +2100,7 @@
       big = ps.fum.muff ? 'Muffed punt!' : 'Fumble!';
       if (ps.mode === 'ko' && G.kr && me && ps.fum.by === me && t !== 0) {
         G.kr = false;  // you put it on the ground: the coach sends somebody else back for the rest of the day
+        G.my.krf = (G.my.krf || 0) + 1;
         setTimeout(() => toast('Coach: somebody else returns kicks today'), 2600);
       }
       sub = `${c.name} recovers for the ${tname(t)}` + (f ? ` · forced by ${f.name}` : '');
@@ -4278,7 +4279,7 @@
   }
 
   /* a career high, passed during this game: once a stat, and only once the old one was worth beating */
-  const HIGHS = { pyd: ['passing yards', 120], ptd: ['touchdown passes', 2], comp: ['completions', 10], recyd: ['receiving yards', 60], rec: ['catches', 4], rectd: ['touchdown catches', 1], ryd: ['rushing yards', 30] };
+  const HIGHS = { pyd: ['passing yards', 120], ptd: ['touchdown passes', 2], comp: ['completions', 10], recyd: ['receiving yards', 60], rec: ['catches', 4], rectd: ['touchdown catches', 1], ryd: ['rushing yards', 30], kry: ['kick return yards', 40] };
   function highCheck() {
     const h = G.highs, my = G.my, me = G.me;
     if (!h || !my || !me) return;
@@ -4353,9 +4354,10 @@
     else if (kind === 'punt') {
       if (good.tb || good.fair) vo(good.tb ? 'touchback' : 'punt.fair', { pri: 0 });
     } else if (ko && down) {
-      if (Math.round((c.y - ps.land) * G.dir) >= 28) {
-        vo('kick.big', { pri: 2 });
-        analyst('a.return', 0.5, { big: true });
+      if (Math.round((c.y - ps.land) * G.dir) >= (ps.punt ? 15 : 28)) {  // a punt return of fifteen is a good one
+        vo(ps.punt ? 'punt.big' : 'kick.big', { pri: 2 });
+        if (G.lock && c === G.me) analyst('a.ret.me', 0.7, { big: true });  // a career receiver who returns kicks too
+        else analyst('a.return', 0.5, { big: true });
       } else if (chance(0.6)) vo('kick.return', { pri: 0 });
     } else if (down) {
       const first = big === 'First down', pass = ps.caught, short = { pri: first ? 1 : 0 };

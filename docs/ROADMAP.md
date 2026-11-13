@@ -1177,6 +1177,19 @@ what is next. Update it after every item.
   (no steering): 4-6 returns a game, kickoffs about 16 yards a return, punts about 7. Checked: fingerprint
   unchanged, careers (QB and WR), exhibition, drills, a drawn career game with every pose finite, the switch on the
   hub, audit empty at 320x568 and 390x844, no console errors after a reload.
+- 05:52 Automatic run: the returner, the rest. Returner trust on the hub under Special teams (`C.rt`, starts at 60;
+  after a game `retAfter` adds (kick return yards - 21 a return) / 5 + (punt return yards - 8 a return) / 2.5 + 10 a
+  return touchdown, held to -12..+15). A return fumble they recover (`G.my.krf`) costs 20 and sits you down for two
+  games (`C.krOut`), trust under 30 for one; back at 40 at least. The results card says so, the hub shows "sitting" and
+  how long. League leaders: "Return yards" for a receiver (`CATS.WR` takes a fifth field, the job whose numbers it
+  shows; `starter(i, 'KR')` gives every team a returner with about the chances a career returner gets: 2.8-4.4 kick
+  returns and 1.4-3 punt returns a game at 3-minute quarters). Career high: kick return yards (`HIGHS.kry`, called
+  from 40). Booth: `punt.big` (play-by-play, two takes, for a punt return of 15 or more) and `a.ret.me` (the analyst,
+  two takes, after a long return by the career player), recorded on the local Kokoro model; the voice tool flagged
+  none. Measured: punt.big peaks -2.6 dB at -14.5 RMS, a.ret.me -3.5 at -15.2, kick.big beside them -3.2 at -16.1; two
+  receiver games asked for 131 lines, a.ret.me twice, none missing. Forced test: a return fumble in game 1 took trust
+  60 to 36 and sat the receiver for games 2 and 3 (no returns), back in game 4 at 40 and up to 54. Checked:
+  fingerprint unchanged, careers (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844, no console errors.
 
 ## Morning hand-off
 
@@ -1492,9 +1505,6 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Returner, the rest: a trust line of its own on the hub (good returns keep the job, a muff loses it for a few weeks,
-  not just a game), kick and punt return leaders on the league board, a career high for return yards, and a booth
-  line for a long return by you ("He's got a seam!"; record it with the local voice tool).
 - Pre-snap motion: jet and orbit motion, a shift from one formation to another; the computer uses it on a third of its
   snaps; routes are built from where the man is at the snap; a defender follows a man in motion in man coverage (a
   read for the quarterback: man or zone).

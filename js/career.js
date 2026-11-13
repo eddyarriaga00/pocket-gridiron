@@ -110,7 +110,32 @@
   /* ---------- league (the shared rules are in league.js) ---------- */
   const LG = PG.league;
 
+  /* ---------- age ----------
+     A player comes into the league at 22 and is a year older every season. Young players grow into the game, a
+     player in his prime holds, and from 30 the body goes first: speed and elusiveness (and a quarterback's arm), then,
+     later and more slowly, the skills. It happens once at the start of each new season and rolls no dice. */
+  const PHYSICAL = ['spd', 'elu', 'pow', 'pwr'];
+  const age = () => (C.age0 || 22) + C.season - 1;
+
+  function ageOneYear() {
+    if (C.season < 2 || C.agedFor === C.season) return;
+    C.agedFor = C.season;
+    const a = age(), changes = [];
+    for (const [k, label] of POS[C.pos].attrs) {
+      const body = PHYSICAL.includes(k);
+      const d = a <= 25 ? 1 : a < 30 ? 0 : body ? (a <= 31 ? -1 : a <= 33 ? -2 : -3) : a >= 36 ? -2 : a >= 34 ? -1 : 0;
+      if (!d) continue;
+      const v = clamp(C.attrs[k] + d, 40, 99);
+      if (v !== C.attrs[k]) changes.push(`${label} ${v > C.attrs[k] ? '+' : '\u2212'}${Math.abs(v - C.attrs[k])}`);
+      C.attrs[k] = v;
+    }
+    C.ageNote = !changes.length ? `Age ${a}. In your prime: nothing lost, nothing gained over the summer.`
+      : a <= 25 ? `Age ${a}. Still growing into the league: ${changes.join(', ')}.`
+      : `Age ${a}. ${a >= 34 ? 'The years are catching up' : 'A step slower than last year'}: ${changes.join(', ')}.${a >= 35 ? ' Most players are retired by now.' : ''}`;
+  }
+
   function initSeason() {
+    ageOneYear();
     LG.start(C);
     C.stats = ZERO();
     C.log = [];
@@ -121,6 +146,20 @@
   /* Your rival plays your position for the best team that is not yours. He is always near the top of the leaders,
      beating his team is worth a bonus, and finishing a season ahead of him is a trophy. The name is cosmetic, so it
      comes from Math.random and leaves seeded test runs alone. */
+  /* What the rival says before you play his team, and after: chosen from how the two of you stand (your games against
+     him this season, and the leaders race), with the week picking the wording. No dice. */
+  function rivalSays() {
+    const r = C.rival, w = C.week + C.season * 3;
+    if (!r) return '';
+    const met = C.log.filter(g => g.opp === r.team), L = leaders(), mine = L.rows.findIndex(x => x.me), his = L.rows.findIndex(x => x.riv);
+    const say = a => a[w % a.length];
+    if (met.length && met[met.length - 1].res === 'W') return say(['Lucky bounce last time. It won\u2019t happen twice.', 'They gave him one. That was the last one.', 'I\u2019ve watched that tape. I know what he does now.']);
+    if (met.length && met[met.length - 1].res === 'L') return say(['Same result as last time. Mark it down.', 'He knows how this ends. He was there.', 'I\u2019d be nervous too.']);
+    if (C.stats.g && mine >= 0 && his >= 0 && mine < his) return say(['Stats are for people who don\u2019t win.', 'Numbers in garbage time. Come see me in the fourth quarter.']);
+    if (C.stats.g && his >= 0 && mine > his) return say(['Check the leaderboard. Then come talk to me.', 'One of us is a starter in this league. The other one is hoping.']);
+    return say(['I\u2019ve seen his film. I\u2019m not worried.', 'Nice story. Let\u2019s see it against a real defense.', 'He\u2019s fine. He\u2019s not me.']);
+  }
+
   function setRival() {
     if (C.rival && C.rival.team !== C.team) return;
     const team = TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => TEAMS[b].ovr - TEAMS[a].ovr)[0];
@@ -557,7 +596,7 @@
     :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
     const o = nextOpp(), lab = LG.label(C);
-    return `<div class="nx"><small>${lab}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.`:''}</p>
+    return `<div class="nx"><small>${lab}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
   <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
   ${C.prac!==pracKey()?'<button class="btn2" id="prac" style="margin-top:8px">Practice first · bonus XP</button>':'<p class="note" style="margin-top:8px">Practice is done for this week.</p>'}</div>
   ${C.news?`<p class="news">${esc(C.news)}</p>`:''}`;
@@ -661,7 +700,7 @@
   function showRetire() {
     const m = C.career, fame = fameCase();
     scr.innerHTML = `<div class="menu solid"><h1 class="sm">Career <em>so far</em></h1>
-  <div class="pc" style="--c:${team(C.team).c1};margin-top:14px"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label}<br>${C.season} season${C.season>1?'s':''} · ${m.g} games · ${rank()}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
+  <div class="pc" style="--c:${team(C.team).c1};margin-top:14px"><div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()}<br>${C.season} season${C.season>1?'s':''} · ${m.g} games · ${rank()}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="nx"><small>Career totals</small><h4>${line(m)}</h4><p>${C.rings} title${C.rings===1?'':'s'} · ${(C.awards||[]).length} honor${(C.awards||[]).length===1?'':'s'} · ${fmt(C.xpTotal)} XP earned · ${money(C.cash || 0)} in salary</p></div>
   <div class="nx"><small>Hall of fame case</small><h4>${fame.verdict}</h4>
   <div class="trust" style="margin:8px 0 6px"><span>Score · 100 is a first-ballot career</span><b>${fame.score}</b><div class="bar"><i style="width:${Math.min(100,fame.score)}%"></i></div></div>
@@ -710,7 +749,7 @@
 
   function retireToHall() {
     const fame = fameCase(), hall = load(HOF, []), t = team(C.team);
-    const e = { name: C.name, num: C.num, pos: POS[C.pos].label, team: `${t.city} ${t.name}`, c1: t.c1, seasons: C.season, games: C.career.g, line: line(C.career), rings: C.rings,
+    const e = { name: C.name, num: C.num, pos: POS[C.pos].label, team: `${t.city} ${t.name}`, c1: t.c1, seasons: C.season, age: age(), games: C.career.g, line: line(C.career), rings: C.rings,
       honors: (C.awards || []).map(a => a.name), score: fame.score, verdict: fame.verdict, inducted: fame.score >= 70, cls: hall.length + 1 };
     hall.push(e);
     save(HOF, hall);
@@ -728,7 +767,7 @@
   <p class="tag">${ins} enshrined${hall.length > ins ? ` · ${hall.length - ins} more retired` : ''}. Retire a career to put it to the vote: a case of 70 gets in.</p>
   ${fresh ? `<div class="nx aw${fresh.inducted ? ' won' : ''}"><small>The vote · class of ${fresh.cls}</small><h4>${fresh.inducted ? `${esc(fresh.name)} is a hall of famer` : `${esc(fresh.name)} falls short`}</h4>
   <p>${esc(fresh.verdict)} · case ${fresh.score}${fresh.inducted ? '' : ' of the 70 it takes'}</p></div>` : ''}
-  ${hall.length ? hall.map(e => `<div class="pc hof" style="--c:${e.c1}"><div><h3>${esc(e.name)}</h3><p>#${e.num} · ${esc(e.pos)} · ${esc(e.team)}<br>${e.seasons} season${e.seasons === 1 ? '' : 's'} · ${e.games} games · ${e.rings} title${e.rings === 1 ? '' : 's'}<br>${esc(e.line)}${e.honors && e.honors.length ? `<br>${esc(honors(e))}` : ''}</p></div><div class="ovr">${e.score}<small>${e.inducted ? 'HOF' : 'CASE'}</small></div></div>`).join('')
+  ${hall.length ? hall.map(e => `<div class="pc hof" style="--c:${e.c1}"><div><h3>${esc(e.name)}</h3><p>#${e.num} · ${esc(e.pos)} · ${esc(e.team)}<br>${e.seasons} season${e.seasons === 1 ? '' : 's'}${e.age ? `, retired at ${e.age}` : ''} · ${e.games} games · ${e.rings} title${e.rings === 1 ? '' : 's'}<br>${esc(e.line)}${e.honors && e.honors.length ? `<br>${esc(honors(e))}` : ''}</p></div><div class="ovr">${e.score}<small>${e.inducted ? 'HOF' : 'CASE'}</small></div></div>`).join('')
     : '<p class="note">Nobody yet. A career you retire from its Retire screen is put to the vote here.</p>'}
   ${fresh ? '<button class="go" id="hnew">Start a new career</button>' : ''}</div>`;
     $('#bk').onclick = fresh ? () => showCreate() : () => PG.showMenu();
@@ -777,10 +816,11 @@
     let sure = false;  // the trade button has been tapped once
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
-  <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
+  <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="xp"><span>To spend</span><b>${fmt(C.xp)} XP</b></div>
   <div class="xp deal"><span>Contract</span><b>${deal().left>0?`${money(deal().pay)} a season · ${deal().left} of ${deal().years} left`:'Up for renewal'}</b></div>
   ${trustHtml()}
+  ${C.ageNote && C.week === 0 && C.phase === 'reg' ? `<p class="note">${esc(C.ageNote)}</p>` : ''}
   ${nextCard()}
   <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
   ${tab==='up'?tabUp():tab==='season'?tabSeason():tabStats()}
@@ -929,6 +969,7 @@
     const wk = LG.short(C);
     C.log.push({ wk, opp, us, them, res, line: line(m), grade, pts, met });
     C.news = headline(m, won, us, them, opp);
+    if (C.rival && C.rival.team === opp && us !== them) C.news += won ? `. ${C.rival.name} left without talking to reporters.` : `. ${C.rival.name}, afterward: \u201cTold you.\u201d`;
     const fin = LG.advance(C, opp, us, them);
     if (C.phase === 'semi' || C.phase === 'final' || (fin && fin !== 'Missed the playoffs')) C.madePO = 1;
     if (fin) {

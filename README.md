@@ -45,6 +45,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - The two-minute warning in the second and fourth quarters (quarters of three minutes or more): the clock stops at
   2:00 and the referee calls it. The referee also announces the coin toss and every timeout ("Timeout, Outlaws.
   That's their second timeout.").
+- A career ages: you come into the league at 22, grow a little each of your first seasons, hold in your prime, and
+  from 30 lose speed and elusiveness first and skill later. Your rival talks before you play his team, and after.
 - Career awards night after every season: MVP, Offensive Player of the Year, Rookie of the Year, All-League at your
   position and your position's statistical title, each with its nominees from around the league. Retire a career
   and it goes to a hall of fame vote; every retired career is kept in the Hall of fame, on the main menu.

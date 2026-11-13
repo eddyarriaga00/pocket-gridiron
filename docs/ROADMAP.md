@@ -714,6 +714,16 @@ what is next. Update it after every item.
   down the sideline at the camera. Drawing only: `H.fingerprint()` unchanged; exhibition, both careers, the drills
   and a drawn game (8,976 frames) clean; audit empty at 320x568 and 390x844.
 
+- 20:34 Age and the rival (automatic run 9). `ageOneYear()` runs once at the start of each new season from
+  `initSeason()` (re-signing and free agency both go through it); no dice. Checked: a quarterback went from
+  76/70/64/62 to 77/71/65/63 in his second season (age 23, "still growing"); the same player set to 31 and moved
+  into his third season (age 33) lost 2 arm power, 2 speed and 2 elusiveness and kept his accuracy. Careers saved
+  before this have no age stored: they are treated as having started at 22. The rival's line showed before his
+  game ("I've seen his film. I'm not worried." early; "Check the leaderboard. Then come talk to me." once he led the
+  race) and his reaction went into the headline. Career only, from the second season: `H.fingerprint()` unchanged;
+  exhibition, both careers, two career seasons and the drills clean; audit empty at 320x568 and 390x844 including a
+  35-year-old's hub, the rival game card and the retire screen.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -905,6 +915,12 @@ what is next. Update it after every item.
 - [x] Run 8, the reverse angle: an instant replay (and the play of the game) is shown at half speed from the
       sideline as before, then the last two and a half seconds again from ahead of the play, high enough to see over
       the men between, looking back at the ball carrier. A tap still skips it all. Still to be judged by eye
+- [x] Run 9, a career that ages and a rival who talks. You come in at 22; each new season the summer changes your
+      ratings: +1 to everything up to 25, nothing from 26 to 29, then the body first (speed, elusiveness, arm power:
+      -1 a year at 30 and 31, -2 at 32 and 33, -3 from 34) and the skills later (-1 from 34, -2 from 36), never below
+      40. The hub says what changed; the age is on the player card, the retire screen and the hall of fame. The
+      rival has a line before his game (from how you stand: your last game against him, the leaders race) and the
+      headline after it. Still to be judged over a long career
 
 ### Round 12 (the owner at 19:42 on 2026-11-12: "add awards night, hall of fame, 2 minute warnings for quarter or
 ### such like nfl games, small details from football / nfl")
@@ -936,7 +952,7 @@ Major improvements, biggest first:
   ball carrier who looks at the man about to hit him.
 - A real loose-ball scramble instead of an instant recovery.
 - A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
-- Career: age and decline over a long career, a rival who talks back; the awards night could have a booth or
+- Career: the awards night could have a booth or
   stadium voice reading the winners (one clip per award and per name is too many; per award is not).
 - More NFL details: the officials' signals for a timeout and the two-minute warning (the referee figure already
   signals touchdowns, first downs and incompletions), a play clock with delay of game, teams changing ends between

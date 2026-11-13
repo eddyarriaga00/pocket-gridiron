@@ -678,7 +678,7 @@
     let nb = list.length;
     list.forEach((o, b) => linesOf(o, BODIES[b]));
     KEEP.set(f.cur);
-    const dbg = trail ? (settle.dbg = []) : null;
+    const dbg = trail && settle.debug ? (settle.dbg = []) : null;  // test hook: the overlap on each pass, recorded only while besideTest() runs
     for (let pass = 0; pass < (trail ? 6 : 3); pass++) {
       tryOn();
       const d = under();
@@ -1209,6 +1209,13 @@
             tg[SLZ] = -0.8;
             tg[EL] = 0.45;
             tg[HEADRX] = 0.25;
+            if (f.fallSide > 0) {
+              /* rolled onto his free-arm side: that arm goes out past his head along the turf. Held out to break the
+                 fall it ended up straight under him, and the ground solver propped his whole body up on that hand. */
+              tg[SLX] = 2.7;
+              tg[SLZ] = 0.15;
+              tg[EL] = 0.3;
+            }
           } else if (p.down && ps.carrier === p) {
             /* on his face: the ball held out in front of him in the crook of his arm, the other hand down to break the fall */
             tg[SRX] = 2.5;
@@ -3122,7 +3129,9 @@
     const o = opts || {}, fa = testFig || (testFig = makeFigure()), fb = testFig2 || (testFig2 = makeFigure()), fc = testFig3 || (testFig3 = makeFigure()), r1 = x => Math.round(x * 91.44 * 10) / 10;
     setBuild(fa, BUILD.back);
     setBuild(fb, BUILD.big);
+    settle.debug = true;
     thirdRun(angle || 0, angle2 === undefined ? 1.8 : angle2, fa, fb, fc, o.at === undefined ? 0.9 : o.at, o.off);
+    settle.debug = false;
     const at = (j, x, y, z) => j.localToWorld(new T.Vector3(x, y, z)), sc = fc.root.scale.y;
     for (const f of [fa, fb, fc]) f.root.updateMatrixWorld(true);
     const lines = f => [[at(f.pelvis, 0, 0, 0), at(f.chest, 0, 0.5, 0), 0.18], [at(f.hipL, 0, 0, 0), at(f.kneeL, 0, 0, 0), 0.1], [at(f.hipR, 0, 0, 0), at(f.kneeR, 0, 0, 0), 0.1], [at(f.kneeL, 0, 0, 0), at(f.ankL, 0, 0, 0), 0.07],
@@ -3145,6 +3154,7 @@
       trunkToHelmetCm: yd(segDist(at(fc.pelvis, 0, 0, 0), at(fc.chest, 0, 0.5, 0), at(fb.chest, 0, 0.5, 0), at(fb.head, 0, 0.12, 0))), drawnAt: [+fc.root.position.x.toFixed(2), +(-fc.root.position.z).toFixed(2)],
       tacklerAt: [+fb.root.position.x.toFixed(2), +(-fb.root.position.z).toFixed(2)], runnerAt: [+fa.root.position.x.toFixed(2), +(-fa.root.position.z).toFixed(2)] };
     geo.solver = settle.dbg;
+    geo.runner = { side: fa.fallSide, dir: fa.fallDir, pely: +fa.cur[PELY].toFixed(2), pelrz: +fa.cur[PELRZ].toFixed(2), lowest: [['head', fa.head], ['elbowL', fa.elL], ['elbowR', fa.elR], ['handL', fa.elL, -0.3], ['handR', fa.elR, -0.3], ['kneeL', fa.kneeL], ['kneeR', fa.kneeR], ['shL', fa.shL], ['shR', fa.shR]].map(([n, j, y]) => [n, yd(at(j, 0, y || 0, 0).y)]).sort((a, b) => a[1] - b[1]).slice(0, 4).map(x => x.join(' ')).join(', ') };
     return { geo, worstInTackler: worst(lines(fb)), worstInRunner: worst(lines(fa)), pose: { pely: +fc.cur[PELY].toFixed(2), pelrx: +fc.cur[PELRX].toFixed(2), fall: +fc.fall.toFixed(2), scale: +sc.toFixed(2), off: [+fc.ox.toFixed(2), +fc.oy.toFixed(2)], y: +fc.root.position.y.toFixed(2) }, piled: fc.fall > 0, insideRunnerCm: r1(inside(lines(fa))), insideTacklerCm: r1(inside(lines(fb))), movedCm: r1(Math.hypot(fc.sx, fc.sy)), hipsCm: r1(at(fc.pelvis, 0, 0, 0).y), underTurfCm: r1(Math.max(0, -low)) };
   }
 

@@ -759,6 +759,16 @@ what is next. Update it after every item.
   Drawing and sound only: `H.fingerprint()` unchanged; exhibition, both careers, a career season, the drills and a
   drawn game clean; gait and tackle hooks unchanged; audit empty at 320x568 and 390x844.
 
+- 21:48 The propped runner (automatic run 11). The staging test now names a downed runner's lowest joints: rolled onto
+  his left side (hit from his right) his lowest points were his left hand and elbow at 8 and 10 cm, the arm he holds
+  out "to break the fall" folded under him, and the ground solver lifted his hips to 0.57 to keep it above the turf
+  (0.35 on the other side, where the tucked ball arm lies along his body). On that side the arm now goes out past his
+  head. Both sides now lie at the same height (chest 57 cm), the tackler on him at 106 against 101, and the tackle
+  hooks are unchanged. Piles came down with it: the highest a pile man lies went from about 2 m to 1.72 m, and while
+  he slides off, 4 of 104 staged piles have a leg in someone (was 6 to 9). The solver's pass-by-pass record is now
+  kept only while the staging test runs. Drawing only: `H.fingerprint()` unchanged; exhibition, both careers, the
+  drills and a drawn game clean; audit empty at 320x568 and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -984,6 +994,8 @@ what is next. Update it after every item.
       the top comes off first. Not perfect: see the log.
 - [x] The officials' timeout signal, for timeouts and the two-minute warning.
       Still to be judged by ear and in motion
+- [x] Run 11, the propped runner: rolled onto his free-arm side he lay on that arm, and the ground solver propped his
+      whole body on the hand. That arm now goes out past his head along the turf. Still to be judged in motion
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
@@ -994,9 +1006,8 @@ Major improvements, biggest first:
 - More booth lines: the score read out at the half and the end. Not done in run 7 on purpose: the natural way, "The
   Outlaws fourteen, the Aviators seven", is a clip for every team and score (about 370 more clips, 3 MB), and
   joining single numbers sounds like a machine. Worth it only if the owner wants it.
-- The pile, the rest: a runner bowled over to one side stays propped up (chest at 88 cm against 57 the other way) and
-  the tackler lands high on him, so a pile on that side stacks to two metres; and for about a tenth of a second while
-  the top man slides off, 6 to 9% of piles have a leg through someone. Both measured with `PG.r3d.beside()`.
+- The pile, the rest: for about a tenth of a second while the top man slides off, about 4% of piles have a leg through
+  someone (`PG.r3d.beside()` at 0.8 s); and the top man lies a little stiff and flat.
 - Motion, the rest: more touchdown celebrations than the three there are; reserves on the bench who walk about; a
   ball carrier who looks at the man about to hit him.
 - A real loose-ball scramble instead of an instant recovery.

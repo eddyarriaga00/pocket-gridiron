@@ -112,7 +112,7 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   of the jump (the defender goes up with him), and a ball thrown off his line gets a stretch, chest out and arms long.
 - Kick with a swipe: field goals, extra points, punts and your kickoffs, in a career too (your team's kicks are yours to
   make whatever your position). The swipe's angle is the aim and its length and speed the power: a straight, strong
-  swipe splits the uprights, a soft kickoff stays in play. The timing bar still works. The extra point is a real kick
+  swipe splits the uprights, a soft kickoff stays in play. A kickoff has the same timing bar as a field goal: stop it in the green for a deep kick. The timing bar still works. The extra point is a real kick
   from the 15, not a roll of the dice.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.

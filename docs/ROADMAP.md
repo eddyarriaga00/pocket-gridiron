@@ -1322,6 +1322,18 @@ what is next. Update it after every item.
   on the pass pad is smaller, dashed and set apart from the receiver letters. Checked: fingerprint unchanged, careers
   (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844 including the open settings card, no console
   errors. Until the owner says otherwise: interface work only, no new features.
+- 17:23 By hand (the owner: stale cards, "especially if u skip make it work", and the kickoff "more like the normal 3
+  point kicks"). Cards: every snap and kickoff has a number (`G.pn`); a card scheduled after a play (`later`: top
+  speed, completion probability, a career high, the quarter's team stats, the scores around the league) is dropped if
+  the next play has been snapped or the ball is live when its time comes (the league scores wait for the next huddle
+  instead). `clearCards` takes the last play's banner and note down when the game moves on (`next`, so also after a
+  skipped replay) and everything, the broadcast card too, at the snap. Kickoff: the same timing bar as a field goal
+  ("swipe up, or stop in the green"); the green's middle is a deep straight kick, the edges short and wide. The Kick
+  button had never worked on a kickoff (the 'pre' check returned before its branch), only the swipe or the 8 second
+  timeout did. Measured: stopped in the green the ball came down 8 yards deep in the end zone (touchback), at the
+  edge on the 14 and 10 yards off centre; a banner up at the whistle was down by the next snap, with a card forced on
+  too. Checked: fingerprint unchanged, careers, exhibition, drills, audit empty at 320x568 and 390x844 and on the
+  kickoff bar, no console errors.
 
 ## Morning hand-off
 

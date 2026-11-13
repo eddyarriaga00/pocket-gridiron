@@ -2727,8 +2727,8 @@
     if (!AUTO && !QUIET && !G.drill && c && c.team === off && (kind === 'td' || kind === 'tackle' || kind === 'oob')) {
       /* the broadcast's tracking numbers: how unlikely a catch was, and how fast a long run got */
       const gain = kind === 'td' ? Math.round(((off === 0 ? 100 : 0) - los) * dir) : rpGain, caught = !!ps.caught, cp = caught ? ps.cp : null, mph = (c.top || 0) * 2.0455;  // read now: the play is gone when the card goes up
-      if (cp != null && cp < 0.32 && gain >= 8) setTimeout(() => statCard(c, Math.round(cp * 100) + '%', 'Completion probability', `${gain}-yard catch`), kind === 'td' ? 6000 : 1000);
-      else if (gain >= 25 && mph >= 15) setTimeout(() => statCard(c, mph.toFixed(1), 'Top speed · mph', `${gain}-yard ${caught ? 'catch' : 'run'}${kind === 'td' ? ' · touchdown' : ''}`), 6000);
+      if (cp != null && cp < 0.32 && gain >= 8) later(() => statCard(c, Math.round(cp * 100) + '%', 'Completion probability', `${gain}-yard catch`), kind === 'td' ? 6000 : 1000);
+      else if (gain >= 25 && mph >= 15) later(() => statCard(c, mph.toFixed(1), 'Top speed · mph', `${gain}-yard ${caught ? 'catch' : 'run'}${kind === 'td' ? ' · touchdown' : ''}`), 6000);
     }
     if (!AUTO && !QUIET && !G.drill && c && c.team === off) {
       /* your man's line if he was in it (a career), otherwise the scorer's, or the runner's after 20 yards or more */
@@ -2940,7 +2940,7 @@
         G.q++;
         G.clock = G.ql;
         banner(`End of the ${G.q === 2 ? '1st' : '3rd'} quarter`, 'The teams switch ends', 1800);  // render3d.js turns the stadium round
-        if (!AUTO && !QUIET) setTimeout(() => teamStatsCard(`After ${G.q === 2 ? 'one' : 'three'}`), 1900);
+        if (!AUTO && !QUIET) later(() => teamStatsCard(`After ${G.q === 2 ? 'one' : 'three'}`), 1900);
         if (G.around) G.aroundDue = G.q - 1;  // the other games, as far as they have got: shown at your next snap (in a career the quarter often ends in a drive you only hear about)
         vo(G.q === 2 ? 'q.end1' : 'q.end3');
       }
@@ -2986,6 +2986,7 @@
   }
 
   function next() {
+    if (!AUTO && !QUIET) clearCards();  // the last play's banner does not hang over the next call
     keepHighlight();
     if (G.rp) {
       G.rp = false;
@@ -3500,7 +3501,7 @@
     if (G.aroundDue && !AUTO && !QUIET) {
       const q = G.aroundDue;
       G.aroundDue = 0;
-      setTimeout(() => aroundCard(q), Math.max(500, 7600 - (performance.now() - bcAt)));  // after the quarter's team stats card, if that is still up
+      later(() => aroundCard(q), Math.max(500, 7600 - (performance.now() - bcAt)), () => G.ros && (G.aroundDue = q));  // snapped first: it waits for the next huddle  // after the quarter's team stats card, if that is still up
     }
     if (G.down === 3 && G.op.cat !== 'special' && !G.drill) thirdCard();
     G.preT = 0;
@@ -3538,6 +3539,8 @@
   }
 
   function snap() {
+    G.pn = (G.pn || 0) + 1;  // a new play: cards still waiting for the last one are dropped
+    if (!AUTO && !QUIET) clearCards(true);
     G.review = null;  // too late to challenge
     G.chg = G.pwShow = null;
     setBrief('');
@@ -3790,6 +3793,8 @@
   }
 
   function kickNow() {
+    G.pn = (G.pn || 0) + 1;
+    if (!AUTO && !QUIET) clearCards(true);
     const k = ps.ko, d = Math.abs(k.y - ps.los);
     REC.length = 0;
     ps.air = { x0: FW / 2, y0: ps.los, x1: k.x, y1: k.y, t: 0, T: 2.6 + d * 0.016, h: 15, kick: true, x: FW / 2, y: ps.los, z: 0 };
@@ -4076,6 +4081,14 @@
         endReplay();
         return;
       }
+      if (koMine()) {
+        // the kickoff on the timing bar, like a field goal: the middle of the green is a deep, straight kick (this used
+        // to sit after the 'pre' check below, which returned first, so the Kick button did nothing on a kickoff)
+        const pos = 0.5 + 0.5 * Math.sin(G.meter * 4.2), acc = 1 - Math.abs(pos - 0.5) * 2;
+        kickoffBy(0.5 + acc * 0.55, (pos - 0.5) * 0.5 * (1 - acc * 0.6));
+        toast(acc > 0.8 ? 'Deep kick' : acc > 0.45 ? 'Kick is away' : 'Short kick');
+        return;
+      }
       if (G.state === 'pre') {
         if (ps.mode !== 'pass' && ps.mode !== 'run' || P.some(p => p.jog)) return;
         if (G.lock) {
@@ -4085,7 +4098,7 @@
       } else if (G.state === 'kickm') {
         const pos = 0.5 + 0.5 * Math.sin(G.meter * 4.2);
         doKick(1 - Math.abs(pos - 0.5) * 2);
-      } else if (koMine()) kickoffBy(0.82, 0);
+      }
       return;
     }
     if (k === 'audible' || k === 'flip') return audible(k === 'flip');
@@ -4739,6 +4752,26 @@
 
   const bcLive = () => !AUTO && !QUIET && !G.drill && !!G.ros && !!G.stats && G.state !== 'menu' && G.state !== 'over';  // a card on a timer may find the game gone
 
+  /* A card that comes up a moment after a play belongs to that play: if the next one has been snapped by then (a skipped
+     replay, a quick huddle), or the ball is live, it is dropped instead of covering the wrong play. */
+  function later(fn, ms, miss) {
+    const n = G.pn || 0;
+    setTimeout(() => {
+      if (!G.ros || (G.pn || 0) !== n || G.state === 'live' || G.state === 'kicka') return miss && miss();
+      fn();
+    }, ms);
+  }
+
+  /* what the last play left on the screen comes down: its banner and the small note over the field (and, at the snap,
+     the broadcast card too) */
+  function clearCards(all) {
+    clearTimeout(bT);
+    clearTimeout(tT);
+    $('#banner').classList.remove('on');
+    $('#toast').classList.remove('on');
+    if (all) bcHide();
+  }
+
   function bcShow(html, ms) {
     if (!bcLive()) return;
     const e = $('#bcast');
@@ -4811,7 +4844,7 @@
     for (const k in HIGHS) if ((my[k] || 0) > (h[k] || 0) && (h[k] || 0) >= HIGHS[k][1] && !(G.hiSaid || (G.hiSaid = {}))[k]) {
       G.hiSaid[k] = 1;
       const who = { team: 0, name: me.name, num: me.num }, v = my[k], old = h[k];
-      setTimeout(() => statCard(who, String(v), 'Career high · ' + HIGHS[k][0], `the old one was ${old}`), 2600);
+      later(() => statCard(who, String(v), 'Career high · ' + HIGHS[k][0], `the old one was ${old}`), 2600);
       return;  // one a play
     }
   }
@@ -6123,8 +6156,7 @@
     }
     const ko = koMine(), m = $('#meter'), km = G.state === 'kickm' || ko;
     if (m.hidden === km) m.hidden = !km;
-    m.classList.toggle('ko', ko);  // your kickoff: the words only, no needle
-    if (ko && $('#mtxt').textContent !== 'Kickoff · swipe up to kick') $('#mtxt').textContent = 'Kickoff · swipe up to kick';
+    if (ko && $('#mtxt').textContent !== 'Kickoff · swipe up, or stop in the green') $('#mtxt').textContent = 'Kickoff · swipe up, or stop in the green';  // the same bar as a field goal
     if (km) $('#ndl').style.left = (50 + 50 * Math.sin(G.meter * 4.2)) + '%';
   }
 
@@ -6200,6 +6232,7 @@
       }
       if (ps.mode === 'ko') {
         if (koMine() && !AUTO) {
+          G.meter += dt;
           if (G.preT > 8) kickoffBy(0.82, 0);  // nobody swiped: a standard kick
         } else if (G.preT > 1.5) kickNow();
       } else {

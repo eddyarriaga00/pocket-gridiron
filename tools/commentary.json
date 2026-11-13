@@ -173,6 +173,13 @@
     "ref.chal": { "v": "r", "e": 0.2, "t": ["The {team} are challenging the spot of the ball."] },
     "ref.over": { "v": "r", "e": 0.2, "t": ["After review, the ruling on the field is reversed."] },
     "ref.stands": { "v": "r", "e": 0.2, "t": ["After review, the ruling on the field stands."] },
+    "call.guar": { "v": "p", "e": 0.45, "t": ["There was a guarantee made this week. Now we find out if it holds up.", "All week long, the talk has been about one bold guarantee. Time to back it up."] },
+    "call.trash": { "v": "p", "e": 0.45, "t": ["Some words were said this week, and this one has a little extra on it.", "There's some bad blood in this one. Somebody said a little too much this week."] },
+    "a.callout": { "v": "a", "e": 0.35, "t": ["When you say something like that in this league, you'd better show up.", "That's bulletin board material. You know the other locker room heard it."] },
+    "call.td": { "v": "p", "e": 0.85, "t": ["Talk is one thing. That's backing it up!", "He said it all week, and there's the proof!"] },
+    "call.shaky": { "v": "a", "e": 0.4, "t": ["All that talk this week is looking awfully shaky right now.", "Some of those words from this week might be coming back to haunt them."] },
+    "call.won": { "v": "a", "e": 0.5, "t": ["Say what you want about the talk. They backed up every word.", "He called his shot this week, and he delivered."] },
+    "call.lost": { "v": "a", "e": 0.35, "t": ["Talk is cheap. Today, it cost them.", "That's the danger of saying it out loud. You have to win the game."] },
     "challenge": { "v": "p", "e": 0.4, "t": ["And there's the flag. They're going to challenge the spot.", "That spot is going to be challenged.", "They want another look at that one."] }
   }
 }

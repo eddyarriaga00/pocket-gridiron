@@ -154,6 +154,7 @@
       sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
+    G.callout = o.callout || null;  // a career player's callout of this opponent ('trash' or 'guarantee'): the booth knows
     G.heroCeleb = o.hero && o.hero.celeb >= 0 ? o.hero.celeb : -1;  // a career player's own touchdown celebration
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
     G.wx = { rain: { fum: 1.8, cat: 0.94, kick: 0.05 }, snow: { fum: 1.5, cat: 0.96, kick: 0.07 } }[G.env.weather] || { fum: 1, cat: 1, kick: 0 };
@@ -194,7 +195,10 @@
         vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
         vo('intro.away.' + t1.ab, { ttl: 14 });
         vo('intro.home.' + t0.ab, { ttl: 16 });
-        vo('a.intro', { pri: 0, keep: true, ttl: 16 });
+        if (G.callout) {
+          vo(G.callout === 'guarantee' ? 'call.guar' : 'call.trash', { keep: true, ttl: 20 });
+          vo('a.callout', { pri: 0, keep: true, ttl: 24 });
+        } else vo('a.intro', { pri: 0, keep: true, ttl: 16 });
       }, toss ? toss * 1000 + 250 : 0);
       if (PG.audio) PG.audio.weather(e.weather);
       return;
@@ -2227,7 +2231,8 @@
         react(0, 1.2, 5);
       } else if (w < 0) snd('lose');
       vo(w === 0 ? 'final.tie' : chance(0.5) ? 'win.team.' + tab(w > 0 ? 0 : 1) : w > 0 ? 'final.win' : 'final.loss', { pri: 2 });
-      analyst('a.final', 0.8, { big: true, ttl: 10 });
+      if (G.callout && w !== 0) analyst(w > 0 ? 'call.won' : 'call.lost', 1, { big: true, ttl: 12 });
+      else analyst('a.final', 0.8, { big: true, ttl: 10 });
     }
     if (!AUTO && !G.drill && PG.milestones) PG.milestones.game({ us: G.score[0], them: G.score[1], stats: G.stats, ot: G.ot, diff: G.diff, weather: G.env && G.env.weather });
     if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), scoringHtml: scoringHtml(G.scores), drill: G.drill });
@@ -2356,6 +2361,10 @@
   }
 
   function startCall() {
+    if (G.callout && G.q === 4 && G.clock < 150 && G.score[0] < G.score[1] && !G.voCallLate && !AUTO && !QUIET) {
+      G.voCallLate = true;  // behind late in the game you talked about all week
+      analyst('call.shaky', 1, { big: true, ttl: 10 });
+    }
     const rv = G.review;  // a coach on the computer's side (or yours, in a career) throws the flag when he can see it was wrong
     if (rv && rv.wrong && canChallenge(rv.hurt) && (rv.hurt === 1 || G.lock) && Math.random() < 0.75) resolveChallenge(rv.hurt);
     if (G.review && !youChallenge()) G.review = null;
@@ -3382,6 +3391,10 @@
       const back = ko || t !== off;  // a return, or the defense's score
       vo(back && chance(0.6) ? 'td.return' : chance(0.45) ? 'td.team.' + tab(t) : 'td', { pri: 2 });
       if (!back) voDrive(off, 'a.td');
+      if (G.callout && t === 0 && !G.voCallTd && G.score[0] > G.score[1] && chance(0.75)) {
+        G.voCallTd = true;  // the first time your side scores to lead, in the game you talked about all week
+        vo('call.td', { ttl: 10 });
+      }
       if (good) {
         if (good !== 'xp.good') vo(good, { ttl: 10 });  // the routine extra point goes without saying
         voScore(t, s0);

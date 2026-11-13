@@ -195,7 +195,7 @@
     const [hi, lo] = c.us >= c.them ? [[x.T, c.us], [x.O, c.them]] : [[x.O, c.them], [x.T, c.us]];
     const fin = post(reporter(), `Final: ${hi[0]} ${hi[1]}, ${lo[0]} ${lo[1]}. ${x.N}: ${x.S}.` + (c.star ? ' Player of the game.' : ''), c, 2.2);
     fin.replies = [];
-    [myFan(0.4), theirFan(0.3), post(neutral(), D(THREAD[t]), c, 0.2)].forEach(p => keep(fin.replies, p));
+    [myFan(0.4), theirFan(0.3), post(neutral(), D(lost && t !== 'bad' ? ['Tough loss. On to next week.', 'Shame to waste a line like that.', 'Long trip home for the {T}.'] : THREAD[t]), c, 0.2)].forEach(p => keep(fin.replies, p));
     for (let i = 0; i < Math.floor(b / 2.5); i++) keep(fin.replies, Math.random() < 0.65 ? myFan(0.3) : theirFan(0.3));  // the bigger the day, the longer the thread
     fin.rep = Math.max(fin.rep, fin.replies.length);
     out.push(fin);
@@ -325,6 +325,14 @@
     return qs;
   }
 
+  /* media day, the week of a rival game: one question about him, the same answers as the podium's last question */
+  function mediaDay(c) {
+    const x = words(c), F = s => fill(s, x), [f, l, o] = REPORTERS[(c.week + 3) % REPORTERS.length];
+    const answers = [A('He’s a great player. We’ll handle our business Sunday.', 'respect', 2, 1), A('I don’t think about {RL}. I think about winning.', 'confident', 0, 4),
+      A('{RL} talks a lot. Sunday we find out who’s real.', 'trash', -1, 7, 'trash'), A('We’re winning this one. I guarantee it.', 'guarantee', -2, 9, 'guarantee')];
+    return { by: `${f} ${l}`, outlet: o, q: F('Media day. All week it’s been you and {R}. Anything to say before Sunday?'), about: c.next, topic: F('at media day, on {R}'), answers: answers.map(a => ({ ...a, t: F(a.t) })) };
+  }
+
   /* what the coach says about your answers, from the trust they moved */
   function coachOnPress(net, tones, great) {
     if (tones.includes('trash') && great) return any(['You can talk like that when you play like that. Don’t make a habit of it.', 'Half of me wants to fine you. The other half watched the tape. Keep it there.']);
@@ -346,6 +354,7 @@
       keep(out, post(fan(c.next), fill('A GUARANTEE?? Oh {L} is gonna regret this. See you Sunday.', x), c, 2));
       keep(out, post(analyst(), fill('Bold. If the {T} win, {L} is a legend this week. If they lose, he never hears the end of it.', x), c, 1.6));
       keep(out, post(fan(c.team), fill('{L} with the GUARANTEE. I’m buying tickets.', x), c, 1.4));
+      if (c.rival && at === c.rival.team) keep(out, post(rivalBy(c, x), D(['A guarantee? Cute. See you Sunday.', 'Save that energy. You’re gonna need it.', 'Bold. I’ll remind him after the game.']), c, 2.6));
     } else if (pick.tone === 'trash') {
       keep(out, post(fan(at), D((['Bulletin board. Printed. Laminated.', 'Talk is cheap, {L}.', '{L} with the mouth. We’ll see.'].concat(tier(c) === 'great' ? ['Ok he can play. He still can’t talk.', 'Enjoy the week, {L}. It’s a long season.'] : ['Real confident for a guy with {S} 😂', 'Big talk from a guy who just had THAT game.']))), c, 1.8));
       keep(out, post(fan(c.team), D(['{L} said what we were all thinking 😤', 'I love this energy from {L}.', 'LET HIM COOK 🗣️']), c, 1.2));
@@ -363,15 +372,24 @@
   /* ---------- drawing ---------- */
   const initials = s => String(s).replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '#';
 
+  /* initials in white on a dark color, in near-black on a light one, whichever reads better (WCAG luminance) */
+  function inkOn(hex) {
+    const v = parseInt(String(hex).replace('#', ''), 16), ch = k => {
+      const c = ((v >> k) & 255) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }, L = 0.2126 * ch(16) + 0.7152 * ch(8) + 0.0722 * ch(0);
+    return isNaN(L) || L < 0.19 ? '#fff' : '#06101f';
+  }
+
   const n = (v, one, many) => `${short(v)} ${v === 1 ? one : many}`;
 
   function postHtml(p, reply) {
     if (p.kind === 'trend') return `<div class="post trend"><b>${esc(p.text)}</b><small>${esc(p.sub)}</small></div>`;
-    return `<div class="post${reply ? ' re' : ''}${p.hot ? ' hot' : ''} k-${p.kind}"><span class="av" style="--c:${esc(p.col)}">${esc(initials(p.who))}</span><div class="pbody">`
+    return `<div class="post${reply ? ' re' : ''}${p.hot ? ' hot' : ''} k-${p.kind}"><span class="av" style="--c:${esc(p.col)};color:${inkOn(p.col)}${inkOn(p.col) === '#fff' ? '' : ';text-shadow:none'}">${esc(initials(p.who))}</span><div class="pbody">`
       + `<div class="phd"><b>${esc(p.who)}</b>${p.ver ? '<i class="ver" aria-label="verified"></i>' : ''}<span>@${esc(p.at)} · ${esc(p.ago || 'now')}</span></div>${p.bio ? `<div class="bio">${esc(p.bio)}</div>` : ''}`
       + `<p>${esc(p.text)}</p><div class="pmeta"><span>${n(p.rep, 'reply', 'replies')}</span><span>${n(p.rt, 'repost', 'reposts')}</span><span>${n(p.likes, 'like', 'likes')}</span>${p.hot ? '<em>viral</em>' : ''}</div>`
       + (p.replies && !reply ? `<div class="reps">${p.replies.map(r => postHtml(r, true)).join('')}</div>` : '') + '</div></div>';
   }
 
-  PG.media = { reaction, press, quoteReaction, coachOnPress, buzzOf, postHtml, short, stamp, TONE, lastOf, FIRST };
+  PG.media = { reaction, press, mediaDay, quoteReaction, coachOnPress, buzzOf, postHtml, short, stamp, TONE, lastOf, FIRST };
 })();

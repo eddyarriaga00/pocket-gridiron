@@ -73,6 +73,12 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   hub keeps your mentions, your quotes, the follower count, the hype meter and your record of callouts backed up or
   eaten. Your teammates who post are the same players all career, and nobody in a feed says the same thing twice in a
   week. Every person, handle and outlet is invented.
+- Media day, the week of a rival game: one question about him from the hub, answered like the podium's, and a callout
+  made there is settled in that game. The booth knows about your callout: it opens the game talking about it, cheers
+  when your side scores to back it up, calls it shaky when you trail late, and settles it at the final whistle.
+- Endorsements: two games in a row with hype at 55 or more bring an offer from a brand (invented: cleats, sports
+  drinks, trucks, chips, phones, gyms, watches, insurance). Sign it for XP now and XP every game, the pay set by your
+  following; two deals at most; a brand walks away when your hype falls under 25.
 - Career awards night after every season: MVP, Offensive Player of the Year, Rookie of the Year, All-League at your
   position and your position's statistical title, each with its nominees from around the league. Retire a career
   and it goes to a hall of fame vote; every retired career is kept in the Hall of fame, on the main menu.

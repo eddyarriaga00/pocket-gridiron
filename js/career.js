@@ -600,6 +600,8 @@
     const o = nextOpp(), lab = LG.label(C);
     return `<div class="nx"><small>${lab}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
   ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
+  ${C.rival&&C.rival.team===o&&C.phase!=='done'&&!(C.social&&C.social.mday===pracKey())?`<button class="btn2" id="mday" style="margin:0 0 8px">Media day \u00b7 one question about ${esc(C.rival.name)}</button>`:''}
+  ${C.social&&C.social.offer?'<p class="note" style="margin:0 0 8px">An endorsement offer is waiting in the Social tab.</p>':''}
   <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
   ${C.prac!==pracKey()?'<button class="btn2" id="prac" style="margin-top:8px">Practice first · bonus XP</button>':'<p class="note" style="margin-top:8px">Practice is done for this week.</p>'}</div>
   ${C.news?`<p class="news">${esc(C.news)}</p>`:''}`;
@@ -669,9 +671,112 @@
   function tabSocial() {
     const so = social();
     return socHead(0) + `<p class="note">Big games, big moments and what you say at the podium move your following. Hype fades a little every week unless you keep giving people something to talk about.</p>`
-      + `<div class="xp"><span>Talk record</span><b>${so.backed} backed up \u00b7 ${so.ate} eaten</b></div>` + calloutHtml()
+      + `<div class="xp"><span>Talk record</span><b>${so.backed} backed up \u00b7 ${so.ate} eaten</b></div>` + calloutHtml() + offerHtml() + dealsHtml()
       + (so.quotes.length ? `<h2>On the record</h2><ul class="quotes">${so.quotes.slice(0, 4).map(q => `<li><span class="tone t-${q.tone}">${PG.media.TONE[q.tone] || q.tone}</span>\u201c${esc(q.q)}\u201d<small>${esc(q.wk)}</small></li>`).join('')}</ul>` : '')
       + (so.feed.length ? `<h2>Your mentions</h2>` + feedHtml(so.feed) : '<p class="note">Play a game and the internet will have something to say.</p>');
+  }
+
+  /* ---------- endorsements ----------
+     Two games in a row ending with hype at 55 or more bring an offer from a brand: XP to sign and XP every game while
+     the deal lasts, the pay set by your following. At most two deals. An offer left alone is gone after two games,
+     and a brand walks away when your hype falls under 25. The brands are invented. */
+  const BRANDS = [['Apex Cleats', 'cleats', '#2d6cdf', 'Built for the ones who finish.'], ['Gridline', 'sports drinks', '#16a37a', 'Fuel for four quarters.'],
+    ['Northfield Motors', 'trucks', '#8a3b3b', 'Tough enough for the long haul.'], ['Crisp Co.', 'chips', '#c2410c', 'Game day tastes better.'],
+    ['Volt Mobile', 'phones', '#7c3aed', 'Never miss a moment.'], ['Ironhouse Gym', 'gyms', '#475569', 'Earned, not given.'],
+    ['Ridgeline Watches', 'watches', '#0f766e', 'Every second counts.'], ['Bluepeak Insurance', 'insurance', '#1d4ed8', 'Protection you can count on.']];
+  const brandPost = (b, text, k) => {
+    const so = social(), v = so.fol * 0.02 * (k || 1);
+    return { who: b.name, at: b.name.replace(/[^A-Za-z]/g, ''), bio: `Official partner \u00b7 ${b.kind}`, kind: 'brand', col: b.col, ver: true, text, likes: Math.round(v + 30), rt: Math.round(v * 0.15 + 4), rep: Math.round(v * 0.08 + 2), ago: 'now' };
+  };
+
+  /* after each game, once hype has moved: offers come and go, deals end; returns the posts that go with it */
+  function endorseWeek() {
+    const so = social(), out = [];
+    so.deals = so.deals || [];
+    so.hot = so.hype >= 55 ? (so.hot || 0) + 1 : 0;
+    if (so.offer && ++so.offer.age > 2) so.offer = null;
+    if (so.hype < 25 && so.deals.length) {
+      const d = so.deals.pop();
+      out.push(brandPost(d, `${d.name} and ${C.name} have parted ways. We wish him well.`, 0.6));
+    }
+    if (!so.offer && so.hot >= 2 && so.deals.length < 2) {
+      const have = new Set(so.deals.map(d => d.name)), pool = BRANDS.filter(([n]) => !have.has(n)), [name, kind, col, line] = pool[Math.floor(Math.random() * pool.length)];
+      const pay = clamp(Math.round(so.fol / 500) * 10, 80, 500);
+      so.offer = { name, kind, col, line, pay, bonus: pay * 4, age: 0 };
+      so.hot = 0;  // the next offer takes another two big weeks
+    }
+    return out;
+  }
+
+  function offerHtml() {
+    const o = social().offer;
+    if (!o) return '';
+    return `<div class="offer" style="--c:${o.col}"><small>Endorsement offer</small><b>${esc(o.name)}</b><span>${esc(o.kind)} \u00b7 +${fmt(o.bonus)} XP to sign \u00b7 +${fmt(o.pay)} XP every game</span>
+  <div class="ofb"><button class="btn2" data-of="y">Sign</button><button class="btn2" data-of="n">Pass</button></div><p class="note">Keep your hype above 25 or the brand walks away. Two deals at most.</p></div>`;
+  }
+
+  function dealsHtml() {
+    const d = social().deals || [];
+    return d.length ? `<h2>Endorsements</h2>${d.map(x => `<div class="xp deal"><span><i class="dot" style="--c:${x.col}"></i>${esc(x.name)} \u00b7 ${esc(x.kind)}</span><b>+${fmt(x.pay)} XP a game</b></div>`).join('')}` : '';
+  }
+
+  /* the posts of the week go in under its heading (sign a deal after the reaction, and it is part of that week) */
+  function addToFeed(posts) {
+    const so = social();
+    if (!so.feed.length) so.feed = [{ kind: 'wk', text: LG.short(C) }];
+    so.feed.splice(1, 0, ...posts);
+  }
+
+  /* sign or pass; then draw again */
+  function answerOffer(yes, redraw) {
+    const so = social(), o = so.offer;
+    if (!o) return;
+    so.offer = null;
+    if (yes) {
+      so.deals = (so.deals || []).concat({ name: o.name, kind: o.kind, col: o.col, pay: o.pay });
+      C.xp += o.bonus;
+      C.xpTotal += o.bonus;
+      const L = PG.media.lastOf(C.name);
+      addToFeed(PG.media.stamp([brandPost(o, `Welcome to the ${o.name} family, ${C.name}. ${o.line}`, 1.4),
+        { who: `${TEAMS[C.team].name} Faithful`, at: `${TEAMS[C.team].name}Faithful`, kind: 'fan', col: TEAMS[C.team].c1, text: `${L} with the ${o.name} deal \ud83d\udcb0 Get that bag.`, likes: Math.round(so.fol * 0.01 + 10), rt: Math.round(so.fol * 0.002), rep: Math.round(so.fol * 0.002) }]));
+      PG.snd('buy');
+      PG.banner('Deal signed', `${o.name} \u00b7 +${fmt(o.bonus)} XP`, 2200);
+    }
+    persist();
+    redraw();
+  }
+
+  /* ---------- media day ----------
+     The week of a rival game: one question about him, from the hub. What you say counts like an answer at the podium,
+     and a callout made here is settled in that game. Once a week. */
+  function showMediaDay() {
+    const so = social(), o = nextOpp(), wk = LG.short(C);
+    const ctx = { name: C.name, pos: C.pos, team: C.team, opp: o, next: o, m: ZERO(), us: 0, them: 0, won: false, pts: 7, star: false, rival: C.rival, rivalGame: true, fol: so.fol, mates: so.mates, coachName: so.coachName, week: C.log.length, wk };
+    const q = PG.media.mediaDay(ctx), trust0 = C.trust, hype0 = so.hype, fol0 = so.fol, [f, l] = q.by.split(' ');
+    scr.innerHTML = `<div class="menu solid press"><div class="prh"><small>Media day \u00b7 ${esc(wk)} \u00b7 rival week</small><h3>One question</h3></div>
+  <div class="pq"><div class="rpt"><span class="av" style="--c:#2f6fb5">${esc(f[0] + l[0])}</span><div><b>${esc(q.by)}</b><span>${esc(q.outlet)}</span></div></div><p>\u201c${esc(q.q)}\u201d</p></div>
+  <div class="pa">${q.answers.map((a, k) => `<button class="ans" data-k="${k}"><span class="tone t-${a.tone}">${PG.media.TONE[a.tone]}</span>${esc(a.t)}</button>`).join('')}</div>
+  <button class="btn2" id="mdback">Not today</button></div>`;
+    $('#mdback').onclick = () => showHub('up');
+    scr.querySelectorAll('.ans').forEach(b => b.onclick = () => {
+      const a = q.answers[+b.dataset.k];
+      C.trust = clamp(C.trust + a.trust, 5, 100);
+      so.hype = clamp(so.hype + a.hype, 0, 100);
+      if (a.hype > 0) so.fol += Math.round(so.fol * 0.004 * a.hype);
+      if (a.call) so.callout = { team: o, quote: a.t, kind: a.call, wk };
+      so.quotes.unshift({ wk: wk + ' media day', q: a.t, tone: a.tone });
+      so.quotes = so.quotes.slice(0, 20);
+      so.mday = pracKey();
+      const said = PG.media.stamp(PG.media.quoteReaction(ctx, a, q.about, q.topic));
+      pushFeed(`Media day \u00b7 ${wk} \u00b7 rival week vs ${TEAMS[o].name}`, said);
+      persist();
+      PG.snd('tick');
+      scr.innerHTML = `<div class="menu solid press"><div class="prh"><small>Media day \u00b7 ${esc(wk)}</small><h3>On the record</h3></div>
+  <ul class="quotes"><li><span class="tone t-${a.tone}">${PG.media.TONE[a.tone]}</span>\u201c${esc(a.t)}\u201d</li></ul>
+  <div class="fxs"><span>Coach trust <b>${signed(C.trust - trust0)}</b> (now ${C.trust})</span><span>Hype <b>${signed(so.hype - hype0)}</b></span><span>Followers <b>+${short(so.fol - fol0)}</b></span></div>
+  ${calloutHtml()}${feedHtml(said)}<button class="go" id="mddone">Back to the hub</button></div>`;
+      $('#mddone').onclick = () => showHub('up');
+    });
   }
 
   /* After the game: three questions at the podium (or walk out), a summary of what your answers did, then the
@@ -734,8 +839,12 @@
   function showFeed(posts, dFol, ctx, done) {
     const fire = ctx.buzz >= 7;
     scr.innerHTML = `<div class="menu solid feed"><div class="prh"><small>The reaction \u00b7 ${esc(ctx.wk)}</small><h3>${fire ? 'Your mentions are on fire' : ctx.buzz >= 4 || ctx.star || ctx.callRes ? 'People are talking' : 'A quiet week online'}</h3></div>
-  ${socHead(dFol)}${feedHtml(posts)}<button class="go" id="fdgo">Continue</button></div>`;
+  ${socHead(dFol)}${social().offer && social().offer.age === 0 ? offerHtml() : ''}${feedHtml(posts)}<button class="go" id="fdgo">Continue</button></div>`;
     $('#fdgo').onclick = done;
+    scr.querySelectorAll('[data-of]').forEach(b => b.onclick = () => answerOffer(b.dataset.of === 'y', () => {
+      const f = scr.querySelector('.offer');
+      if (f) f.outerHTML = `<p class="callout ok"><small>${b.dataset.of === 'y' ? 'Deal signed' : 'Offer passed'}</small>${b.dataset.of === 'y' ? 'It is in your Social tab, and it pays every game.' : 'There will be others if the hype holds.'}</p>`;
+    }));
   }
 
   /* What the coach says after a game: one line on the performance, one on what comes next. Cosmetic, so Math.random. */
@@ -1007,6 +1116,9 @@
         persist();
         keepScroll(draw);
       });
+      scr.querySelectorAll('[data-of]').forEach(b => b.onclick = () => answerOffer(b.dataset.of === 'y', () => keepScroll(draw)));
+      const md = $('#mday');
+      if (md) md.onclick = showMediaDay;
       scr.querySelectorAll('#hc button').forEach(b => b.onclick = () => {
         C.celeb = +b.dataset.c;
         persist();
@@ -1050,7 +1162,8 @@
   function play() {
     const opp = nextOpp();
     PG.snd('whistle');
-    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(),
+    const call = C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.kind : null;
+    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call,
       mustWin: C.phase !== 'reg', env: PG.envFor(C.season, C.week + (C.phase === 'reg' ? 0 : C.phase === 'semi' ? 8 : 9), C.phase !== 'reg' || C.week >= 5), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
@@ -1095,6 +1208,8 @@
     const so = social(), call = so.callout, callRes = call && call.team === opp ? { ...call, backed: call.kind === 'guarantee' ? won : won && pts >= 5 } : null;
     so.callout = null;
     if (callRes && callRes.backed) items.push([callRes.kind === 'guarantee' ? 'Backed up your guarantee' : 'Backed up your words', CALL_XP[callRes.kind]]);
+    const deals = so.deals || [];
+    if (deals.length) items.push([deals.length > 1 ? 'Endorsements' : `Endorsement \u00b7 ${deals[0].name}`, deals.reduce((t, d) => t + d.pay, 0)]);
     const xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP;
     for (const k in m) {
       C.stats[k] = (C.stats[k] || 0) + m[k];
@@ -1147,7 +1262,7 @@
     ctx.fol = so.fol;
     ctx.buzz = bz.b;
     ctx.trending = bz.b >= 7.5 || (!!callRes && callRes.backed);
-    const posts = PG.media.reaction(ctx), dFol = so.fol - fol0;
+    const posts = PG.media.reaction(ctx).concat(endorseWeek()), dFol = so.fol - fol0;
     const trophies = checkTrophies();
     persist();
     const show = () => {

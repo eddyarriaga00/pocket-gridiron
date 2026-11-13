@@ -510,6 +510,30 @@
     },
     cues: [[0.3, () => snd('tick')], [1.1, () => snd('tick')], [2.4, () => snd('tick')]],
   };
+
+  /* The hall of fame: a stage at midfield under the hall's board, your bust on a pedestal under a cloth in team colors,
+     you beside it in a dark jacket. A drum roll, the cloth comes off, you wave to the applause. */
+  SCENES.hof = {
+    dur: 7.4,
+    setup(sc) {
+      const o = sc.o;
+      const me = { x: FW / 2 - 0.7, y: 49.9, vx: 0, vy: 0, team: 0, role: 'QB', num: o.num, name: o.name, suit: true, act: 'stand', face: Math.PI, lift: 0.45 };
+      sc.me = me;
+      sc.cap = `<small>Hall of fame · class ${o.cls}</small><b>${esc(o.name)}</b><span>${esc(o.pos)} · ${o.seasons} season${o.seasons === 1 ? '' : 's'}${o.rings ? ` · ${o.rings} title${o.rings > 1 ? 's' : ''}` : ''}</span>`;
+      return [me];
+    },
+    cues: [
+      [1.3, () => snd('roll', { dur: 1.3 })],
+      [2.7, sc => {
+        snd('applause', { level: 0.85, dur: 3.6 });
+        snd('fanfare');
+        confetti(0);
+        const c = $('#scn .cap');
+        if (c) c.innerHTML = `<small>Hall of fame · class ${sc.o.cls}</small><b>${esc(sc.o.name)} is inducted</b><span>${esc(sc.o.verdict || '')}</span>`;
+      }],
+      [3.1, sc => (sc.me.act = 'wave')],
+    ],
+  };
   const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
   function endIntro() {

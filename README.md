@@ -96,6 +96,9 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   commissioner's hand and hold up your new jersey with your name and number while the announcer reads the pick.
   After every career game the press conference opens on you at the podium, in a team hoodie and cap, behind a
   cluster of microphones in front of the team's backdrop, cameras flashing.
+  Retiring into the hall plays the induction: a stage under a "Hall of Fame · Class n" board, your bust on a pedestal
+  under a cloth in team colors, a drum roll, the cloth lifted off, the plaque with your name, team and class, and you
+  waving to the applause beside it, before the hall itself.
 - Media day, the week of a rival game: one question about him from the hub, answered like the podium's, and a callout
   made there is settled in that game. The booth knows about your callout: it opens the game talking about it, cheers
   when your side scores to back it up, calls it shaky when you trail late, and settles it at the final whistle.

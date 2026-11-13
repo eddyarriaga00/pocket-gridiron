@@ -564,6 +564,18 @@
       }
       return false;
     }
+    if (a === 'wave') {
+      // a wave to the crowd, the right arm high, the hand going side to side
+      const w = Math.sin(time * 5);
+      tg[SRX] = 2.75;
+      tg[SRZ] = 0.35 + w * 0.3;
+      tg[ER] = 0.4;
+      tg[SLX] = 0.1;
+      tg[EL] = 0.3;
+      tg[CHRX] = 0.08;
+      tg[HEADRX] = -0.15;
+      return false;
+    }
     if (a === 'podium') {
       // both hands on the podium, leaning on it a little, now and then a nod
       tg[SLX] = tg[SRX] = 0.78;
@@ -769,9 +781,26 @@
       g.add(sp);
       return sp;
     });
+    const stone = new T.MeshPhongMaterial({ color: 0xa9b1bc, specular: 0x3a3f48, shininess: 18 }), plinth = new T.MeshLambertMaterial({ color: 0x2a303b });
+    const bust = new T.Group();
+    bust.add(new T.Mesh(new T.BoxGeometry(0.95, 1.6, 0.95).translate(0, 0.8, 0), plinth),
+      new T.Mesh(merge([new T.SphereGeometry(0.42, 18, 10).scale(1.25, 0.55, 0.7).translate(0, 1.82, 0), new T.CylinderGeometry(0.11, 0.13, 0.26, 12).translate(0, 2.05, 0),
+        new T.SphereGeometry(0.2, 20, 14).scale(0.9, 1.1, 1).translate(0, 2.3, 0)]), stone));
+    const plaqueC = document.createElement('canvas');
+    plaqueC.width = 256;
+    plaqueC.height = 200;
+    const plaqueTex = new T.CanvasTexture(plaqueC);
+    plaqueTex.colorSpace = T.SRGBColorSpace;
+    const plaque = new T.Mesh(new T.PlaneGeometry(0.8, 0.62), new T.MeshBasicMaterial({ map: plaqueTex }));
+    plaque.position.set(0, 0.95, 0.481);
+    bust.add(plaque);
+    const clothMat = new T.MeshLambertMaterial({ color: 0xffffff }), cloth = new T.Mesh(new T.ConeGeometry(0.62, 1.15, 20).translate(0, 2.1, 0), clothMat);
+    bust.add(cloth);
+    bust.position.set(FW / 2 + 1.3, 0.45, -(50 + 0.2));
+    g.add(bust);
     const coin = new T.Mesh(new T.CylinderGeometry(0.17, 0.17, 0.03, 24), new T.MeshPhongMaterial({ color: 0xd4d9e2, specular: 0xffffff, shininess: 110 }));
     g.add(coin);
-    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, coin, draft: { board: draftBoard, boardC, boardTex, shirt, shirtC, shirtTex, key: '' }, press: { pod, podC, podTex, wall, wallC, wallTex, pops, key: '' }, teamKey: '' };
+    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, coin, draft: { board: draftBoard, boardC, boardTex, shirt, shirtC, shirtTex, key: '' }, press: { pod, podC, podTex, wall, wallC, wallTex, pops, key: '' }, hof: { bust, cloth, clothMat, plaqueC, plaqueTex, key: '' }, teamKey: '' };
   }
 
   function updateProps(sc, t0, P) {
@@ -821,10 +850,59 @@
         sp.material.opacity = u >= 0 && u < 0.1 ? 1 - u * 10 : 0;
       }
     }
-    const draft = sc.kind === 'draft', Dr = props.draft;
-    Ch.stage.visible = champ || draft;
+    const draft = sc.kind === 'draft', Dr = props.draft, hof = sc.kind === 'hof', H = props.hof;
+    Ch.stage.visible = champ || draft || hof;
     Ch.cup.visible = champ;
-    Dr.board.visible = draft;
+    Dr.board.visible = draft || hof;
+    H.bust.visible = hof;
+    if (hof) {
+      Ch.skirt.color.set(t0.c1);
+      const key = 'hof|' + t0.ab + '|' + sc.o.name + '|' + sc.o.cls;
+      if (H.key !== key) {
+        H.key = key;
+        H.clothMat.color.set(t0.c1);
+        // the board: the hall, the class, the team colors along the foot
+        const x = Dr.boardC.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 420);
+        gr.addColorStop(0, '#0b111d');
+        gr.addColorStop(1, '#2a3346');
+        x.fillStyle = gr;
+        x.fillRect(0, 0, 1024, 420);
+        x.fillStyle = t0.c1;
+        x.fillRect(0, 392, 1024, 28);
+        x.textAlign = 'center';
+        x.fillStyle = '#c9d3e6';
+        x.font = '700 40px Archivo, Arial, sans-serif';
+        x.fillText(`CLASS ${sc.o.cls}`, 512, 92);
+        x.fillStyle = '#ffffff';
+        x.font = '800 108px Archivo, Arial, sans-serif';
+        x.fillText('HALL OF FAME', 512, 228, 960);
+        x.font = '700 44px Archivo, Arial, sans-serif';
+        x.fillText(String(sc.o.name || '').toUpperCase(), 512, 300, 960);
+        Dr.boardTex.needsUpdate = true;
+        Dr.key = '';  // the draft redraws its own board next time
+        const p = H.plaqueC.getContext('2d');
+        p.fillStyle = '#39414f';
+        p.fillRect(0, 0, 256, 200);
+        p.strokeStyle = '#8e99ab';
+        p.lineWidth = 6;
+        p.strokeRect(8, 8, 240, 184);
+        p.fillStyle = '#e6ebf3';
+        p.textAlign = 'center';
+        p.font = '800 26px Archivo, Arial, sans-serif';
+        p.fillText(String(sc.o.name || '').toUpperCase(), 128, 72, 220);
+        p.font = '600 18px Archivo, Arial, sans-serif';
+        p.fillText(`${sc.o.pos} \u00b7 #${sc.o.num}`, 128, 108, 220);
+        p.fillText(`${t0.city} ${t0.name}`, 128, 136, 220);
+        p.fillText(`Class ${sc.o.cls}`, 128, 164, 220);
+        H.plaqueTex.needsUpdate = true;
+      }
+      // the cloth: on until the drum roll ends, then lifted off and away
+      const u = clamp((t - 2.6) / 0.8, 0, 1);
+      H.cloth.visible = u < 1;
+      H.cloth.position.y = u * 2.2;
+      H.cloth.scale.setScalar(1 - u * 0.7);
+    }
+    Dr.board.visible = draft || hof;
     Dr.shirt.visible = draft && !!sc.me && sc.me.act === 'hold';
     if (draft) {
       Ch.skirt.color.set(t0.c1);
@@ -949,6 +1027,19 @@
 
   /* the camera for each scene: where it stands (v3) and what it looks at (v3b), from the scene's clock */
   const SCENECAM = {
+    hof(sc, P, v3, v3b) {
+      const t = sc.t, me = sc.me || P[0];
+      if (t < 2.2) {
+        v3.set(FW / 2 - 1.5, 3.8, -(50 - 12));  // the stage, the board, the covered bust
+        v3b.set(FW / 2, 2.8, -50);
+      } else if (t < 4.2) {
+        v3.set(FW / 2 + 1.3, 3.2, -(50 - 4.4));  // on the bust as the cloth comes off
+        v3b.set(FW / 2 + 1.3, 2.8, -50.2);
+      } else {
+        v3.set(FW / 2 + 0.3, 3.6, -(50 - 6.5));  // the two of you, the hall behind
+        v3b.set(FW / 2 + 0.3, 3, -50);
+      }
+    },
     podium(sc, P, v3, v3b) {
       const t = sc.t, me = sc.me || P[0], u = Math.min(1, t / 3);
       v3.set(me.x + lerp(1.6, 0.5, u), lerp(3.4, 3.15, u), -(me.y - lerp(7.5, 3.6, u)));  // pushing in from the back of the room to him

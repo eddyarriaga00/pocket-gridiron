@@ -1038,12 +1038,14 @@
     };
     $('#keep').onclick = () => showHub('up');
     $('#rt').onclick = () => {
-      const e = retireToHall();
+      const tm = C.team, e = retireToHall();
       C = null;
       try {
         localStorage.removeItem(KEY);
       } catch (_) {}
-      showHall(e);
+      // voted in: the induction on a stage first (your bust unveiled), then the hall
+      if (e.inducted && PG.cinema) PG.cinema('hof', { team: tm, name: e.name, num: e.num, pos: e.pos, seasons: e.seasons, rings: e.rings, verdict: e.verdict, cls: e.cls }, () => showHall(e));
+      else showHall(e);
     };
   }
 

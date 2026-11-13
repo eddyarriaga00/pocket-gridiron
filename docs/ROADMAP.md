@@ -1002,6 +1002,19 @@ what is next. Update it after every item.
   or a cap's crown, and a brim. The commissioner gets the skull and hair too (no more cap). The harness and the audit
   skip the scene after scanning it. Checked: careers (the podium after every game), a QB season, exhibition, drills
   clean; fingerprint unchanged; audit empty at 320x568 and 390x844, with and without the 34 px strip.
+- 01:00 Cutscenes, 7 of 7: the hall of fame. Retiring with enough to be voted in now plays the induction before the
+  hall screen (`PG.cinema('hof', ...)` from the retire button, only when `e.inducted`): the draft's stage at midfield
+  with its skirt in your team's color, the draft board redrawn as "HALL OF FAME" with the class and your name, your bust
+  on a dark pedestal (a stone head and shoulders) under a cloth cone in team colors, you beside it in a dark jacket.
+  A drum roll at 1.3 s, the cloth lifted off and shrinking away at 2.6-3.4 s, applause, the fanfare and confetti, the
+  caption turning to "... is inducted" with the hall's verdict, and you waving (a new `wave` act: right arm high, the
+  hand going side to side). The plaque on the pedestal (canvas) carries your name, position and number, team and
+  class. Three shots in 7.4 s: the stage and the covered bust, close on the bust as the cloth comes off, then the two
+  of you with the hall behind. The board is shared with the draft, so the draft redraws its own next time. Checked:
+  the real retire path (a 6-ring career: induction, then the hall, back at the menu with the HUD hidden), careers, a
+  QB season, exhibition, drills clean; fingerprint unchanged; audit empty at 320x568 and 390x844 at three moments of
+  the scene, with and without the 34 px strip. That finishes the seven cutscenes; each can be skipped with a tap and
+  all of them turned off with the Cutscenes chip in settings.
 
 ## Morning hand-off
 
@@ -1264,7 +1277,7 @@ what is next. Update it after every item.
 - [x] Coin toss at midfield.
 - [x] Draft day stage.
 - [x] Press conference podium opener.
-- [ ] Hall of fame induction.
+- [x] Hall of fame induction.
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:

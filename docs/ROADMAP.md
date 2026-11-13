@@ -1311,6 +1311,10 @@ what is next. Update it after every item.
   named substitute and each back within the quarter or two; the rate came down to 0.8%. inj.down peaks -3.3 dB at
   -14.4 RMS, inj.back -3.0 at -16.0. Checked: fingerprint unchanged, careers (QB and WR), exhibition, drills, audit
   empty at 320x568 and 390x844.
+- 09:47 Automatic run, the last of the night (a short one): the tackler can be the man shaken up (35% of the time,
+  `p0.tackler`), so defenders are replaced too. A game of 15-minute quarters had three: a quarterback and both outside
+  linebackers. No screen changed, so the interface audit was not rerun (it was empty at 09:19). Checked: fingerprint
+  unchanged, careers (QB and WR), exhibition, drills.
 
 ## Morning hand-off
 
@@ -1627,7 +1631,7 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
 - Injuries, the rest (the career side and shaken-up ball carriers are done, 09:19): the trainers drawn running out and
-  the man walked off (a short cutscene), defenders shaken up too, the cart for the worst, and a career player's own
+  the man walked off (a short cutscene), the cart for the worst, and a career player's own
   in-game knock (sit a series).
 - An all-star game after the season for the best players of each conference (you, when you are one): a playable
   exhibition with its own presentation.

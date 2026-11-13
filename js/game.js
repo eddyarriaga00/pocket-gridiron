@@ -2367,7 +2367,7 @@
     if (G.state !== 'live' && G.state !== 'kicka') return;
     const p0 = ps, s0 = G.score.slice();
     finish0(kind, arg);
-    if (kind === 'tackle' && p0 && p0.carrier && G.state === 'dead' && (p0.mode === 'pass' || p0.mode === 'run') && !AUTO && !QUIET && !G.drill && Math.random() < 0.008) shaken(p0.carrier);
+    if (kind === 'tackle' && p0 && p0.carrier && G.state === 'dead' && (p0.mode === 'pass' || p0.mode === 'run') && !AUTO && !QUIET && !G.drill && Math.random() < 0.008) shaken(p0.tackler && P.includes(p0.tackler) && Math.random() < 0.35 ? p0.tackler : p0.carrier);  // about one time in three it is the tackler who stays down
     if (p0 && p0.rk && !p0.flagged && G.state === 'dead') return roughKick(p0, s0);
     if (!p0 || p0.flagged || G.state !== 'dead' || (p0.mode !== 'pass' && p0.mode !== 'run')) return;  // a flag during the play already decided it (holding, interference)
     if (p0.free) freePlay(p0, s0);

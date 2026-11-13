@@ -1421,10 +1421,13 @@
   <button class="go" id="rc">To the podium</button></div>`;
       $('#rc').onclick = () => {
         PG.toMenu();
-        showPress(ctx, posts, dFol, () => {
+        const press = () => showPress(ctx, posts, dFol, () => {
           if (C.phase === 'done' && C.po.night && !C.po.nightSeen) showAwards();
           else showHub(C.phase === 'done' ? 'season' : 'up');
         });
+        // first the podium itself, then the questions
+        if (PG.cinema) PG.cinema('podium', { team: C.team, name: C.name, num: C.num, head: ctx.head }, press);
+        else press();
       };
       if ($('#potd')) $('#potd').onclick = () => PG.watchPotd(show);
     };

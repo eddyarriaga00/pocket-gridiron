@@ -472,6 +472,10 @@ window.A = (() => {
         layouts += watch('career game');
         check('career: result');
         click('#rc');
+        if (q('#scn')) {
+          check('career: at the podium');
+          click('#scn');
+        }
         check('career: press conference');
         for (let k = 0; k < 3 && q('.ans'); k++) click('.ans');
         check('career: press summary');

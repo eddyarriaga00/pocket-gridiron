@@ -496,6 +496,20 @@
       }],
     ],
   };
+
+  /* The podium: before the questions, you behind it in a team hoodie and cap, hands on it, a cluster of microphones
+     in front and the team's backdrop behind, cameras flashing. */
+  SCENES.podium = {
+    dur: 4.2,
+    setup(sc) {
+      const o = sc.o, t = TEAMS[o.team];
+      const me = { x: FW / 2, y: 50.4, vx: 0, vy: 0, team: 0, role: 'QB', num: o.num, name: o.name, act: 'podium', face: Math.PI, hoodie: true };
+      sc.me = me;
+      sc.cap = `<small>Postgame · ${esc(o.head || '')}</small><b>${esc(o.name)} at the podium</b>`;
+      return [me];
+    },
+    cues: [[0.3, () => snd('tick')], [1.1, () => snd('tick')], [2.4, () => snd('tick')]],
+  };
   const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
   function endIntro() {

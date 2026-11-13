@@ -94,6 +94,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   you are one of the captains once you are the starter.
   Draft day is on a stage at midfield under a draft board in your new team's colors: you walk up, shake the
   commissioner's hand and hold up your new jersey with your name and number while the announcer reads the pick.
+  After every career game the press conference opens on you at the podium, in a team hoodie and cap, behind a
+  cluster of microphones in front of the team's backdrop, cameras flashing.
 - Media day, the week of a rival game: one question about him from the hub, answered like the podium's, and a callout
   made there is settled in that game. The booth knows about your callout: it opens the game talking about it, cheers
   when your side scores to back it up, calls it shaky when you trail late, and settles it at the final whistle.

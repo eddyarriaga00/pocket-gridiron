@@ -185,6 +185,11 @@
     hips: lathe([[0.01, -0.24], [0.11, -0.215], [0.166, -0.11], [0.17, -0.02], [0.13, 0.04], [0.01, 0.06]]).scale(1, 1, 0.78),  // a rounded top that stays inside the jersey
     helmet: helmetShell(16, 12),
     ear: earHoles(8),
+    /* a bare head, for the few who are seen without a helmet (a player at the podium, the commissioner): the skull,
+       hair or the crown of a cap, and a cap's brim. Hidden on everyone else (PART_DEFS marks them optional). */
+    skull: new T.SphereGeometry(0.118, 14, 10).scale(1, 1.08, 1.05).translate(0, 0.005, -0.015),
+    hair: new T.SphereGeometry(0.125, 14, 6, 0, Math.PI * 2, 0, Math.PI * 0.5).scale(1, 0.95, 1.05).translate(0, 0.015, -0.015),
+    brim: new T.CylinderGeometry(0.1, 0.1, 0.012, 16).scale(1, 1, 0.8).translate(0, 0.014, -0.13),
     stripe: new T.TorusGeometry(0.177, 0.016, 4, 14, Math.PI).rotateY(Math.PI / 2).scale(2.2, 1.02, 1.12),
     logo: merge([-1, 1].map(side => new T.CylinderGeometry(0.058, 0.058, 0.012, 12).rotateZ(Math.PI / 2).translate(side * 0.168, 0.01, 0.01))),
     face: new T.SphereGeometry(0.122, 10, 8).scale(1, 0.62, 0.6).translate(0, -0.04, -0.118),
@@ -315,7 +320,7 @@
   const PART_DEFS = [
     ['torso', ['chest'], 'jersey', 'body', 1], ['pads', ['chest'], 'jersey', 'body', 1], ['neck', ['chest'], 'skin'],
     ['hips', ['pelvis'], 'pants', 'body', 1],
-    ['helmet', ['head'], 'helmet', '', 1], ['ear', ['head'], 'visor'], ['face', ['head'], 'skin'], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
+    ['helmet', ['head'], 'helmet', '', 1], ['ear', ['head'], 'visor'], ['face', ['head'], 'skin'], ['skull', ['head'], 'skin', '', 0, 1], ['hair', ['head'], 'helmet', '', 0, 1], ['brim', ['head'], 'helmet', '', 0, 1], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
     ['upperArm', ['shL', 'shR'], 'skin', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
     ['foreArm', ['elL', 'elR'], 'skin', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
     ['thigh', ['hipL', 'hipR'], 'pants', 'limb', 1], ['pantStripe', ['hipL', 'hipR'], 'stripe', 'limb'],
@@ -354,7 +359,9 @@
   /* officials: white shirt with a striped panel, black trousers and cap; no pads or facemask */
   const REF_COLORS = { jersey: '#f4f4f4', pants: '#15171c', helmet: '#15171c', stripe: '#15171c', trim: '#15171c', sock: '#15171c', number: '#15171c',
     skin: '#d7a078', glove: '#d7a078', shoe: '#0c0c10', mask: '#15171c', visor: '#d7a078' };
+  const HOOD = t => ({ jersey: t.c1, pants: '#20242c', helmet: t.c1, stripe: t.c1, trim: t.c2, sock: '#20242c', number: t.c1, glove: SKIN[2], shoe: '#0c0c10', mask: t.c1, visor: SKIN[2], skin: SKIN[2] });  // after the game: a team hoodie and cap
   const REF_HIDE = new Set(['pads', 'mask', 'stripe', 'logo', 'sleeve', 'pantStripe', 'wrist', 'ear']);
+  const BARE_HIDE = new Set([...REF_HIDE, 'helmet', 'visor']), CAP_ON = new Set(['skull', 'hair', 'brim']), HAIR_ON = new Set(['skull', 'hair']);  // no helmet: a cap, or hair
   const SUIT = { jersey: '#1d2433', pants: '#1d2433', helmet: '#2b1f17', stripe: '#1d2433', trim: '#1d2433', sock: '#14171f', number: '#1d2433', glove: '#c99a74', shoe: '#0c0c10', mask: '#1d2433', visor: '#c99a74', skin: '#c99a74' };  // a dark suit; the cap is his hair
   const SKIN = ['#f0c8a4', '#d7a078', '#b3764c', '#8a583a', '#66402e'];
 
@@ -504,7 +511,7 @@
   function writeFigure(f, i) {
     f.root.updateMatrixWorld(true);
     for (const p of parts) {
-      const n = p.joints.length, sc = p.fit === 'body' ? f.bodyS : p.fit === 'limb' ? f.limbS : null, gone = f.hide && f.hide.has(p.name);
+      const n = p.joints.length, sc = p.fit === 'body' ? f.bodyS : p.fit === 'limb' ? f.limbS : null, gone = (f.hide && f.hide.has(p.name)) || (p.opt && !(f.extra && f.extra.has(p.name)));
       for (let k = 0; k < n; k++) {
         const jm = f[p.joints[k]].matrixWorld;
         p.mesh.setMatrixAt(i * n + k, gone ? ZERO4 : sc ? fit4.copy(jm).scale(sc) : jm);
@@ -555,6 +562,16 @@
         tg[left ? ER : EL] = 0.3;
         tg[left ? SRZ : SLZ] = 0;
       }
+      return false;
+    }
+    if (a === 'podium') {
+      // both hands on the podium, leaning on it a little, now and then a nod
+      tg[SLX] = tg[SRX] = 0.78;
+      tg[SLZ] = 0.12;
+      tg[SRZ] = -0.12;
+      tg[EL] = tg[ER] = 1.05;
+      tg[CHRX] = -0.1;
+      tg[HEADRX] = 0.05 + Math.max(0, Math.sin(time * 1.7)) * 0.12;
       return false;
     }
     if (a === 'shake') {
@@ -715,9 +732,46 @@
     shirtTex.colorSpace = T.SRGBColorSpace;
     const shirt = new T.Mesh(new T.PlaneGeometry(1.25, 1.37), new T.MeshBasicMaterial({ map: shirtTex, transparent: true, side: T.DoubleSide }));
     g.add(shirt);
+    const pod = new T.Group(), podFront = new T.MeshBasicMaterial({ color: 0xffffff }), podC = document.createElement('canvas');
+    podC.width = 256;
+    podC.height = 256;
+    const podTex = new T.CanvasTexture(podC);
+    podTex.colorSpace = T.SRGBColorSpace;
+    podFront.map = podTex;
+    pod.add(new T.Mesh(new T.BoxGeometry(1.5, 2.05, 0.75).translate(0, 1.025, 0), new T.MeshLambertMaterial({ color: 0x161c28 })));
+    const plate = new T.Mesh(new T.PlaneGeometry(1.2, 1.2), podFront);
+    plate.position.set(0, 1.15, 0.38);
+    pod.add(plate);
+    const micMat = new T.MeshLambertMaterial({ color: 0x1a1a1e });
+    [-0.28, -0.1, 0.1, 0.3].forEach((x, k) => {
+      const arm = new T.Mesh(new T.CylinderGeometry(0.018, 0.018, 0.75, 6).translate(0, 0.37, 0), micMat);
+      arm.position.set(x, 2.05, 0.25);
+      arm.rotation.x = -0.35 - k * 0.05;
+      arm.rotation.z = -x * 0.6;
+      const head = new T.Mesh(new T.SphereGeometry(0.06, 10, 8).scale(1, 1.3, 1).translate(0, 0.78, 0), micMat);
+      arm.add(head);
+      pod.add(arm);
+    });
+    pod.position.set(FW / 2, 0, -(50.4 - 0.85));
+    g.add(pod);
+    const wallC = document.createElement('canvas');
+    wallC.width = 1024;
+    wallC.height = 512;
+    const wallTex = new T.CanvasTexture(wallC);
+    wallTex.colorSpace = T.SRGBColorSpace;
+    const wall = new T.Mesh(new T.PlaneGeometry(12, 6), new T.MeshBasicMaterial({ map: wallTex }));
+    wall.position.set(FW / 2, 3, -(50.4 + 1.6));
+    g.add(wall);
+    const popTex = softTex([[0, 'rgba(255,255,255,1)'], [0.2, 'rgba(235,242,255,0.8)'], [1, 'rgba(220,230,255,0)']]);
+    const pops = [...Array(5)].map(() => {
+      const sp = new T.Sprite(new T.SpriteMaterial({ map: popTex, transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false, opacity: 0 }));
+      sp.userData = { at: Math.random() * 4, x: (Math.random() - 0.5) * 7, h: 2 + Math.random() * 1.6 };
+      g.add(sp);
+      return sp;
+    });
     const coin = new T.Mesh(new T.CylinderGeometry(0.17, 0.17, 0.03, 24), new T.MeshPhongMaterial({ color: 0xd4d9e2, specular: 0xffffff, shininess: 110 }));
     g.add(coin);
-    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, coin, draft: { board: draftBoard, boardC, boardTex, shirt, shirtC, shirtTex, key: '' }, teamKey: '' };
+    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, coin, draft: { board: draftBoard, boardC, boardTex, shirt, shirtC, shirtTex, key: '' }, press: { pod, podC, podTex, wall, wallC, wallTex, pops, key: '' }, teamKey: '' };
   }
 
   function updateProps(sc, t0, P) {
@@ -731,6 +785,42 @@
     W.tun.visible = on;
     for (const sp of W.smoke) sp.visible = on;
     for (const sp of W.flames) sp.visible = on;
+    const podium = sc.kind === 'podium', Pr = props.press;
+    Pr.pod.visible = Pr.wall.visible = podium;
+    for (const sp of Pr.pops) sp.visible = podium;
+    if (podium) {
+      if (Pr.key !== t0.ab) {
+        Pr.key = t0.ab;
+        // the backdrop: the team's name repeated in rows over its color, the way a press room wall is printed
+        const x = Pr.wallC.getContext('2d');
+        x.fillStyle = t0.c1;
+        x.fillRect(0, 0, 1024, 512);
+        x.textAlign = 'center';
+        x.font = '800 44px Archivo, Arial, sans-serif';
+        for (let r = 0; r < 7; r++) for (let c = 0; c < 5; c++) {
+          x.fillStyle = (r + c) % 2 ? 'rgba(255,255,255,0.85)' : t0.c2;
+          x.fillText((r + c) % 2 ? t0.ab : t0.name.toUpperCase(), c * 230 + (r % 2 ? 115 : 0), 60 + r * 74, 210);
+        }
+        Pr.wallTex.needsUpdate = true;
+        const y = Pr.podC.getContext('2d');
+        y.fillStyle = t0.c1;
+        y.fillRect(0, 0, 256, 256);
+        y.fillStyle = t0.c2;
+        y.textAlign = 'center';
+        y.font = '800 92px Archivo, Arial, sans-serif';
+        y.fillText(t0.ab, 128, 150, 230);
+        y.font = '700 26px Archivo, Arial, sans-serif';
+        y.fillText('POSTGAME', 128, 200);
+        Pr.podTex.needsUpdate = true;
+      }
+      for (const sp of Pr.pops) {
+        // a camera flash: a white burst for a tenth of a second, from where the photographers are
+        const d = sp.userData, u = (t - d.at) % 1.7;
+        sp.position.set(FW / 2 + d.x, d.h, -(50.4 - 6));
+        sp.scale.setScalar(1.6);
+        sp.material.opacity = u >= 0 && u < 0.1 ? 1 - u * 10 : 0;
+      }
+    }
     const draft = sc.kind === 'draft', Dr = props.draft;
     Ch.stage.visible = champ || draft;
     Ch.cup.visible = champ;
@@ -859,6 +949,11 @@
 
   /* the camera for each scene: where it stands (v3) and what it looks at (v3b), from the scene's clock */
   const SCENECAM = {
+    podium(sc, P, v3, v3b) {
+      const t = sc.t, me = sc.me || P[0], u = Math.min(1, t / 3);
+      v3.set(me.x + lerp(1.6, 0.5, u), lerp(3.4, 3.15, u), -(me.y - lerp(7.5, 3.6, u)));  // pushing in from the back of the room to him
+      v3b.set(me.x, lerp(2.6, 2.95, u), -me.y);
+    },
     draft(sc, P, v3, v3b) {
       const t = sc.t, me = sc.me || P[0];
       if (t < 2.6) {
@@ -2769,7 +2864,7 @@
     contact.count = 0;
     scene.add(contact);
     /* body parts */
-    parts = PART_DEFS.map(([name, joints, color, fit, shadow]) => {
+    parts = PART_DEFS.map(([name, joints, color, fit, shadow, opt]) => {
       const mat = SH.rim(name === 'helmet' ? new T.MeshPhongMaterial({ color: 0xffffff, shininess: 120, specular: 0x9aa0aa, vertexColors: true }) : new T.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }));
       const mesh = new T.InstancedMesh(GEO[name], mat, CAP * joints.length);
       mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
@@ -2777,7 +2872,7 @@
       mesh.count = 0;
       for (let i = 0; i < CAP * joints.length; i++) mesh.setColorAt(i, col.set(0xffffff));
       scene.add(mesh);
-      return { name, mesh, joints, color, fit, shadow };
+      return { name, mesh, joints, color, fit, shadow, opt: !!opt };
     });
     const holder = new T.Group();
     scene.add(holder);
@@ -3139,12 +3234,13 @@
         continue;
       }
       if (fresh) {
-        f.hide = p.ref || p.suit ? REF_HIDE : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
-        setBuild(f, p.ref || p.suit ? BUILD.ref : buildOf(p.role));
-        const home = p.team === 0, c = p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
+        f.hide = p.suit || p.hoodie ? BARE_HIDE : p.ref ? REF_HIDE : null;
+        f.extra = p.hoodie ? CAP_ON : p.suit ? HAIR_ON : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
+        setBuild(f, p.ref || p.suit ? BUILD.ref : p.hoodie ? BUILD.qb : buildOf(p.role));
+        const home = p.team === 0, c = p.hoodie ? HOOD(t0) : p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
         colorFigure(SIDELINE + i, c);
-        f.num.material = p.ref ? stripeMaterial() : p.suit ? NO_NAME : numberMaterial(p.num, c.number);
-        f.nameplate.material = p.ref || p.suit ? NO_NAME : nameMaterial(p.name, c.number);
+        f.num.material = p.ref ? stripeMaterial() : p.suit || p.hoodie ? NO_NAME : numberMaterial(p.num, c.number);
+        f.nameplate.material = p.ref || p.suit || p.hoodie ? NO_NAME : nameMaterial(p.name, c.number);
         f.fall = 0;
         f.fallDir = Math.random() < 0.75 ? 1 : -1;
         f.snap = true;
@@ -3433,10 +3529,11 @@
       sc.add(key1);
       sc.add(f.root);
       const meshes = {};
-      for (const [name, joints, color] of PART_DEFS) {
+      for (const [name, joints, color,,, opt] of PART_DEFS) {
         meshes[name] = joints.map(j => {
           const m = new T.Mesh(GEO_HI[name] || GEO[name], name === 'helmet' ? new T.MeshPhongMaterial({ shininess: 120, specular: 0x9aa0aa, vertexColors: true }) : new T.MeshLambertMaterial({ vertexColors: true }));
           m.userData.color = color;
+          if (opt) m.visible = false;  // the studio figure keeps his helmet on
           f[j].add(m);
           return m;
         });

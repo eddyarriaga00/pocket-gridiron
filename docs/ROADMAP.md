@@ -994,6 +994,14 @@ what is next. Update it after every item.
   loaded. The audit's menu walk now passes through the scene (it skips it, after scanning it). Checked: careers,
   exhibition, drills clean; fingerprint unchanged; audit empty at 320x568 and 390x844 at three moments of the scene
   and through the whole create-combine-draft path, with and without the 34 px strip.
+- 00:55 Cutscenes, 6 of 7: the podium. "To the podium" now opens on you behind a podium (a dark lectern with a team
+  plate, four microphones on stalks), the team's backdrop behind (its name and abbreviation in rows over its color),
+  camera flashes from the room, shutter ticks; 4.2 s pushing in, then the questions. You are dressed for it: a team
+  hoodie and cap, no pads. The first try showed the helmet shell for the cap, shiny, like a helmet with the mask off;
+  now there are three optional head parts, hidden on every figure unless it asks for them (`f.extra`): a skull, hair
+  or a cap's crown, and a brim. The commissioner gets the skull and hair too (no more cap). The harness and the audit
+  skip the scene after scanning it. Checked: careers (the podium after every game), a QB season, exhibition, drills
+  clean; fingerprint unchanged; audit empty at 320x568 and 390x844, with and without the 34 px strip.
 
 ## Morning hand-off
 
@@ -1255,7 +1263,7 @@ what is next. Update it after every item.
 - [x] Championship trophy.
 - [x] Coin toss at midfield.
 - [x] Draft day stage.
-- [ ] Press conference podium opener.
+- [x] Press conference podium opener.
 - [ ] Hall of fame induction.
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)

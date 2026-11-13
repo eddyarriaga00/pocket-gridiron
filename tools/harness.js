@@ -213,6 +213,7 @@ window.H = (() => {
       const my = { ...d().G.my }, score = [...d().G.score];
       if (!q('#rc')) throw new Error('no results screen');
       q('#rc').click();
+      if (q('#scn')) q('#scn').click();  // the podium cutscene
       // the press conference: answer each question (a different answer each game, so every tone gets used), then the reaction
       let k = 0;
       while (q('.ans') && k++ < 6) {

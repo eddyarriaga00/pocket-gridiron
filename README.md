@@ -75,6 +75,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Players run on feet that stay where they land: the legs are solved each frame so a planted foot neither slides nor
   sinks, forward, backward or in a sideways shuffle, and linemen crouch with their soles flat on the turf. A defender
   with ground to cover turns and runs, looking back at the quarterback. The quarterback winds up as the power bar fills.
+- About a third of the reserves on each bench pace the sideline between plays, a yard or two from their place and
+  back, and stop to watch or celebrate.
 - A tackle is two men, not one after the other: the tackler bends to the hit with his shoulder at the runner's hip and
   his arms round him, and they go down together. Defenders who are on top of the play dive on and pile up on the two
   of them, and the pile comes apart from the top. Anyone else close by steps clear instead of standing in it.
@@ -85,7 +87,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   hub, under Touchdown celebration). On the other side heads go down and hands go to helmets.
 - The officials signal touchdowns, first downs, incomplete passes, timeouts and the two-minute warning.
 - Everybody watches something. Helmets turn to the ball in the air, to the man carrying it, to the quarterback; a
-  receiver looks back for the ball once he is into his route, a quarterback in the pocket goes through his receivers,
+  receiver looks back for the ball once he is into his route, a ball carrier turns his helmet to the defender closing
+  on him, a quarterback in the pocket goes through his receivers,
   and the reserves on the bench follow the play up and down the field.
 - A block is two men with their hands on each other: the blocker's inside on the chest plate, the defender's on the
   shoulder pads, elbows bent, helmets side by side.

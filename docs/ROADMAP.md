@@ -829,6 +829,16 @@ what is next. Update it after every item.
   from 0 or 1 teammates within 4 yards at the whistle to 2 to 9 two seconds later; the closest pairs (0.3 to 0.8 yd)
   are men still running past, standing men keep their spacing. A screenshot shows the group round the scorer in the
   end zone. Exhibition, both careers and the drills clean; audit empty at 320x568 and 390x844; no console errors.
+- 23:04 The ball carrier's eyes and the bench (automatic run 15, the last of "Motion, the rest"). watching() in
+  render3d.js now gives a ball carrier (not a quarterback in the pocket) the defender closing on him soonest, inside
+  4 yards and under 0.9 s to contact; the neck limit means he sees only one coming from in front or the side. Over
+  2,053 drawn live frames, in 331 of the 400 with such a defender off to one side the carrier's helmet was turned his
+  way (the rest are the turn catching up). The bench: about three in ten reserves (by figure seed) walk a yard or two
+  from their place at up to 1.05 yd/s with a walking stride, turn to face the way they go, stop five to thirteen
+  seconds, and stop for a celebration; over 60 s, 7 of 20 walked, none more than 1.5 yd from his place, no two
+  closer than 1.85 yd. New test hook `PG.r3d.bench()`. `H.fingerprint()` unchanged (drawing only); exhibition, both
+  careers and the drills clean; audit empty at 320x568 and 390x844; no console errors. At phone size the far bench
+  is a few pixels tall, so the walk is judged by numbers, not by eye.
 
 ## Morning hand-off
 
@@ -1083,7 +1093,6 @@ Major improvements, biggest first:
   joining single numbers sounds like a machine. Worth it only if the owner wants it.
 - The pile, the rest: for about a tenth of a second while the top man slides off, about 4% of piles have a leg through
   someone (`PG.r3d.beside()` at 0.8 s); and the top man lies a little stiff and flat.
-- Motion, the rest: reserves on the bench who walk about; a ball carrier who looks at the man about to hit him.
 - Career: the awards night could have a booth or
   stadium voice reading the winners (one clip per award and per name is too many; per award is not).
 Interface, when no major item fits in a run:

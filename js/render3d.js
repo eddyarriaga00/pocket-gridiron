@@ -799,6 +799,27 @@
       EYE[1] = r.y;
       return true;
     }
+    if (c && c === p && s.P && s.live) {
+      /* the ball carrier looks at the man about to hit him: the defender closing on him soonest, inside four yards
+         (the neck limit below means he only finds one coming from in front or the side) */
+      let best = null, soon = 0.9;
+      for (const q of s.P) {
+        if (q.team === p.team || q.down || q.fell || q.eng || q.block) continue;
+        const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy);
+        if (d > 4 || d < 0.3) continue;
+        const close = -(dx * (q.vx - p.vx) + dy * (q.vy - p.vy)) / d;  // how fast the gap shrinks
+        const t = close > 0.5 ? d / close : 9;
+        if (t < soon) {
+          soon = t;
+          best = q;
+        }
+      }
+      if (best) {
+        EYE[0] = best.x;
+        EYE[1] = best.y;
+        return true;
+      }
+    }
     if (!c || c === p) return false;
     /* the offense looks where it is going, but a receiver looks back for the ball once he is into his route */
     if (p.team === ps.offTeam && !(c === ps.qb && ps.mode === 'pass' && !ps.thrown && ps.recs && ps.recs.includes(p) && ps.t > 0.9 + (f.seed % 1) * 0.7)) return false;
@@ -1231,6 +1252,28 @@
   function poseBench(f, up, dt, bx, by) {
     const tg = TG;
     tg.fill(0);
+    /* About three in ten pace the sideline: a slow walk a yard or two from their place and back, a stop of five to
+       thirteen seconds, then off again. The rest stand. Everyone stops to celebrate a score. */
+    let walk = 0;
+    if (f.benchY !== undefined && (f.seed * 3.7) % 1 < 0.3) {
+      if (!f.bw) f.bw = { to: f.benchY, wait: 1 + f.seed * 1.5 };
+      const at = -f.root.position.z, d = f.bw.to - at;
+      if (up || Math.abs(d) < 0.04) {
+        f.bw.wait -= dt;
+        if (f.bw.wait <= 0 && !up) {
+          f.bw.to = f.benchY + (Math.random() - 0.5) * 3.2;
+          f.bw.wait = 5 + Math.random() * 8;
+        }
+      } else {
+        walk = Math.sign(d) * Math.min(1.05, Math.abs(d) * 2.5 + 0.35);
+        const step = walk * dt;
+        f.root.position.z -= Math.abs(step) > Math.abs(d) ? d : step;
+      }
+      const home = f.root.position.x < FW / 2, face = walk ? (walk > 0 ? 0 : Math.PI) : home ? -Math.PI / 2 : Math.PI / 2;
+      let dr = face - f.root.rotation.y;
+      dr = Math.atan2(Math.sin(dr), Math.cos(dr));
+      f.root.rotation.y += f.snap ? dr : dr * (1 - Math.exp(-dt * 5));
+    }
     if (bx !== null && bx !== undefined && !up) {
       /* the reserves watch the play: helmets turn to the ball as it goes up and down the field */
       const rel = Math.atan2(-(bx - f.root.position.x), by + f.root.position.z) - f.root.rotation.y;
@@ -1251,6 +1294,17 @@
       tg[ER] = 0.2;
       tg[KL] = -0.2 * (1 - b);
       tg[KR] = -0.2 * (1 - b);
+    } else if (walk) {
+      // walking: about 0.7 yd a step, arms swinging against the legs
+      f.ph = (f.ph || 0) + Math.abs(walk) * dt * Math.PI / 0.7;
+      const w = Math.sin(f.ph), a = Math.min(1, Math.abs(walk) / 0.8);
+      tg[HL] = w * 0.32 * a;
+      tg[HR] = -w * 0.32 * a;
+      tg[KL] = -0.45 * Math.max(0, w) * a;
+      tg[KR] = -0.45 * Math.max(0, -w) * a;
+      tg[SLX] = -w * 0.28 * a;
+      tg[SRX] = w * 0.28 * a;
+      tg[PELY] = HIP - 0.015 + Math.abs(Math.cos(f.ph)) * 0.02;
     } else if (f.seed > 4.2) {
       tg[SLZ] = -0.45;
       tg[SRZ] = 0.45;
@@ -2539,6 +2593,8 @@
       setBuild(f, kinds[(i * 5 + n) % kinds.length]);
       f.root.position.set(x, 0, -y);
       f.root.rotation.y = home ? -Math.PI / 2 : Math.PI / 2;
+      f.benchY = y;  // his place on the bench (a few of them pace up and down from it: see poseBench)
+      f.bw = null;
       f.root.visible = true;
       f.snap = true;
       const c = teamColors(t, home, SKIN[Math.floor(Math.random() * SKIN.length)]);
@@ -3509,6 +3565,10 @@
     eyes: eyesTest, block: blockTest, beside: besideTest, besideSweep,  // test hooks: where a helmet points, where a blocker's hands are, whether a man beside a tackle is standing in it
     tackle: tackleTest, tackleStrip,  // test hooks: measure a staged tackle, and draw it as a row of frames
     /* test hook: the pose player i is drawn in now (the joint angles in the order of the pose layout), and a few of his figure's states */
+    bench() {
+      // test hook: where each reserve on the bench is, his place, and his stride
+      return figs.slice(0, SIDELINE).map(f => ({ x: f.root.position.x, y: -f.root.position.z, home: f.benchY, rot: f.root.rotation.y, hl: f.cur[HL] }));
+    },
     poseOf(i) {
       const f = figs[SIDELINE + i];
       return f ? { pose: Array.from(f.cur), heading: f.heading, wind: f.wind, fall: f.fall, off: [f.ox, f.oy] } : null;

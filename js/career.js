@@ -104,7 +104,7 @@
       x.bsk = a.bsk;
       x.tkl = a.tkl;
     }
-    return { rt: ovr(), spd: BASE[POS[C.pos].base] * (1 + (a.spd - 80) * 0.004), num: C.num, name: C.name, x };
+    return { rt: ovr(), spd: BASE[POS[C.pos].base] * (1 + (a.spd - 80) * 0.004), num: C.num, name: C.name, celeb: C.celeb ?? -1, x };
   }
 
   /* ---------- league (the shared rules are in league.js) ---------- */
@@ -828,6 +828,7 @@
   <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
   <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
+  <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>
   <div class="stack">${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
   ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}</div>`;
       $('#bk').onclick = PG.showMenu;
@@ -870,6 +871,11 @@
       scr.querySelectorAll('#hq button').forEach(b => b.onclick = () => {
         C.ql = +b.dataset.q;
         pickGoals();
+        persist();
+        keepScroll(draw);
+      });
+      scr.querySelectorAll('#hc button').forEach(b => b.onclick = () => {
+        C.celeb = +b.dataset.c;
         persist();
         keepScroll(draw);
       });

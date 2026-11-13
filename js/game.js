@@ -154,6 +154,7 @@
       sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
+    G.heroCeleb = o.hero && o.hero.celeb >= 0 ? o.hero.celeb : -1;  // a career player's own touchdown celebration
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
     G.wx = { rain: { fum: 1.8, cat: 0.94, kick: 0.05 }, snow: { fum: 1.5, cat: 0.96, kick: 0.07 } }[G.env.weather] || { fum: 1, cat: 1, kick: 0 };
     kickoff(first);
@@ -1511,7 +1512,7 @@
     G.runoff = 0;
     ps.after = 0;
     if (good) {
-      G.celeb = { team: off, who: c };
+      G.celeb = celebFor(off, c);
       react(off, 1.1, 3);
       if (off === 0) snd('chime');
     } else react(1 - off, 0.8, 2);
@@ -1679,7 +1680,7 @@
       }
       credit(c, 'td', 1);
       if (t === off && ps.mode !== 'ko' && !AUTO) driveCard('Touchdown drive', G.lastScore.drive);
-      G.celeb = { team: t, who: c };
+      G.celeb = celebFor(t, c);
       kickoff(1 - t);
       confetti(t);
       if (t === 0) {
@@ -1699,7 +1700,8 @@
       snd('whoop', { x: c.x, delay: 0.4 });
       setBall(t, ez ? (t === 0 ? 20 : 80) : c.y, c.x);
     } else if (kind === 'tackle' || kind === 'oob') {
-      const t = c.team, y = c.y, x = c.x;
+      const t = c.team, x = c.x;
+      let y = c.y;  // where the officials spot him (see the challenge below)
       if (me && ps.tackler === me) G.my.tkl++;
       credit(ps.tackler, 'tkl', 1);
       if (ps.mode === 'ko') {
@@ -1740,6 +1742,16 @@
         react(1 - off, 1.2, 3);
         setBall(1 - off, off === 0 ? 65 : 35, FW / 2);
       } else {
+        /* A close spot (within half a yard of the line to gain) can be got wrong: about three in ten are given the
+           other side of the line. Whoever the ruling went against may challenge it (see resolveChallenge). The
+           officials' mistakes come from Math.random, not the game's generator: seeded runs are not disturbed. */
+        G.review = null;
+        const near = (c.y - ps.fd) * dir;
+        if (!AUTO && !QUIET && !G.drill && Math.abs(near) < 0.6 && ps.fd > 1 && ps.fd < 99) {
+          const wrong = Math.random() < 0.3, spot = wrong ? ps.fd - dir * (near >= 0 ? 1 : -1) * (0.12 + Math.random() * 0.3) : c.y, ruledMade = (spot - ps.fd) * dir >= 0;
+          y = spot;
+          G.review = { trueY: c.y, x: c.x, wrong, made: near >= 0, off, down0: G.down, fd: ps.fd, hurt: ruledMade ? 1 - off : off };
+        }
         const g = (y - los) * dir, gi = Math.round(g), sack = c === ps.qb && ps.mode === 'pass' && !ps.thrown && g < 0;
         addYds(off, gi, false, sack);
         stop = kind === 'oob';
@@ -1811,6 +1823,9 @@
       react(1 - off, 0.9, 2.5);
     }
     if ((kind === 'tackle' || kind === 'oob') && ps.fum && !ps.fum.scoop) sub += ps.fum.muff ? ' · muffed, recovered' : ' · fumble, recovered';
+    if (G.review && youChallenge() && !AUTO && !QUIET) setTimeout(() => {
+      if (G.review && G.state !== 'menu') toast('Close spot · challenge it on the next screen · a timeout if it stands');
+    }, 1300);
     G.runoff = !stop && !score && !G.drill ? Math.min(hurry(off) && G.poss === off ? 8 : 13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle (there is no clock in practice); a hurry-up offense gets back to the line sooner
     G.clock -= G.runoff;
     twoMinute();
@@ -2020,7 +2035,7 @@
       } else {
         G.q++;
         G.clock = G.ql;
-        banner('End of quarter', '', 1200);
+        banner(`End of the ${G.q === 2 ? '1st' : '3rd'} quarter`, 'The teams switch ends', 1800);  // render3d.js turns the stadium round
         vo(G.q === 2 ? 'q.end1' : 'q.end3');
       }
     }
@@ -2260,7 +2275,91 @@
     return DEF[Math.floor(rnd(5))];
   }
 
+  /* ---------- touchdown celebrations ----------
+     The scorer's celebration (render3d.js draws them) is picked here, by Math.random so seeded runs are not touched.
+     A career player who has chosen his own always does that one. About one in three, the whole side joins in on the
+     same beat. */
+  const CELEBS = ['Jump', 'Spike', 'Strut', 'Kneel', 'Roar', 'Bow', 'Shuffle', 'Salute', 'To the sky', 'Flex', 'Leap'];
+
+  function celebFor(team, who) {
+    const mine = who && who === G.me && G.heroCeleb >= 0;
+    return { team, who, style: mine ? G.heroCeleb : Math.floor(Math.random() * CELEBS.length), group: Math.random() < 0.35 ? 1 + (Math.random() < 0.5 ? 1 : 0) : 0 };
+  }
+
+  /* ---------- the coach's challenge ----------
+     After a close spot (G.review) the side the ruling went against may challenge: two a game, and a timeout is what
+     is risked. Wrong on the field: overturned. Right: the ruling stands and the challenger loses a timeout. The
+     computer challenges only a spot it can see was wrong, three times in four. */
+  const canChallenge = t => !!G.review && G.review.hurt === t && G.to && G.to[t] > 0 && (G.chal ? G.chal[t] : 2) > 0 && !G.drill;
+  const youChallenge = () => canChallenge(0) && !G.lock;  // in a career the coach decides, not you
+
+  function resolveChallenge(t) {
+    const r = G.review;
+    G.review = null;
+    if (!r) return;
+    G.chal = G.chal || [2, 2];
+    G.chal[t]--;
+    const dir = r.off === 0 ? 1 : -1;
+    if (r.wrong) {
+      if (r.made) setBall(r.off, r.trueY, r.x);  // he did get there: first down
+      else {
+        G.poss = r.off;  // he did not: the first down comes off
+        G.los = clamp(r.trueY, 1, 99);
+        G.bx = hash(r.x);
+        G.down = r.down0 + 1;
+        G.fd = r.fd;
+        G.togo = (r.fd - G.los) * dir;
+        if (G.down > 4) setBall(1 - r.off, G.los, G.bx);  // and that was fourth down
+      }
+      banner('Overturned', r.made ? `${tname(r.off)} first down` : G.down > 4 || G.poss !== r.off ? 'Turnover on downs' : `${ORD[G.down - 1] || ''} & ${Math.max(1, Math.round(G.togo))}`, 2000);
+    } else {
+      G.to[t] = Math.max(0, G.to[t] - 1);
+      banner('Ruling stands', `${tname(t)} lose a timeout`, 2000);
+    }
+    if (!AUTO && !QUIET) {
+      snd('whistle');
+      vo('challenge', { pri: 1, ttl: 4 });
+      if (PG.audio) PG.audio.pa(`The ${tname(t)} are challenging the spot. After review, the ruling on the field ` + (r.wrong ? 'is reversed.' : 'stands.'), { wait: 1.6, clips: ['ref.chal.' + tab(t), r.wrong ? 'ref.over' : 'ref.stands'] });
+      if (r.wrong) setTimeout(() => {
+        if (PG.audio && G.ros) PG.audio.crowd[t === 0 ? 'cheer' : 'boo'](0.6, 2);
+      }, 3000);
+    }
+    hudKey = '';
+    updHud();
+  }
+
+  /* ---------- the play clock ----------
+     When the snap is yours (your offense, or your quarterback in a career) you have 35 seconds from the moment the
+     play-call sheet opens to get the ball snapped. The last ten show beside the down and distance; at zero it is delay
+     of game: five yards (half the distance near your own goal) and the down again. The computer never runs it out. */
+  const PC = 35;
+  const pcOn = () => !AUTO && !QUIET && !G.drill && !G.paused && G.ros && G.poss === 0 && G.pendKO == null && G.pat == null && (!G.lock || G.lock === 'QB') &&
+    (G.state === 'call' || (G.state === 'pre' && !!ps && (ps.mode === 'pass' || ps.mode === 'run')));
+
+  function delayOfGame() {
+    const off = G.poss, dir = off === 0 ? 1 : -1, room = off === 0 ? G.los : 100 - G.los, yd = Math.min(5, Math.max(1, Math.floor(room / 2)));
+    G.los = clamp(G.los - dir * yd, 1, 99);
+    G.togo += yd;
+    G.pc = PC;
+    G.last = 'Delay of game';
+    G.rp = false;
+    G.runoff = 0;
+    G.state = 'dead';
+    G.deadT = 1.9;
+    scr.innerHTML = '';
+    banner('Flag', `Delay of game, ${tname(off)} · ${yd} yard${yd === 1 ? '' : 's'}`, 1700);
+    snd('whistle');
+    refCall(`Delay of game, offense. ${yd} yard penalty. Replay the down.`, off, 0.4, ['ref.delay', 'ref.yd.' + yd, 'ref.rep' + G.down]);
+    analyst('a.delay', 0.5, { big: true, ttl: 9 });
+    hudKey = '';
+    updHud();
+  }
+
   function startCall() {
+    const rv = G.review;  // a coach on the computer's side (or yours, in a career) throws the flag when he can see it was wrong
+    if (rv && rv.wrong && canChallenge(rv.hurt) && (rv.hurt === 1 || G.lock) && Math.random() < 0.75) resolveChallenge(rv.hurt);
+    if (G.review && !youChallenge()) G.review = null;
+    G.pc = PC;  // the play clock starts again
     P = [];
     ps = null;
     G.me = null;
@@ -2388,6 +2487,7 @@
   }
 
   function snap() {
+    G.review = null;  // too late to challenge
     G.chg = G.pwShow = null;
     setBrief('');
     snd('crash', { x: ps.bx });  // the two lines meet
@@ -3116,7 +3216,8 @@
       hotRoute(r);
       return;
     }
-    if (stick.id === null && (G.state === 'live' || G.state === 'pre') && !koMine()) {  // on your kickoff a finger on the field is a kick swipe, not the stick
+    if (stick.id === null && (G.state === 'live' || G.state === 'pre') && !koMine()) {
+      // on your kickoff a finger on the field is a kick swipe, not the stick
       stick.id = e.pointerId;
       stick.ox = x;
       stick.oy = y;
@@ -3417,7 +3518,8 @@
 
   function updHud() {
     if (!G.ros) return;
-    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my, G.drill) : '', k = [G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left, G.drill && G.drill.reps.length, G.to, G.state === 'over' || G.state === 'replay'].join();
+    const pcs = pcOn() && G.pc <= 10 ? Math.max(0, Math.ceil(G.pc)) : -1;  // the play clock, in its last ten seconds
+    const s = Math.ceil(G.clock), ko = !!ps && ps.mode === 'ko', ln = G.lineFn ? G.lineFn(G.my, G.drill) : '', k = [pcs, G.score, G.q, s, G.poss, G.down, G.togo | 0, G.los | 0, ko, ln, G.drill && G.drill.left, G.drill && G.drill.reps.length, G.to, G.state === 'over' || G.state === 'replay'].join();
     if (k === hudKey) return;
     hudKey = k;
     const mine = $('#mine');
@@ -3429,7 +3531,8 @@
     $('#clk').textContent = G.drill ? Math.min(G.drill.n, G.drill.n - G.drill.left + 1) + '/' + G.drill.n : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     if (G.drill) $('#qt').textContent = 'Rep';
     G.dnTxt = ko ? (ps.punt ? 'Punt return' : 'Kickoff') : downTxt();
-    $('#dn').textContent = G.dnTxt;
+    $('#dn').textContent = G.dnTxt + (pcs >= 0 ? ` · :${String(pcs).padStart(2, '0')}` : '');
+    $('#dn').classList.toggle('pc', pcs >= 0 && pcs <= 5);
     for (const t of [0, 1]) $('#a' + t).dataset.to = G.drill ? '' : '●'.repeat(G.to[t]) + '○'.repeat(3 - G.to[t]);
     $('#sd0').classList.toggle('has', G.poss === 0);
     $('#sd1').classList.toggle('has', G.poss === 1);
@@ -3651,7 +3754,7 @@
     }
     const draw = () => {
       const list = side === 'off' ? OFF.filter(p => p.cat === cat) : side === 'qb' ? qb : DEF;
-      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${side!=='def'&&hurry(G.poss)?'No huddle · ':''}${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card${p.n===sug?' sug':''}">${side==='qb'&&i===0?'<em>Coach’s pick</em>':p.n===sug?'<em>Suggested</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
+      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${side!=='def'&&hurry(G.poss)?'No huddle · ':''}${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${youChallenge()?`<button class="btn2" id="chal" style="margin:0 0 8px">Challenge the spot · ${G.chal?G.chal[0]:2} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card${p.n===sug?' sug':''}">${side==='qb'&&i===0?'<em>Coach’s pick</em>':p.n===sug?'<em>Suggested</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
       scr.querySelectorAll('.card').forEach((el, i) => {
         drawArt(el.querySelector('canvas'), list[i], side === 'def');
         el.onclick = () => {
@@ -3671,6 +3774,11 @@
       if (tmo) tmo.onclick = () => {
         timeout(0);
         draw();
+      };
+      const ch = $('#chal');
+      if (ch) ch.onclick = () => {
+        resolveChallenge(0);
+        startCall();  // the down, the distance, even the side of the ball may have changed
       };
     };
     draw();
@@ -4453,6 +4561,10 @@
     SDT = dt;
     voClock += dt;
     readInput();
+    if (pcOn()) {
+      G.pc = (G.pc === undefined ? PC : G.pc) - dt;
+      if (G.pc <= 0) delayOfGame();
+    }
     const st = G.state;
     if (st === 'intro') {
       G.introT += dt;
@@ -4626,7 +4738,7 @@
 
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
-    TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, rnd, pick, clamp, load, save, scr, $,
+    TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, CELEBS, rnd, pick, clamp, load, save, scr, $,
     startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
     boot() {
       resize();
@@ -4646,7 +4758,7 @@
         SEEDED = !!n;
         SEED = n | 0;
       },
-      step, render,
+      step, render, startCall, resolveChallenge,
       get G() {
         return G;
       },

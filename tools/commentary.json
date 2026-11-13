@@ -167,6 +167,12 @@
     "pa.draft": { "v": "s", "e": 0.5, "n": 8, "t": ["With pick number {n} in the draft..."] },
     "pa.select": { "v": "s", "e": 0.5, "t": ["The {team} select..."] },
     "pa.qb": { "v": "s", "e": 0.5, "t": ["a quarterback."] },
-    "pa.wr": { "v": "s", "e": 0.5, "t": ["a wide receiver."] }
+    "pa.wr": { "v": "s", "e": 0.5, "t": ["a wide receiver."] },
+    "ref.delay": { "v": "r", "e": 0.2, "t": ["Delay of game, offense."] },
+    "a.delay": { "v": "a", "e": 0.3, "t": ["You can't burn a down like that.", "They have to get that play in quicker."] },
+    "ref.chal": { "v": "r", "e": 0.2, "t": ["The {team} are challenging the spot of the ball."] },
+    "ref.over": { "v": "r", "e": 0.2, "t": ["After review, the ruling on the field is reversed."] },
+    "ref.stands": { "v": "r", "e": 0.2, "t": ["After review, the ruling on the field stands."] },
+    "challenge": { "v": "p", "e": 0.4, "t": ["And there's the flag. They're going to challenge the spot.", "That spot is going to be challenged.", "They want another look at that one."] }
   }
 }

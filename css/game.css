@@ -141,6 +141,8 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 /* filled accent is for the one primary action on a screen; a selected option gets the accent outline */
 .tabs button.on,.seg button.on{background:var(--panel3);color:var(--acc);box-shadow:inset 0 0 0 1.5px var(--acc)}
 .sheet .tabs,.sheet .seg{background:var(--bg)}
+.seg.wrap{flex-wrap:wrap;row-gap:14px;padding:7px 3px}
+.seg.wrap button{flex:1 0 30%;font-size:10px}  /* rows 14px apart: each button's 44px touch area stops where the next row's begins */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .card{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:9px;overflow:hidden;padding:0 0 7px;min-width:0}
 .card:active{border-color:var(--acc)}
@@ -340,3 +342,4 @@ tr.me td{color:var(--acc);font-weight:700}
 .intro .toss{margin-top:4px;opacity:.85}
 .nx .riv{display:inline-block;margin-top:4px;color:var(--ink);font-style:normal}
 #meter.ko .bar{display:none}
+#dn.pc{color:#ff8a8a}  /* the last five seconds of the play clock */

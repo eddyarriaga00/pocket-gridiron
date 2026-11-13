@@ -49,6 +49,14 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - The two-minute warning in the second and fourth quarters (quarters of three minutes or more): the clock stops at
   2:00 and the referee calls it. The referee also announces the coin toss and every timeout ("Timeout, Outlaws.
   That's their second timeout.").
+- A 35-second play clock when you have the ball: it shows next to the down from :35 and turns red at :05; let it run
+  out and it is a five-yard delay of game, called by the referee.
+- Coach's challenge: a spot within half a yard of the line to gain is sometimes given the wrong side of it. Whoever
+  the ruling went against may challenge (two a game; a challenge that fails costs a timeout): "Challenge the spot" on
+  the next play-call screen. The other coach challenges the bad ones, and so does your coach in a career. The
+  referee announces it and the result ("After review, the ruling on the field is reversed.").
+- The teams switch ends after the first and third quarters: a crane shot rises over midfield, and the end zones and
+  the sun are on the other side when it comes down.
 - A career ages: you come into the league at 22, grow a little each of your first seasons, hold in your prime, and
   from 30 lose speed and elusiveness first and skill later. Your rival talks before you play his team, and after.
 - Career awards night after every season: MVP, Offensive Player of the Year, Rookie of the Year, All-League at your
@@ -70,8 +78,10 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - A tackle is two men, not one after the other: the tackler bends to the hit with his shoulder at the runner's hip and
   his arms round him, and they go down together. Defenders who are on top of the play dive on and pile up on the two
   of them, and the pile comes apart from the top. Anyone else close by steps clear instead of standing in it.
-- Touchdown celebrations: the scorer jumps, spikes it, struts, takes a knee, roars or bows to the crowd; his teammates
-  jump, pump a fist or clap; on the other side heads go down and hands go to helmets.
+- Eleven touchdown celebrations: the scorer jumps, spikes it, struts, takes a knee, roars, bows, shuffles, salutes,
+  points both arms to the sky, flexes or leaps; his teammates jump, pump a fist, clap, wave to the crowd or shuffle,
+  and about one in three the whole side does it together on the same beat. In a career you can pick your own (the
+  hub, under Touchdown celebration). On the other side heads go down and hands go to helmets.
 - The officials signal touchdowns, first downs, incomplete passes, timeouts and the two-minute warning.
 - Everybody watches something. Helmets turn to the ball in the air, to the man carrying it, to the quarterback; a
   receiver looks back for the ball once he is into his route, a quarterback in the pocket goes through his receivers,

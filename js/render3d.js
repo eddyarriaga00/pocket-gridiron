@@ -23,6 +23,12 @@
   let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks, sticks2, chain, downBox;
   const crew = [], downMats = [];
   let hemiLight, sunLight, fillLight, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
+
+  /* Switching ends: the engine always has team 0 going up the field, so when the teams change ends after the first
+     and third quarters it is the stadium that turns round instead: the end zones are painted the other way round and
+     the sun goes to the other side. The rest of the bowl is the same from either end. ends is which way round it
+     stands now; endsT times the crane shot that covers the change. */
+  let ends = 0, endsWant = 0, endsT = 9, lastEnv = null, lastTeams = null;
   const shadowSets = [], towerGlow = [], towerPanels = [], refs = [];
   let teamsKey = '', lastPs = null, time = 0, cheer = 0, debugCam = null, zoom = 1, flashes = null, menuShot = -1, nearModel = false, camDist = 0;
   const FLASHES = 48, flashLife = new Float32Array(FLASHES);
@@ -874,10 +880,128 @@
     return /^(RB|FB|OLB|MLB)/.test(p.role) ? 'two' : 'wide';
   }
 
-  /* touchdown: the scorer picks one of six celebrations (jump, spike, strut, kneel, roar, bow), his teammates jump,
-     pump a fist or clap. Which one is down to the figure's own seed, so it changes from play to play. */
-  function celebrate(f, scorer, tg) {
-    const b = Math.abs(Math.sin(time * 6.5 + f.seed)), u = f.seed / 6.2832, v = scorer ? Math.floor(u * 6) % 6 : Math.floor(u * 3) % 3;
+  /* touchdown: the scorer does one of eleven celebrations (CELEBS in game.js: jump, spike, strut, kneel, roar, bow,
+     shuffle, salute, to the sky, flex, leap). The game picks it (style) when the touchdown is scored; a career player
+     can choose his own. His teammates jump, pump a fist, clap, wave to the crowd or shuffle, each to his own seed,
+     unless the whole side celebrates together (group 1: everyone jumps on the same beat, 2: everyone shuffles). */
+  function shuffleStep(tg, w) {
+    // a side-to-side shuffle: the weight goes from foot to foot, shoulders against the hips, elbows bent and swinging
+    tg[PELY] = HIP - 0.06 + Math.abs(w) * 0.04;
+    tg[PELRZ] = w * 0.1;
+    tg[CHRY] = -w * 0.35;
+    tg[HL] = tg[HR] = 0.25;
+    tg[KL] = -0.35 - 0.25 * Math.max(0, w);
+    tg[KR] = -0.35 - 0.25 * Math.max(0, -w);
+    tg[SLX] = 0.6 + w * 0.55;
+    tg[SRX] = 0.6 - w * 0.55;
+    tg[SLZ] = -0.3;
+    tg[SRZ] = 0.3;
+    tg[EL] = tg[ER] = 1.5;
+    tg[HEADRX] = 0.1;
+  }
+
+  function celebrate(f, scorer, tg, style, group) {
+    const u = f.seed / 6.2832, sync = !scorer && group > 0, b = Math.abs(Math.sin(time * 6.5 + (sync ? 0 : f.seed)));
+    const v = scorer ? (style >= 0 ? style % 11 : Math.floor(u * 11) % 11) : sync ? (group === 2 ? 4 : 1) : Math.floor(u * 5) % 5;
+    if (!scorer && v === 4) {
+      shuffleStep(tg, Math.sin(time * 7 + (sync ? 0 : f.seed)));
+      return false;
+    }
+    if (!scorer && v === 3) {
+      // waving to the crowd, one arm high
+      const w = Math.sin(time * 6 + f.seed);
+      tg[SRX] = 2.7;
+      tg[SRZ] = 0.45 + w * 0.35;
+      tg[ER] = 0.35;
+      tg[SLX] = 0.2;
+      tg[SLZ] = -0.2;
+      tg[EL] = 0.4;
+      tg[CHRX] = 0.06;
+      tg[HEADRX] = -0.15;
+      tg[PELY] = HIP + b * 0.03;
+      return false;
+    }
+    if (scorer && v === 6) {
+      shuffleStep(tg, Math.sin(time * 7.5));
+      return false;
+    }
+    if (scorer && v === 7) {
+      // a salute held to the crowd, standing tall
+      tg[CHRX] = 0.1;
+      tg[HEADRX] = -0.12;
+      tg[SRX] = 1.35;
+      tg[SRZ] = 0.95;
+      tg[ER] = 2.35;
+      tg[SLX] = 0.05;
+      tg[SLZ] = -0.08;
+      tg[EL] = 0.1;
+      return false;
+    }
+    if (scorer && v === 8) {
+      // both arms straight to the sky, leaning back, a slow walk
+      const w = Math.sin(time * 3 + f.seed);
+      tg[CHRX] = 0.25;
+      tg[HEADRX] = -0.55;
+      tg[SLX] = tg[SRX] = 3.0;
+      tg[SLZ] = -0.15;
+      tg[SRZ] = 0.15;
+      tg[EL] = tg[ER] = 0.05;
+      tg[HL] = w * 0.22;
+      tg[HR] = -w * 0.22;
+      tg[KL] = -0.25 * Math.max(0, w);
+      tg[KR] = -0.25 * Math.max(0, -w);
+      return false;
+    }
+    if (scorer && v === 9) {
+      // the flex: a crouch, fists pulled in front of his belt, shoulders hunched, shouting, again and again
+      const w = 0.5 + 0.5 * Math.sin(time * 5);
+      tg[PELY] = HIP - 0.08 - w * 0.03;
+      tg[CHRX] = -0.2 - w * 0.12;
+      tg[HEADRX] = -0.3;
+      tg[SLX] = tg[SRX] = 0.45;
+      tg[SLZ] = -0.55;
+      tg[SRZ] = 0.55;
+      tg[EL] = tg[ER] = 2.0;
+      tg[HL] = tg[HR] = 0.35 + w * 0.08;
+      tg[KL] = tg[KR] = -0.5 - w * 0.12;
+      return false;
+    }
+    if (scorer && v === 10) {
+      // a leap: crouch, spring up with one fist punched at the sky, tuck, land, again
+      const ph = (celebT % 1.5) / 1.5;
+      if (ph < 0.25) {
+        const e = smooth(ph / 0.25);
+        tg[PELY] = HIP - 0.16 * e;
+        tg[HL] = tg[HR] = 0.65 * e;
+        tg[KL] = tg[KR] = -0.95 * e;
+        tg[CHRX] = -0.2 * e;
+        tg[SLX] = tg[SRX] = -0.4 * e;
+        tg[EL] = tg[ER] = 0.3;
+      } else if (ph < 0.65) {
+        const a = (ph - 0.25) / 0.4;
+        tg[PELY] = HIP + Math.sin(Math.PI * a) * 0.6;
+        tg[SRX] = 3.1;
+        tg[ER] = 0.1;
+        tg[SLX] = 0.9;
+        tg[SLZ] = -0.6;
+        tg[EL] = 1.2;
+        tg[HL] = 0.6;
+        tg[KL] = -1.1;
+        tg[HR] = 0.15;
+        tg[KR] = -0.4;
+        tg[CHRX] = 0.1;
+        tg[HEADRX] = -0.3;
+      } else {
+        const e = 1 - smooth((ph - 0.65) / 0.35);
+        tg[PELY] = HIP - 0.12 * e;
+        tg[HL] = tg[HR] = 0.5 * e;
+        tg[KL] = tg[KR] = -0.75 * e;
+        tg[SRX] = 3.1 * e;
+        tg[ER] = 0.2;
+        tg[EL] = 0.3;
+      }
+      return false;
+    }
     if (scorer && v === 3) {
       // down on one knee, head bowed; then, still on the knee, both arms to the sky
       for (let i = 0; i < NPOSE; i++) tg[i] = KNEEL[i];
@@ -1392,7 +1516,7 @@
       plant(tg);
     } else if (s.celeb && s.G.state === 'dead') {
       eyes = false;
-      if (p.team === s.celeb.team) snap = celebrate(f, p === s.celeb.who, tg);
+      if (p.team === s.celeb.team) snap = celebrate(f, p === s.celeb.who, tg, s.celeb.style ?? -1, s.celeb.group || 0);
       else {
         // heads down; and some with their hands on their helmets
         tg[CHRX] = -0.18;
@@ -1791,6 +1915,9 @@
   const PAD_X = 6, Y0 = -16, Y1 = 116, TEXW = 1280, TEXS = TEXW / (FW + 2 * PAD_X), TEXH = Math.round((Y1 - Y0) * TEXS);
 
   function paintField(t0, t1) {
+    lastTeams = [t0, t1];
+    const home = t0;  // midfield stays the home side's
+    if (ends) [t0, t1] = [t1, t0];  // the teams have changed ends: each end zone carries the other side's paint
     const c = fieldCanvas.getContext('2d'), S = TEXS, X = x => (x + PAD_X) * S, Y = y => (Y1 - y) * S;
     c.fillStyle = '#1b5a30';
     c.fillRect(0, 0, TEXW, TEXH);
@@ -1841,7 +1968,7 @@
     c.fillText(t0.name.toUpperCase(), X(FW / 2), Y(-5), (FW - 4) * S);
     c.fillText(t1.name.toUpperCase(), X(FW / 2), Y(105), (FW - 4) * S);
     c.globalAlpha = 0.55;
-    c.fillStyle = t0.c1;
+    c.fillStyle = home.c1;
     c.beginPath();
     c.arc(X(FW / 2), Y(50), 5.5 * S, 0, 7);
     c.fill();
@@ -1851,7 +1978,7 @@
     c.stroke();
     c.font = `800 ${3.6 * S}px Archivo, Arial, sans-serif`;
     c.fillStyle = 'rgba(255,255,255,0.92)';
-    c.fillText(t0.ab, X(FW / 2), Y(50) + 0.15 * S);
+    c.fillText(home.ab, X(FW / 2), Y(50) + 0.15 * S);
     c.strokeStyle = 'rgba(255,255,255,0.7)';
     c.lineWidth = 0.14 * S;  // team areas
     c.strokeRect(X(-5.2), Y(70), 2.6 * S, 40 * S);
@@ -2221,6 +2348,8 @@
   };
 
   function applyEnv(e) {
+    lastEnv = e;
+    const sx = ends ? -1 : 1;  // the sun is on the other side once the stadium has turned round
     const t = TIMES[e.time] || TIMES.night, wet = e.weather === 'rain', snow = e.weather === 'snow', bad = wet || snow, dim = wet ? 0.72 : snow ? 0.88 : 1;
     const dark = t === TIMES.night;
     const su = skyMat.uniforms, grey = col2.set(dark ? '#161b25' : '#98a1ac');
@@ -2228,7 +2357,7 @@
       u.value.set(t.sky[i]);
       if (bad) u.value.lerp(grey, 0.72);
     });
-    su.uSunDir.value.set(t.sun[2][0], t.sun[2][1], t.sun[2][2]).normalize();
+    su.uSunDir.value.set(sx * t.sun[2][0], t.sun[2][1], sx * t.sun[2][2]).normalize();
     su.uSunCol.value.set(t.sun[0]).multiplyScalar(dark || bad ? 0 : 1);
     su.uStars.value = bad ? 0 : t.stars;
     su.uCloud.value = bad ? 1 : t.cloud;
@@ -2243,7 +2372,7 @@
     hemiLight.intensity = t.hemi[2] * dim;
     sunLight.color.set(t.sun[0]);
     sunLight.intensity = t.sun[1] * (bad ? 0.45 : 1);
-    sunLight.position.set(t.sun[2][0], t.sun[2][1], t.sun[2][2]);
+    sunLight.position.set(sx * t.sun[2][0], t.sun[2][1], sx * t.sun[2][2]);
     fillLight.intensity = t.fill;
     crowdBase = t.crowd * dim * 0.62;
     groundMat.color.set(t.ground);
@@ -2448,6 +2577,15 @@
 
   const m4 = new T.Matrix4(), dirV = new T.Vector3(), NIGHT = { time: 'night', weather: 'clear' };
 
+  function turnEnds(w) {
+    ends = w;
+    if (lastTeams) {
+      paintField(lastTeams[0], lastTeams[1]);
+      fieldTex.needsUpdate = true;
+    }
+    if (lastEnv) applyEnv(lastEnv);
+  }
+
   /* s: { G, P, ps, cam, teams, acc, shake, isCtl } */
   function render(s, dt) {
     time += dt;
@@ -2462,6 +2600,16 @@
       boardKey = '';
       setTeams(t0, t1);
     }
+    /* the second and fourth quarters are played the other way round (see ends) */
+    endsWant = G.state !== 'menu' && !G.drill && G.q % 2 === 0 ? 1 : 0;
+    if (endsWant !== ends) {
+      if (G.state === 'menu' || G.state === 'intro' || G.state === 'over') {
+        turnEnds(endsWant);
+        endsT = 9;
+      } else if (endsT >= 2.6) endsT = 0;  // start the crane
+      else if (endsT >= 1.15) turnEnds(endsWant);  // and turn the stadium round at the top of it
+    }
+    endsT += dt;
     celebT = G.celeb && G.state === 'dead' ? celebT + dt : 0;
     const bk = G.ros ? [G.score, G.q, Math.ceil(G.clock || 0), s.down, !!G.celeb].join('|') : 'menu';
     if (bk !== boardKey) {
@@ -2662,6 +2810,11 @@
         v3.set(FW / 2 + Math.sin(a) * lerp(60, 22, u), lerp(46, 9, u), -50 + Math.cos(a) * lerp(60, 22, u));
         v3b.set(FW / 2, 1, -50);
       }
+    } else if (endsT < 2.6 && G.state !== 'live' && G.state !== 'replay' && G.state !== 'intro') {
+      // the teams change ends: a crane up over midfield and down again, the stadium turning round at the top
+      const u = endsT / 2.6, a = -0.4 + u * 1.6, h = Math.sin(Math.PI * u);
+      v3.set(FW / 2 + Math.sin(a) * lerp(30, 70, h), lerp(10, 62, h), -50 + Math.cos(a) * lerp(30, 70, h));
+      v3b.set(FW / 2, 1, -50);
     } else if (G.state === 'intro') {
       // before kickoff: sweep down into the stadium
       let e = clamp((G.introT || 0) / 3.8, 0, 1);
@@ -3296,11 +3449,11 @@
     return cv.toDataURL('image/png');
   }
 
-  /* every celebration as a picture: the scorer's six, the teammates' three, the beaten side's two, each at `at` seconds */
+  /* every celebration as a picture: the scorer's eleven, the teammates' five, the beaten side's two, each at `at` seconds */
   function celebStrip(opts) {
     if (!renderer) return null;
     const o = opts || {}, ar = arenaOf(), at = o.at === undefined ? 1.8 : o.at, cell = o.cell || 200, teams = PG.TEAMS || [{ c1: '#c0392b', c2: '#f1f1f1' }];
-    const list = [...[0, 1, 2, 3, 4, 5].map(v => [true, (v + 0.5) / 6]), ...[0, 1, 2].map(v => [false, (v + 0.5) / 3]), ['lost', 0.3], ['lost', 0.8]];
+    const list = [...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [true, 0.5, v]), ...[0, 1, 2, 3, 4].map(v => [false, (v + 0.5) / 5]), ['lost', 0.3], ['lost', 0.8]];
     const cv = document.createElement('canvas'), x = cv.getContext('2d'), f = ar.a.f, keep = { seed: f.seed, t: celebT };
     cv.width = cell * list.length;
     cv.height = Math.round(cell * ar.ph / ar.pw);
@@ -3311,7 +3464,7 @@
     ar.b.f.root.updateMatrixWorld(true);
     setBuild(f, BUILD.back);
     celebT = at;
-    list.forEach(([who, u], i) => {
+    list.forEach(([who, u, style], i) => {
       f.seed = u * 6.2832;
       TG.fill(0);
       TG[PELY] = HIP;
@@ -3323,7 +3476,7 @@
         f.heading = 0;
         poseFor(f, p, { ps: { carrier: null, air: null, mode: 'run', offTeam: 0, recs: [] }, G: { state: 'dead' }, celeb: { team: 0, who: null }, pre: false, live: false, dir: 1, charge: -1 }, 1);
       } else {
-        celebrate(f, who, TG);
+        celebrate(f, who, TG, style ?? -1, 0);
         f.cur.set(TG);
         applyPose(f);
       }
@@ -3342,6 +3495,9 @@
 
   PG.r3d = {
     init, resize, render, project, portrait, celebStrip,
+    get ends() {
+      return ends;
+    },
     blockStrip, eyesStrip,  // test hooks: a block, and a man watching the ball, drawn as rows of pictures
     eyes: eyesTest, block: blockTest, beside: besideTest, besideSweep,  // test hooks: where a helmet points, where a blocker's hands are, whether a man beside a tackle is standing in it
     tackle: tackleTest, tackleStrip,  // test hooks: measure a staged tackle, and draw it as a row of frames

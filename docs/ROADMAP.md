@@ -804,6 +804,23 @@ what is next. Update it after every item.
   left sideline, none after 8 s to the goal line. A test swipe also grabbed the movement stick; the stick is off
   during your kickoff now. `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at
   320x568 (with the kickoff screen) and 390x844.
+- 22:42 The rest of Round 14. Play clock: 35 seconds from the play-call screen while you have the ball (not in
+  simulations, drills or your own kicks), shown beside the down and red from :05; at zero a five-yard delay of game
+  with the referee's call (new clips ref.delay, a.delay). Coach's challenge: a spot within 0.6 yd of the line to gain
+  is given the wrong side about three times in ten (Math.random, so seeded runs are untouched); the side it hurt may
+  challenge, two a game, a failed one costing a timeout. Overturned restores the true spot (first down, or the right
+  down and distance, or a turnover on downs on fourth). The computer challenges a wrong call three times in four, and
+  so does your coach in a career; you get a button on the next sheet. New clips ref.chal.{team}, ref.over,
+  ref.stands, booth "challenge". Celebrations: five more for the scorer (shuffle, salute, to the sky, flex, leap) and
+  two for teammates (wave, shuffle), picked in game.js by Math.random; group celebrations (whole side jumping or
+  shuffling on one beat) about one in three; a career player can choose his own in the hub. Switching ends: the
+  engine still has team 0 going up the field, so render3d.js turns the stadium instead in the 2nd and 4th quarters
+  (the end zones repainted the other way round, the sun mirrored), under a 2.6 s crane shot over midfield; rotating
+  the turf mesh was tried first and turned every yard number upside down. Checked: challenge overturned (first down
+  and short), stands (timeout lost), computer rate 0.8 of 40, a bot game with one natural close spot; celebrations as
+  a picture strip and staged in an end zone; ends turning in a bot game at Q2, Q3, Q4. `H.fingerprint()` unchanged;
+  exhibition, both careers and the drills clean; audit empty at 320x568 and 390x844 (the celebration picker first
+  overlapped its own touch areas; rows are now 14 px apart), and the sheet with the challenge button checked at both.
 
 ## Morning hand-off
 
@@ -1042,10 +1059,10 @@ what is next. Update it after every item.
 ### challenge, and different celebrations for tocuhdowns, also add a kicking swipe so u can interact when there is
 ### kicks, so they arent automatic yk")
 - [x] The kick swipe: field goals, punts and your kickoffs (which used to go by themselves).
-- [ ] Play clock with delay of game.
-- [ ] Coach's challenge.
-- [ ] More touchdown celebrations.
-- [ ] Teams switch ends between quarters.
+- [x] Play clock with delay of game.
+- [x] Coach's challenge.
+- [x] More touchdown celebrations.
+- [x] Teams switch ends between quarters.
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:

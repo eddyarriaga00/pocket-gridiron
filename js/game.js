@@ -212,6 +212,7 @@
         vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
         vo('intro.away.' + vk(G.home ? o.a : o.b), { ttl: 14 });  // a road game: you are the visitors
         vo('intro.home.' + vk(G.home ? o.b : o.a), { ttl: 16 });
+        if (G.home) vo('intro.road', { ttl: 20 });  // a road game: the booth says what kind of place it is
         if (G.callout) {
           vo(G.callout === 'guarantee' ? 'call.guar' : 'call.trash', { keep: true, ttl: 20 });
           vo('a.callout', { pri: 0, keep: true, ttl: 24 });
@@ -3009,6 +3010,7 @@
     if (!AUTO && PG.audio && ps.mode !== 'kick' && !G.drill) {
       const a = PG.audio, redZone = (G.poss === 0 ? 100 - G.los : G.los) < 20;
       if (G.poss !== (G.home || 0) && G.down >= 3) {
+        if (G.home && G.poss === 0 && Math.random() < 0.35) analyst('a.loud', 1);  // your third down on the road: the analyst hears it too
         a.crowd.rise(2.2);  // the home crowd makes all the noise it can until the ball is snapped
         Math.random() < 0.5 ? a.crowd.chant(3) : a.crowd.clapBuild(2.4);
       } else if (G.poss === (G.home || 0) && (G.down === 3 || redZone) && Math.random() < 0.45) {

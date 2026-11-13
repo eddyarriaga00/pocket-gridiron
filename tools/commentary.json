@@ -161,6 +161,8 @@
     "ref.tox2": { "v": "r", "e": 0.2, "t": ["That's their second timeout."] },
     "ref.tox3": { "v": "r", "e": 0.2, "t": ["That's their third and final timeout."] },
     "a.hurry": { "v": "a", "e": 0.35, "t": ["Every second counts now.", "This is where a quarterback earns his money."] },
+    "intro.road": { "v": "p", "e": 0.45, "t": ["A tough place to play. This crowd will be loud all day.", "The visitors walk into a hostile building today.", "Nobody likes coming in here, and the home fans are ready."] },
+    "a.loud": { "v": "a", "e": 0.4, "t": ["You can't hear a thing in here. They'll need a silent count.", "That crowd noise is a real factor on third down.", "Listen to this place. The home fans know it's a big down."] },
     "f.ready": { "v": "q", "e": 0.75, "t": ["Ready... set!", "Blue eighty! Blue eighty! Set!", "Green nineteen! Set!", "Red forty-two! Red forty-two! Set!", "Ready... set!"] },
     "f.hut": { "v": "q", "e": 0.9, "t": ["Hut!", "Hut!", "Hut, hut!"] },
     "f.audible": { "v": "q", "e": 0.85, "t": ["Kill! Kill!", "Check! Check!", "Alert! Alert!"] },

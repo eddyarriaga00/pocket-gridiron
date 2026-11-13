@@ -2652,10 +2652,11 @@
   /* ---------- textures ---------- */
   const PAD_X = 6, Y0 = -16, Y1 = 116, TEXW = 1280, TEXS = TEXW / (FW + 2 * PAD_X), TEXH = Math.round((Y1 - Y0) * TEXS);
 
-  function paintField(t0, t1, host) {
-    lastTeams = [t0, t1, host];
+  function paintField(t0, t1, host, both) {
+    lastTeams = [t0, t1, host, both];
     const home = host || t0;  // midfield stays the home side's (the other team's, in a road game)
     if (ends) [t0, t1] = [t1, t0];  // the teams have changed ends: each end zone carries the other side's paint
+    if (both) t0 = t1 = home;  // a league game: both end zones are the home team's, the way a real stadium is painted
     const c = fieldCanvas.getContext('2d'), S = TEXS, X = x => (x + PAD_X) * S, Y = y => (Y1 - y) * S;
     c.fillStyle = '#1b5a30';
     c.fillRect(0, 0, TEXW, TEXH);
@@ -3260,9 +3261,9 @@
   }
 
   /* repaint everything that carries team colors, and stand the reserves along the sidelines */
-  function setTeams(t0, t1, hs) {
+  function setTeams(t0, t1, hs, both) {
     hs = hs || 0;  // which side is at home: its paint at midfield, its colors in the seats, its men in their home jerseys
-    paintField(t0, t1, hs ? t1 : t0);
+    paintField(t0, t1, hs ? t1 : t0, both);
     paintCrowd(hs ? t1 : t0, hs ? t0 : t1);
     const kinds = [BUILD.line, BUILD.big, BUILD.slim, BUILD.back, BUILD.db, BUILD.end, BUILD.qb];
     for (let i = 0; i < SIDELINE; i++) {
@@ -3321,7 +3322,7 @@
   function turnEnds(w) {
     ends = w;
     if (lastTeams) {
-      paintField(lastTeams[0], lastTeams[1], lastTeams[2]);
+      paintField(lastTeams[0], lastTeams[1], lastTeams[2], lastTeams[3]);
       fieldTex.needsUpdate = true;
     }
     if (lastEnv) applyEnv(lastEnv);
@@ -3331,7 +3332,7 @@
   function render(s, dt) {
     time += dt;
     const G = s.G, P = s.P, ps = s.ps, t0 = s.teams[G.tm[0]], t1 = s.teams[G.tm[1]];
-    const key = G.tm[0] + '-' + G.tm[1] + '-' + (G.home || 0), e = s.env || NIGHT, ek = e.time + '|' + e.weather;
+    const lg = G.mode === 'career' || G.mode === 'season', key = G.tm[0] + '-' + G.tm[1] + '-' + (G.home || 0) + (lg ? 'L' : ''), e = s.env || NIGHT, ek = e.time + '|' + e.weather;
     if (ek !== envKey) {
       envKey = ek;
       applyEnv(e);
@@ -3339,7 +3340,7 @@
     if (key !== teamsKey) {
       teamsKey = key;
       boardKey = '';
-      setTeams(t0, t1, G.home || 0);
+      setTeams(t0, t1, G.home || 0, lg);
     }
     updateProps(s.scene || null, t0, P);
     /* the second and fourth quarters are played the other way round (see ends) */

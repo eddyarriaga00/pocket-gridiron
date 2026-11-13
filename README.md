@@ -38,7 +38,9 @@ A season saved in the old eight-team league finishes the old way and the next on
 Half your games are on the road (five of ten, mixed through the season; in the playoffs the better seed hosts). On
 the road the field's midfield and the crowd are the other team's, you wear white, the crowd groans at your big plays,
 boos your walkout, roars on your third downs (a false start comes a little easier and your hard count is drowned
-out), and the stadium announcer is theirs; a road win is worth a little XP. Every city has its own weather: eleven teams play under a roof (never rain or snow), the cold cities get snow late in
+out), and the stadium announcer is theirs; a road win is worth a little XP. In a league game both end zones carry the
+home team's name, and on the road the booth says what kind of place it is ("the visitors walk into a hostile
+building") and the analyst hears the noise on your third downs. Every city has its own weather: eleven teams play under a roof (never rain or snow), the cold cities get snow late in
 the season, the wet ones more rain, the warm ones never snow; the career hub gives the next game's forecast.
 
 ## Modes

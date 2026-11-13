@@ -1156,6 +1156,14 @@ what is next. Update it after every item.
   road on yours (3 of 3); a road walkout drew a boo and no cheer. Checked: careers, a full QB season (five at home,
   five away), exhibition, drills, a drawn road game with every pose finite, gait slide 1 cm and no sinking, audit
   empty at 320x568 and 390x844 with and without the 34 px strip, no console errors.
+- 03:49 Automatic run: home and away, the rest. In a career or season game both end zones carry the home team's name
+  and color (render3d `paintField(..., both)`; exhibition keeps one each); new booth lines recorded on the local
+  Kokoro model: `intro.road` (three takes, said at the start of a road game) and `a.loud` (the analyst, about one
+  road third down in three: "They'll need a silent count"). Six clips; the voice tool flagged none of them (the one it
+  still flags is "The Iron Sides select...", see 02:30). Measured: intro.road peaks -3.3 dB at -14.7 RMS, a.loud -3.6
+  at -13.4, a.hurry beside them -3.1 at -15.6; a road game asked for 85 lines, a.loud among them, none missing.
+  Checked: fingerprint unchanged, careers, exhibition, drills, a drawn road game with every pose finite, gait slide
+  1 cm, audit empty at 320x568 and 390x844 with and without the 34 px strip.
 
 ## Morning hand-off
 
@@ -1471,8 +1479,6 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Home and away, the rest (the core landed at 03:40): booth lines for a road game ("a hostile place to play") recorded
-  on the local Kokoro model, and the end zones both in the home team's paint on the road.
 - Kick and punt returns for a receiver's career: the coach makes you the returner (a role with its own trust line);
   on their kickoffs and punts you field it and run it back live (today their kickoffs go straight to your offense).
 - Pre-snap motion: jet and orbit motion, a shift from one formation to another; the computer uses it on a third of its

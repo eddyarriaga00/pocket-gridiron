@@ -631,7 +631,7 @@ what is next. Update it after every item.
   three times during long test loops in the hidden pane, which freezes the page between tool calls; no game code
   was in the trace, and it did not happen in the timed runs. Worth a look if a player ever reports sound stopping.
 
-- 19:20 Field sound (automatic run 6). A field goal whose accuracy lands within 0.03 of the line between good and no
+- 19:13 Field sound (automatic run 6). A field goal whose accuracy lands within 0.03 of the line between good and no
   good (about one kick in fifteen near it) is flown at the upright and leaves it inward or back out. Whether it is
   good was already decided and the flight time is unchanged, so play is untouched. Forced four kicks in a game (good
   and missed, at each post): each met its post exactly (23.57 and 29.77 across the field, the posts' own positions)

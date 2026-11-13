@@ -1351,6 +1351,17 @@ what is next. Update it after every item.
   finite, gait slide 1 cm and sink 0.2 cm as before. Checked: fingerprint unchanged, careers, exhibition, drills,
   audit empty at 320x568 and 390x844, no console errors. Not done: the body shapes themselves (the skinned body is
   still its own project).
+- 18:14 By hand (the owner: "keep going on the body shapes"). The limbs are one recipe each at two finenesses (`mkThigh`,
+  `mkShin`, `mkUpperArm`, `mkForeArm`, `mkHips`, `mkNeck`, `cleat(seg)`), so the gameplay model has the close model's
+  muscle instead of plain tubes: quadriceps and hamstring on a thicker thigh (0.116 to 0.124 at the top, was 0.108),
+  a calf that swells 2.4 cm behind the shin, biceps and triceps, a seat on the hips, real cleats with a toe and heel.
+  Both models: the torso tapers harder (waist 0.176, chest 0.247, more chest and back), the neck is thicker, the
+  sleeves a little wider for the arm. Joints did not move, so every pose is as it was. Measured: gait slide 1 cm and
+  sink 0.2 cm at 8 yd/s (1.5 and 0 at 2), tackle hands 9 cm from the runner with nothing inside him or under the
+  turf, block hands 3.5 to 10.5 cm with chests 11 cm apart, the leap as before, a drawn game with every pose finite,
+  60.3 frames a second three times (one reading of 44 came straight after a long synchronous test). Checked:
+  fingerprint unchanged, careers, exhibition, drills, audit empty at 320x568 and 390x844, no console errors. Still a
+  jointed body, not a skinned one: elbows and knees are balls between rigid parts.
 
 ## Morning hand-off
 

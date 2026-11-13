@@ -1286,6 +1286,7 @@
     tab = tab || 'up';
     const t = team(C.team);
     let sure = false;  // the trade button has been tapped once
+    let setOpen = false;  // the game settings are folded away until asked for
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
@@ -1296,15 +1297,20 @@
   ${nextCard()}
   <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats'],['social','Social']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
   ${tab==='up'?tabUp():tab==='season'?tabSeason():tab==='social'?tabSocial():tabStats()}
-  <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
+  <div class="hset${setOpen?' open':''}"><button class="hsum" id="hset" aria-expanded="${setOpen}"><b>Game settings</b><span>${DIFFS[C.diff??1]} · ${C.ql/60}-min quarters${C.pos==='WR'?` · ${C.kr===false?'offense only':'returns kicks'}`:''}</span></button>
+  ${setOpen?`  <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
   <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
   ${C.pos==='WR'?`<h2>Special teams</h2><div class="seg" id="hk">${[[1,'Return kicks'],[0,'Offense only']].map(([v,l])=>`<button data-k="${v}" class="${v===(C.kr===false?0:1)?'on':''}">${l}</button>`).join('')}</div>
   ${retHtml()}`:''}
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
-  <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>
+  <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>`:''}</div>
   <div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
   ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}</div>`;
       $('#bk').onclick = PG.showMenu;
+      $('#hset').onclick = () => {
+        setOpen = !setOpen;  // stays as you left it while the hub is open
+        keepScroll(draw);
+      };
       scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
         tab = b.dataset.t;
         sure = false;

@@ -1315,6 +1315,13 @@ what is next. Update it after every item.
   `p0.tackler`), so defenders are replaced too. A game of 15-minute quarters had three: a quarterback and both outside
   linebackers. No screen changed, so the interface audit was not rerun (it was empty at 09:19). Checked: fingerprint
   unchanged, careers (QB and WR), exhibition, drills.
+- 17:10 By hand (the owner: "no more additions but focus on improving ui with no regressions"): an interface pass. The
+  career hub repeated its settings (difficulty, special teams, quarter length, celebration) under every tab; they are
+  now one "Game settings" card that says the current choices and opens on a tap (rendered only when open: a folded
+  `<details>` still gave the audit buttons under the ones below it). The hub is about 600 px shorter. The Away button
+  on the pass pad is smaller, dashed and set apart from the receiver letters. Checked: fingerprint unchanged, careers
+  (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844 including the open settings card, no console
+  errors. Until the owner says otherwise: interface work only, no new features.
 
 ## Morning hand-off
 

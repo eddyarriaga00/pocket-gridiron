@@ -4222,7 +4222,7 @@
       ps.recs.forEach((r, i) => {
         B(r.let, 'rc', () => startCharge(i), () => endCharge(i)).style.background = r.col;  // hold to build power, let go to throw
       });
-      B('Away', '', () => act('away'));  // nobody open: throw it out of bounds (from inside the pocket it may be grounding)
+      B('Away', 'aw', () => act('away'));  // nobody open: throw it out of bounds (from inside the pocket it may be grounding)
     }
     else if (kind === 'carry') {
       spr();

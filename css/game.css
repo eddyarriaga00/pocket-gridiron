@@ -115,6 +115,15 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .pb:active{transform:scale(.94);background:var(--panel3)}
 .pb.big{width:70px;height:70px;font-size:13px;font-weight:800;background:var(--acc);color:var(--acc-ink);border-color:rgba(255,255,255,.85)}
 .pb.rc{width:50px;height:50px;font-size:19px;font-weight:800;letter-spacing:0;color:#06101f;border-color:rgba(255,255,255,.9)}
+.pb.aw{width:46px;height:46px;margin:2px 4px 2px 14px;font-size:10px;letter-spacing:0;border-style:dashed;border-color:rgba(255,255,255,.4);color:#c9d3e6}   /* throw it away: smaller, set apart from the receivers so it is not hit by mistake */
+.hset{margin-top:18px;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:0 12px}
+.hsum{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:48px;font-family:var(--display);color:var(--ink);text-align:left}
+.hsum b{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.hsum span{flex:1;color:var(--mute);font-size:11px;text-align:right}
+.hsum::after{content:'›';color:var(--mute);font-size:18px;transform:rotate(90deg)}
+.hset.open .hsum::after{transform:rotate(-90deg)}
+.hset.open{padding-bottom:12px}
+.hset>h2:first-of-type{margin-top:4px}
 .pb.hot{background:var(--acc);color:var(--acc-ink);border-color:rgba(255,255,255,.85)}
 .pb.spr{background:linear-gradient(to top,rgba(44,74,128,.88) calc(var(--st,1)*100%),rgba(13,21,36,.78) 0)}   /* stamina: a fill dark enough for the label to read on, even over snow */
 

@@ -56,7 +56,10 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   play him twice a season). There are 14 trophies. Three games a season are primetime (at night, the whole league
   watching, XP +25%; the conference final and the championship always are); a big win can make you your conference's
   Player of the Week (+400 XP and a post from the league); every stat keeps your single-game career high, and the
-  broadcast says so the moment you pass one. Edit team names from the hub or the new-career screen too.
+  broadcast says so the moment you pass one. Edit team names from the hub or the new-career screen too. A receiver is
+  also the kick returner (a switch on the hub): on their kickoffs and punts you are back deep, field it, and run it
+  back yourself (or tap Fair catch on a punt). Returns go on your game line and earn XP; fumble one and the coach sends
+  somebody else back for the rest of that game.
 - **Season.** Take one team through the ten-week season and the eight-team playoff, calling and playing every snap. Your roster
   keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.

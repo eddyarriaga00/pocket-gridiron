@@ -313,6 +313,7 @@
       add('Receptions', m.rec * 40);
       add('Receiving yards', Math.max(0, m.recyd) * 4);
       add('Receiving touchdowns', m.rectd * 160);
+      add('Returns', (m.kry || 0) * 2 + (m.pry || 0) * 3 + (m.krtd || 0) * 160);
     }
     if (C.pos === 'LB') {
       add('Tackles', m.tkl * 45);
@@ -332,10 +333,16 @@
     return it;
   }
 
+  /* kick and punt returns, for a receiver who is the returner */
+  const retLine = m => {
+    const n = (m.kr || 0) + (m.pr || 0);
+    return n ? ` · ${n} ret, ${(m.kry || 0) + (m.pry || 0)} yds${m.krtd ? `, ${m.krtd} TD` : ''}` : '';
+  };
+
   function line(m) {
     if (C.pos === 'QB') return `${m.comp}/${m.att}, ${m.pyd} yds, ${m.ptd} TD, ${m.pint} INT` + (m.car ? ` · ${m.car} car, ${m.ryd} yds` : '');
     if (C.pos === 'RB') return `${m.car} car, ${m.ryd} yds, ${m.rtd} TD` + (m.rec ? ` · ${m.rec} rec, ${m.recyd} yds` : '');
-    if (C.pos === 'WR') return `${m.rec} rec, ${m.recyd} yds, ${m.rectd} TD · ${m.tgt} targets` + (m.car ? ` · ${m.car} car, ${m.ryd} yds` : '');  // an end around now and then
+    if (C.pos === 'WR') return `${m.rec} rec, ${m.recyd} yds, ${m.rectd} TD · ${m.tgt} targets` + (m.car ? ` · ${m.car} car, ${m.ryd} yds` : '') + retLine(m);  // an end around now and then
     if (C.pos === 'LB') return `${m.tkl} tkl, ${m.sack} sack, ${m.int} INT, ${m.pbu} PBU`;
     return `${m.tkl} tkl, ${m.int} INT, ${m.pbu} PBU`;
   }
@@ -992,9 +999,15 @@
       + (C.log.length ? `<h2>Your games</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${team(g.opp).ab}</td></tr>`).join('')}</table>` : '');
   }
 
+  const retTot = m => {
+    const n = (m.kr || 0) + (m.pr || 0), y = (m.kry || 0) + (m.pry || 0);
+    return n ? `${n} for ${y} yards${m.krtd ? `, ${m.krtd} TD` : ''}` : 'none';
+  };
+
   function tabStats() {
     const cols = COLS[C.pos], row = (l, m) => `<tr><td>${l}</td>${cols.map(([,k])=>`<td>${m[k]}</td>`).join('')}</tr>`;
     return `<table class="lg"><tr><th></th>${cols.map(([h])=>`<th>${h}</th>`).join('')}</tr>${row('Season',C.stats)}${row('Career',C.career)}</table>
+  ${C.pos==='WR'&&(C.career.kr||C.career.pr)?`<p class="note">Returns · this season ${retTot(C.stats)} · career ${retTot(C.career)}</p>`:''}
   ${leadersHtml()}${historyHtml()}${trophiesHtml()}
   ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}${g.grade?' · '+g.grade:''}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`;
   }
@@ -1223,6 +1236,8 @@
   ${tab==='up'?tabUp():tab==='season'?tabSeason():tab==='social'?tabSocial():tabStats()}
   <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
   <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
+  ${C.pos==='WR'?`<h2>Special teams</h2><div class="seg" id="hk">${[[1,'Return kicks'],[0,'Offense only']].map(([v,l])=>`<button data-k="${v}" class="${v===(C.kr===false?0:1)?'on':''}">${l}</button>`).join('')}</div>
+  <p class="note">The returner fields their kickoffs and punts and runs them back. Fumble one and the coach sends somebody else back for the rest of that game.</p>`:''}
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
   <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>
   <div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
@@ -1261,6 +1276,11 @@
       if (pr) pr.onclick = practice;
       scr.querySelectorAll('#hd button').forEach(b => b.onclick = () => {
         C.diff = +b.dataset.d;
+        persist();
+        keepScroll(draw);
+      });
+      scr.querySelectorAll('#hk button').forEach(b => b.onclick = () => {
+        C.kr = b.dataset.k === '1';
         persist();
         keepScroll(draw);
       });
@@ -1331,7 +1351,7 @@
     const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
     const pt = LG.prime(C), env = gameEnv();
     PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
-      away: !LG.home(C), prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
+      away: !LG.home(C), kr: C.pos === 'WR' && C.kr !== false, prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
       mustWin: C.phase !== 'reg', env, line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 

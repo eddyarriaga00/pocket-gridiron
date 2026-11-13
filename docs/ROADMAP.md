@@ -1164,6 +1164,19 @@ what is next. Update it after every item.
   at -13.4, a.hurry beside them -3.1 at -15.6; a road game asked for 85 lines, a.loud among them, none missing.
   Checked: fingerprint unchanged, careers, exhibition, drills, a drawn road game with every pose finite, gait slide
   1 cm, audit empty at 320x568 and 390x844 with and without the 34 px strip.
+- 04:27 Automatic run: kick and punt returns for a receiver's career. A receiver is the returner (hub switch "Special
+  teams": Return kicks / Offense only, on by default; `C.kr`, passed as `kr` to `startGame`). Their kickoffs are now
+  played live in a career when you return (`startCall`), with you as the deep man (`beginKickoff` swaps you and the
+  other receiver, so you keep your number, ratings and look) and the "YOU" marker on you. Their punts: the simulated
+  drive stops when the computer calls a punt (`simDrives` keeps it as `G.liveP`), the banner says "JAX punt · get
+  back deep", and the punt is played live with you fielding it (`asHero` dresses the free safety as you; your hands
+  lower the muff chance; Fair catch works as in exhibition; the brief says "Punt return"). Returns are counted
+  (`retStat`: kr, kry, pr, pry, krtd), shown on the game line ("6 ret, 97 yds") and in the stats tab, and pay XP
+  (2 a kick return yard, 3 a punt return yard, 160 a return touchdown). A fumble on a return that they recover takes
+  you off returns for the rest of that game. The play tag reads "Kick return" while one is live. Measured, test bot
+  (no steering): 4-6 returns a game, kickoffs about 16 yards a return, punts about 7. Checked: fingerprint
+  unchanged, careers (QB and WR), exhibition, drills, a drawn career game with every pose finite, the switch on the
+  hub, audit empty at 320x568 and 390x844, no console errors after a reload.
 
 ## Morning hand-off
 
@@ -1479,8 +1492,9 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Kick and punt returns for a receiver's career: the coach makes you the returner (a role with its own trust line);
-  on their kickoffs and punts you field it and run it back live (today their kickoffs go straight to your offense).
+- Returner, the rest: a trust line of its own on the hub (good returns keep the job, a muff loses it for a few weeks,
+  not just a game), kick and punt return leaders on the league board, a career high for return yards, and a booth
+  line for a long return by you ("He's got a seam!"; record it with the local voice tool).
 - Pre-snap motion: jet and orbit motion, a shift from one formation to another; the computer uses it on a third of its
   snaps; routes are built from where the man is at the snap; a defender follows a man in motion in man coverage (a
   read for the quarterback: man or zone).

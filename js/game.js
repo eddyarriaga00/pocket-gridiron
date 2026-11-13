@@ -126,6 +126,14 @@
     G.fd = y + (t === 0 ? 1 : -1) * G.togo;
   }
 
+  /* a career returner's line: kick returns and punt returns, and any return he takes all the way */
+  function retStat(yd, td) {
+    const m = G.my, k = ps.punt ? 'pr' : 'kr';
+    m[k] = (m[k] || 0) + 1;
+    m[k + 'y'] = (m[k + 'y'] || 0) + yd;
+    if (td) m.krtd = (m.krtd || 0) + 1;
+  }
+
   const kickoff = t => {
     setBall(t, t === 0 ? 25 : 75, FW / 2);
     G.pendKO = t;
@@ -153,7 +161,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, diff: o.diff ?? 1, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, home: o.away ? 1 : 0, prime: !!o.prime, around: o.around || null, highs: o.highs || null, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, home: o.away ? 1 : 0, kr: !!o.kr && !!lock, liveP: null, prime: !!o.prime, around: o.around || null, highs: o.highs || null, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     G.callout = o.callout || null;
@@ -583,8 +591,17 @@
 
   /* Lines both teams up for G.op against G.dp. With shift = true it is a change at the line (an audible or a flip):
      the same snap, so nothing is counted again and the players slide to their new spots instead of breaking a huddle. */
-  /* punts are returned live when you run the whole team; simulations, practice and career games take a simulated return */
-  const liveReturn = () => !AUTO && !QUIET && !G.lock && !G.drill;
+  /* punts are returned live when you run the whole team, or in a career when you are the returner; simulations and
+     practice take a simulated return */
+  const liveReturn = () => !AUTO && !QUIET && !G.drill && (!G.lock || G.kr);
+
+  /* a career receiver back deep for a punt: the man fielding it is him (his number, name, speed and hands) */
+  function asHero(p) {
+    const h = G.ros[0][G.lock];
+    Object.assign(p, { spd: h.spd, rt: h.rt, num: h.num, name: h.name }, h.x || {});
+    p.hero = true;
+    return p;
+  }
 
   function setupPlay(shift) {
     const was = shift ? Object.fromEntries(P.map(p => [p.team + p.role, [p.x, p.y]])) : null, selRole = shift && G.sel ? G.sel.role : null;
@@ -718,8 +735,9 @@
       r.y = clamp(los + dir * 40, 5, 95);
       r.asg = 'ret';
       ps.ret = r;
+      if (r.team === 0 && G.lock && G.kr) asHero(r);
     }
-    G.me = G.lock && !kick ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : null;
+    G.me = G.lock && !kick ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : ps.ret && ps.ret.hero ? ps.ret : null;
     G.sel = G.lock ? G.me : off === 1 ? (selRole && d[selRole]) || d.MLB : null;
     for (const p of P) {
       p.sx = p.x;
@@ -2055,6 +2073,7 @@
       score = true;
       if (ps.mode === 'ko') {
         /* a return: no yards from scrimmage, nobody's turnover */
+        if (me && c === me) retStat(Math.round(((t === 0 ? 100 : 0) - ps.land) * dir), true);
       } else if (t === off) addYds(off, Math.round(((t === 0 ? 100 : 0) - los) * dir), true);
       else {
         G.stats[off].to++;
@@ -2079,6 +2098,10 @@
       const t = arg.team, f = ps.fum.forced, ez = t === 0 ? c.y <= 0 : c.y >= 100;
       stop = true;
       big = ps.fum.muff ? 'Muffed punt!' : 'Fumble!';
+      if (ps.mode === 'ko' && G.kr && me && ps.fum.by === me && t !== 0) {
+        G.kr = false;  // you put it on the ground: the coach sends somebody else back for the rest of the day
+        setTimeout(() => toast('Coach: somebody else returns kicks today'), 2600);
+      }
       sub = `${c.name} recovers for the ${tname(t)}` + (f ? ` · forced by ${f.name}` : '');
       G.stats[1 - t].to++;
       react(t, 1.2, 3);
@@ -2096,6 +2119,7 @@
         sub = ez ? tname(t) + ' ball' : `${c.name} · ${ry} yard${ry===1?'':'s'}`;
         setBall(t, ez ? (t === 0 ? 25 : 75) : y, x);
         if (ry >= 30) react(t, 0.8, 2.5);
+        if (me && c === me && !ez) retStat(ry, false);
       } else if (t !== off && ps.fum && ps.fum.scoop) {
         stop = true;
         big = 'Fumble!';
@@ -2909,7 +2933,7 @@
       const t = G.pendKO, k = 1 - t;  // t receives, k kicks
       if (!G.drill && lateAndBehind(k)) return k === 0 && !AUTO && !G.lock ? showOnside(k) : onside(k);  // your call, or the computer's (it always tries)
       G.pendKO = null;
-      if (!AUTO && !G.drill && (!G.lock || k === 0)) return beginKickoff(t);  // in a career, your team's kickoffs are yours too; theirs still go straight to your offense
+      if (!AUTO && !G.drill && (!G.lock || k === 0 || G.kr)) return beginKickoff(t);  // in a career, your team's kickoffs are yours too, and theirs when you return kicks
     }
     if (G.drill && G.drill.script) {
       /* a guided drill: its script names the play for each rep */
@@ -2924,6 +2948,15 @@
       return begin();
     }
     if (G.lock) {
+      if (G.liveP) {
+        const lp = G.liveP;
+        G.liveP = null;
+        if (G.pendKO == null && G.poss === 1 && G.down === 4) {
+          G.op = lp.op;
+          G.dp = lp.dp;
+          return begin();  // their punt, with you back deep
+        }
+      }
       if ((G.lockSide === 'off') !== (G.poss === 0)) return simDrives();
       if (G.share < 1 && !G.drill) {
         // not the starter: the coach decides drive by drive whether you go in
@@ -3152,7 +3185,7 @@
         r.x = a.x1;
         r.y = a.y1;
         /* a punt is easy to drop: more so in rain or snow, and with a tackler in your face. A fair catch is the safe way. */
-        const muff = rnd() < (ps.fair ? 0.01 : 0.015 + (near < 2.5 ? 0.035 : 0)) * G.wx.fum;
+        const muff = rnd() < (ps.fair ? 0.01 : 0.015 + (near < 2.5 ? 0.035 : 0)) * G.wx.fum * (r.hero && r.cat ? 1.45 - r.cat / 110 : 1);  // a career returner's hands count
         if (ps.fair && !muff) {
           r.fc = 0;
           snd('catch');
@@ -3232,16 +3265,18 @@
       mkP(kt, r, 4 + i * (FW - 8) / 10, ky + dir * (i === 5 ? 4 : 1)).asg = 'rush';
     });
     KO_FRONT.forEach((r, i) => mkP(recv, r, 8 + i * (FW - 16) / 4, own + dir * 52));
-    KO_MID.forEach((r, i) => mkP(recv, r, 10 + i * (FW - 20) / 3, own + dir * 31));
+    const mine = recv === 0 && G.lock && G.kr;  // a career receiver is the man back deep: he and the other receiver swap places
+    KO_MID.forEach((r, i) => mkP(recv, mine && r === 'X' ? 'Z' : r, 10 + i * (FW - 20) / 3, own + dir * 31));
     mkP(recv, 'RB', FW / 2 - 6, own + dir * 14);
-    const ret = mkP(recv, 'Z', FW / 2, own + dir * 4);
+    const ret = mkP(recv, mine ? 'X' : 'Z', FW / 2, own + dir * 4);
+    if (mine) G.me = G.sel = ret;
     const ly = own + dir * rnd(-2, 10), lx = clamp(FW / 2 + rnd(-12, 12), 6, FW - 6);
     ps = { t: 0, mode: 'ko', offTeam: recv, qb: null, carrier: null, thrown: false, air: null, caught: false, handoff: true, open: true, turnover: true, think: 0, scr: false, runner: null, recs: [], pa: false,
       los: ky, fd: ky, bx: FW / 2, drop: null, kick: null, passer: null, tgt: null, tackler: null, ret, land: ly, ko: { x: lx, y: ly, tb: (ly - own) * dir < 0 } };
     G.state = 'pre';
     G.preT = 0;
     camUpd(0, true);
-    toast('Kickoff');
+    toast(mine ? 'Kickoff · you are back deep' : 'Kickoff');
     snd('roll', { dur: 1.42 });  // the drum line builds to the kick, which comes a second and a half after the teams line up
     if (PG.audio && !AUTO && !QUIET) PG.audio.crowd.kickoff();  // and the crowd's long "ohhh" with it
     updHud();
@@ -3272,6 +3307,10 @@
       if (G.poss === t) plays++;
       G.op = cpuOff(G.poss);
       G.dp = cpuDef();
+      if (G.kr && !own && G.poss === 1 && G.op.n === 'Punt') {
+        G.liveP = { op: G.op, dp: G.dp };  // they are punting: you are their returner, so this one is played live
+        break;
+      }
       if (G.op.quick) quickPlay();
       else {
         G.flip = !!G.flipNext && G.op.cat !== 'special';
@@ -3312,7 +3351,7 @@
       sub = `${tname(1-t)} +${other}`;
     } else {
       big = mine ? 'Drive stalls' : 'Defense holds';
-      sub = G.last || '';
+      sub = G.liveP ? `${ab(1)} punt · get back deep` : G.last || '';
     }
     G.state = 'dead';
     G.deadT = 2.3;
@@ -3342,6 +3381,7 @@
       return `<b>${s.h || (G.poss === 0 ? G.op.n : 'Defense')}</b><span>${s.say}</span>`;
     }
     if (!G.lock || !me) return '';
+    if (me === ps.ret) return `<b>Punt return</b><span>Field it and run it back, or tap Fair catch if they are closing in.</span>`;  // a career receiver back deep
     let t;
     if (ps.offTeam === 0) {
       if (me === ps.qb) return '';
@@ -5575,7 +5615,7 @@
     if (on) {
       if (ps.mode === 'ko') {
         k = 'kick';
-        txt = ps.punt ? 'Punt return' : 'Kickoff';
+        txt = ps.punt ? 'Punt return' : ps.offTeam === 0 && st === 'live' ? 'Kick return' : 'Kickoff';
       } else if (ps.offTeam === 0) {
         k = playKind(G.op);
         txt = k === 'rpo' && st === 'live' ? ps.thrown ? 'Thrown' : ps.handoff ? 'Handed off' : 'Throw or hand off' : G.op.n;  // while the option is live, the choice matters more than the name

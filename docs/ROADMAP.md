@@ -769,6 +769,15 @@ what is next. Update it after every item.
   kept only while the staging test runs. Drawing only: `H.fingerprint()` unchanged; exhibition, both careers, the
   drills and a drawn game clean; audit empty at 320x568 and 390x844.
 
+- 22:04 Celebrations (automatic run 12). The scorer's celebration now comes from six (it was three), picked by his
+  figure's seed as before: jump, spike, strut, and new, a knee with the head bowed that turns into both arms to the
+  sky after 1.3 s, a flexed roar with the head thrown back, and a bow repeated every 2.2 s with the hips folding back
+  so he does not tip. Teammates: jump, fist pump, and a clap. The side that was scored on: heads down, or for about
+  four in ten, hands on their helmets. `PG.r3d.celebStrip()` draws all eleven; looked at at 0.9 s and 1.8 s. The first
+  roar (fists at the belly) read as standing still and was redone with the arms out wide. Drawing only:
+  `H.fingerprint()` unchanged; exhibition, both careers, the drills and a drawn game clean; audit empty at 320x568
+  and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -996,6 +1005,9 @@ what is next. Update it after every item.
       Still to be judged by ear and in motion
 - [x] Run 11, the propped runner: rolled onto his free-arm side he lay on that arm, and the ground solver propped his
       whole body on the hand. That arm now goes out past his head along the turf. Still to be judged in motion
+- [x] Run 12, celebrations: three more for the scorer (a knee, then both arms to the sky; a flexed roar; a bow to the
+      crowd, again and again), a clap for teammates, hands on helmets for some of the side that was scored on.
+      `PG.r3d.celebStrip()` draws them all. Still to be judged in motion
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
@@ -1008,8 +1020,8 @@ Major improvements, biggest first:
   joining single numbers sounds like a machine. Worth it only if the owner wants it.
 - The pile, the rest: for about a tenth of a second while the top man slides off, about 4% of piles have a leg through
   someone (`PG.r3d.beside()` at 0.8 s); and the top man lies a little stiff and flat.
-- Motion, the rest: more touchdown celebrations than the three there are; reserves on the bench who walk about; a
-  ball carrier who looks at the man about to hit him.
+- Motion, the rest: reserves on the bench who walk about; a ball carrier who looks at the man about to hit him;
+  teammates who run to the scorer.
 - A real loose-ball scramble instead of an instant recovery.
 - Career: the awards night could have a booth or
   stadium voice reading the winners (one clip per award and per name is too many; per award is not).

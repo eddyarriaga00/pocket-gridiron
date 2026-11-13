@@ -68,6 +68,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - A tackle is two men, not one after the other: the tackler bends to the hit with his shoulder at the runner's hip and
   his arms round him, and they go down together. Defenders who are on top of the play dive on and pile up on the two
   of them, and the pile comes apart from the top. Anyone else close by steps clear instead of standing in it.
+- Touchdown celebrations: the scorer jumps, spikes it, struts, takes a knee, roars or bows to the crowd; his teammates
+  jump, pump a fist or clap; on the other side heads go down and hands go to helmets.
 - The officials signal touchdowns, first downs, incomplete passes, timeouts and the two-minute warning.
 - Everybody watches something. Helmets turn to the ball in the air, to the man carrying it, to the quarterback; a
   receiver looks back for the ball once he is into his route, a quarterback in the pocket goes through his receivers,
@@ -187,7 +189,7 @@ are from the runner, whether either body is inside the other or under the turf. 
 `PG.r3d.eyes()` puts the ball carrier at a set of angles round a running defender and says how far off his helmet
 points (`PG.r3d.eyesStrip()` draws it). `PG.r3d.block(0.8)` locks a guard and a tackle up at the engine's distance and
 measures where their hands, chests and helmets are (`PG.r3d.blockStrip()` draws it from four sides).
-`PG.r3d.besideSweep()` stages 156 tackles with another man beside them and reports how far he is left standing in the
+`PG.r3d.celebStrip()` draws every touchdown celebration. `PG.r3d.besideSweep()` stages 156 tackles with another man beside them and reports how far he is left standing in the
 two on the ground. None of these draws a real play, so after any change to the renderer also play a whole game with
 `PG.dbg.render()` after every step and watch for errors: the harness alone never draws.
 

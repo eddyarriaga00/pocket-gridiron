@@ -874,9 +874,70 @@
     return /^(RB|FB|OLB|MLB)/.test(p.role) ? 'two' : 'wide';
   }
 
-  /* touchdown: the scorer picks one of three celebrations, his teammates jump or pump a fist */
+  /* touchdown: the scorer picks one of six celebrations (jump, spike, strut, kneel, roar, bow), his teammates jump,
+     pump a fist or clap. Which one is down to the figure's own seed, so it changes from play to play. */
   function celebrate(f, scorer, tg) {
-    const b = Math.abs(Math.sin(time * 6.5 + f.seed)), v = Math.floor(f.seed / 6.2832 * 3);
+    const b = Math.abs(Math.sin(time * 6.5 + f.seed)), u = f.seed / 6.2832, v = scorer ? Math.floor(u * 6) % 6 : Math.floor(u * 3) % 3;
+    if (scorer && v === 3) {
+      // down on one knee, head bowed; then, still on the knee, both arms to the sky
+      for (let i = 0; i < NPOSE; i++) tg[i] = KNEEL[i];
+      tg[CHRX] = -0.45;
+      tg[HEADRX] = 0.6;
+      tg[SLX] = 0.85;
+      tg[EL] = 1.0;
+      tg[SRX] = 0.35;
+      tg[ER] = 1.3;
+      if (celebT > 1.3) {
+        const e = smooth(Math.min(1, (celebT - 1.3) / 0.4));
+        tg[CHRX] = lerp(-0.45, 0.1, e);
+        tg[HEADRX] = lerp(0.6, -0.45, e);
+        tg[SLX] = tg[SRX] = lerp(0.6, 3.0, e);
+        tg[EL] = tg[ER] = lerp(1.1, 0.1, e);
+        tg[SLZ] = -0.2 * e;
+        tg[SRZ] = 0.2 * e;
+      }
+      return false;
+    }
+    if (scorer && v === 4) {
+      // a roar: knees bent, arms out wide and flexed, chest up and head thrown back, bouncing
+      tg[PELY] = HIP - 0.12 + b * 0.05;
+      tg[PELRX] = -0.12;
+      tg[CHRX] = 0.12;
+      tg[HEADRX] = -0.5;
+      tg[SLX] = tg[SRX] = 0.7;
+      tg[SLZ] = -1.25;
+      tg[SRZ] = 1.25;
+      tg[EL] = tg[ER] = 1.7;
+      tg[HL] = tg[HR] = 0.55;
+      tg[KL] = tg[KR] = -0.75;
+      return false;
+    }
+    if (scorer && v === 5) {
+      // a bow to the crowd, again and again: one arm across his waist, the other swept out to the side
+      const ph = celebT % 2.2, e = ph < 0.5 ? 0 : ph < 0.9 ? smooth((ph - 0.5) / 0.4) : ph < 1.5 ? 1 : ph < 1.9 ? 1 - smooth((ph - 1.5) / 0.4) : 0;
+      tg[PELRX] = -0.55 * e;
+      tg[CHRX] = -0.05 - 0.45 * e;
+      tg[HEADRX] = 0.3 * e;
+      tg[SRX] = lerp(0.2, 0.9, e);
+      tg[SRZ] = 0.1;
+      tg[ER] = lerp(0.3, 1.7, e);
+      tg[SLX] = lerp(0.3, 0.6, e);
+      tg[SLZ] = lerp(-0.3, -1.1, e);
+      tg[EL] = 0.15;
+      tg[HL] = tg[HR] = 0.55 * e;  // the hips fold back so he does not tip over his toes
+      return false;
+    }
+    if (!scorer && v === 2) {
+      // clapping, hands meeting in front of his chest
+      const c = Math.abs(Math.sin(time * 9 + f.seed));
+      tg[SLX] = tg[SRX] = 1.3;
+      tg[SLZ] = -0.05 - c * 0.35;
+      tg[SRZ] = 0.05 + c * 0.35;
+      tg[EL] = tg[ER] = 0.7;
+      tg[CHRX] = 0.04;
+      tg[PELY] = HIP + b * 0.03;
+      return false;
+    }
     if (scorer && v === 1) {
       // spike the ball, then arms out wide
       if (celebT < 0.45) {
@@ -1333,7 +1394,7 @@
       eyes = false;
       if (p.team === s.celeb.team) snap = celebrate(f, p === s.celeb.who, tg);
       else {
-        // heads down
+        // heads down; and some with their hands on their helmets
         tg[CHRX] = -0.18;
         tg[HEADRX] = -0.4;
         tg[SLX] = 0.15;
@@ -1342,6 +1403,14 @@
         tg[SRZ] = 0.4;
         tg[EL] = 1.5;
         tg[ER] = 1.5;
+        if (f.seed > 3.8) {
+          tg[CHRX] = 0.05;
+          tg[HEADRX] = 0.15;
+          tg[SLX] = tg[SRX] = 2.75;
+          tg[SLZ] = -0.55;
+          tg[SRZ] = 0.55;
+          tg[EL] = tg[ER] = 2.25;
+        }
       }
     } else if (p.eng || p.block) {
       // locked up in a block
@@ -3227,8 +3296,52 @@
     return cv.toDataURL('image/png');
   }
 
+  /* every celebration as a picture: the scorer's six, the teammates' three, the beaten side's two, each at `at` seconds */
+  function celebStrip(opts) {
+    if (!renderer) return null;
+    const o = opts || {}, ar = arenaOf(), at = o.at === undefined ? 1.8 : o.at, cell = o.cell || 200, teams = PG.TEAMS || [{ c1: '#c0392b', c2: '#f1f1f1' }];
+    const list = [...[0, 1, 2, 3, 4, 5].map(v => [true, (v + 0.5) / 6]), ...[0, 1, 2].map(v => [false, (v + 0.5) / 3]), ['lost', 0.3], ['lost', 0.8]];
+    const cv = document.createElement('canvas'), x = cv.getContext('2d'), f = ar.a.f, keep = { seed: f.seed, t: celebT };
+    cv.width = cell * list.length;
+    cv.height = Math.round(cell * ar.ph / ar.pw);
+    x.fillStyle = '#0d1524';
+    x.fillRect(0, 0, cv.width, cv.height);
+    dress(ar.a, teams[0], true, 22);
+    ar.b.f.root.position.set(0, -50, 0);
+    ar.b.f.root.updateMatrixWorld(true);
+    setBuild(f, BUILD.back);
+    celebT = at;
+    list.forEach(([who, u], i) => {
+      f.seed = u * 6.2832;
+      TG.fill(0);
+      TG[PELY] = HIP;
+      TG[EL] = TG[ER] = 0.25;
+      TG[CHRX] = -0.05;
+      if (who === 'lost') {
+        const p = { x: 0, y: 0, vx: 0, vy: 0, team: 1 };
+        f.snap = true;
+        f.heading = 0;
+        poseFor(f, p, { ps: { carrier: null, air: null, mode: 'run', offTeam: 0, recs: [] }, G: { state: 'dead' }, celeb: { team: 0, who: null }, pre: false, live: false, dir: 1, charge: -1 }, 1);
+      } else {
+        celebrate(f, who, TG);
+        f.cur.set(TG);
+        applyPose(f);
+      }
+      f.root.position.set(0, 0, 0);
+      f.root.rotation.y = 0;
+      f.root.updateMatrixWorld(true);
+      ar.floor.position.set(0, 0, 0);
+      ar.cam.position.set(2.2, 2.3, -10.5);  // from in front of him, a little to one side
+      ar.cam.lookAt(0, 1.55, 0);
+      shoot(ar, x, i * cell, 0, cell);
+    });
+    f.seed = keep.seed;
+    celebT = keep.t;
+    return cv.toDataURL('image/png');
+  }
+
   PG.r3d = {
-    init, resize, render, project, portrait,
+    init, resize, render, project, portrait, celebStrip,
     blockStrip, eyesStrip,  // test hooks: a block, and a man watching the ball, drawn as rows of pictures
     eyes: eyesTest, block: blockTest, beside: besideTest, besideSweep,  // test hooks: where a helmet points, where a blocker's hands are, whether a man beside a tackle is standing in it
     tackle: tackleTest, tackleStrip,  // test hooks: measure a staged tackle, and draw it as a row of frames

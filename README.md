@@ -1,9 +1,29 @@
 # Pocket Gridiron
 
-An 11-on-11 football game for portrait phones, playable with one hand. It runs in the browser with no install and no
-build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams and players are fictional.
+<img src="icons/icon-512.png" width="112" align="right" alt="">
 
-**Play it:** https://eddyarriaga00.github.io/pocket-gridiron/
+**Full 11-on-11 football for your phone, played in portrait with one thumb, right in the browser.** Build a
+quarterback or a wide receiver from the combine to the Hall of Fame, call plays from a 49-play book in nine
+formations, and play every snap in 3D under the lights.
+
+**Play it now:** https://eddyarriaga00.github.io/pocket-gridiron/ (no install; add it to your home screen and it
+plays offline too)
+
+**Highlights**
+
+- **A career with a story.** The combine, draft day on a stage, contracts and trades, a rival at your position,
+  press conferences after every game, a social feed that goes wild after a big day, awards night and a Hall of Fame
+  induction.
+- **A real playbook.** 49 plays in nine formations and 13 coverages. Every team runs its own offense (air raid, power
+  run, pistol option and more), and the coach's top three calls change with the down, the distance and the score.
+- **Football's rules and feel.** The play clock and delay of game, the two-minute warning, coach's challenges,
+  penalties, the hard count, onside kicks, kicks you swipe, rain and snow.
+- **A broadcast around it.** Two commentators, the stadium announcer, a crowd and a band, instant replays, cutscenes
+  (the walkout, the coin toss, the trophy) and tracking numbers like top speed and completion probability.
+- **Play it your way.** Touch, keyboard, or any game controller.
+- **Built from scratch.** Plain JavaScript, three.js and GLSL shaders, with no build step. Every model, texture and
+  sound is generated in code (the commentary is recorded on a local, open speech model). All teams and players are
+  fictional.
 
 ## Modes
 
@@ -30,7 +50,16 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   Shotgun, I-Form, Gun Trips, Gun Empty, Pistol, Gun Bunch, Jumbo, Gun Slot) and thirteen defensive calls, several of
   which show their own look before the snap (a safety rolled down, a blitzer walked up). A tag under the field names the
   kind of play on every snap. Before the snap you can tap a receiver's letter to change his route, call an audible (the
-  other plays from the same formation) or flip the play; on defense you can change the coverage.
+  other plays from the same formation), flip the play, or try a hard count (a fake snap count that now and then draws
+  the defense offside, and once in a while makes your own lineman flinch); on defense you can change the coverage.
+- The play-call sheet shows three plays at a time. On the Coach tab the first three are the coach's picks for this down,
+  distance and score, shared out between the kinds of play by how likely each is (third and one: two runs and a pass),
+  then everything else he would call, in order; swipe, scroll or page with the arrows for more. The Run, RPO, Short,
+  Deep and Special tabs hold every play of one kind, best first. A career quarterback gets the same sheet, the coach's
+  call first.
+- Tracking numbers on the broadcast: a long run or catch shows the ball carrier's top speed in miles an hour, an
+  improbable catch its completion probability, and third downs how often the offense has made them today. A spot
+  inches from the line to gain goes to a measurement.
 - Every team has its own offense, named on the matchup card before kickoff: air raid, power run, pistol option, west
   coast, spread, vertical, run and shoot, pro style. Each favours its own formations, play action or trick plays, and
   every play caller (the computer's, your coach's in a career, the "Suggested" card) remembers what it has called:
@@ -154,20 +183,24 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 
 ## Controls
 
-| | Touch | Keyboard |
-|---|---|---|
-| Move | Drag anywhere on the field | Arrows / WASD |
-| Snap, ready, kick | The large button | Space |
-| Pass (as quarterback) | Hold a lettered receiver or its button: a green bar fills with power. Let go to throw (a quick tap is a lob, a full bar a bullet) | 1–5 |
-| Call for the ball (career receiver or back) | Call | C |
-| Sprint | Hold Sprint | Space |
-| Juke / Spin / Power / Hurdle | The buttons | J / K / L / H |
-| Switch / Dive / Hit / Strip (defense) | The buttons | Q / E / F / R |
-| Audible / Flip (before the snap) | The buttons | V / X |
-| Time out | Time out, right after the whistle or on the play-call sheet | T |
-| Fair catch | Fair catch, while a punt to you is in the air | Space |
-| Pause | The pause button under the scoreboard | P or Esc |
-| Zoom the camera | − and + under the scoreboard | − and =, or the mouse wheel |
+| | Touch | Keyboard | Controller |
+|---|---|---|---|
+| Move | Drag anywhere on the field | Arrows / WASD | Left stick or d-pad |
+| Snap, ready, kick | The large button | Space | A |
+| Pass (as quarterback) | Hold a lettered receiver or its button: a green bar fills with power. Let go to throw (a quick tap is a lob, a full bar a bullet) | 1–5 | Each receiver wears a button's letter: A, B, X, Y or RB (hold, let go) |
+| Call for the ball (career receiver) | Call | C | A |
+| Sprint | Hold Sprint | Space | RT (R2) |
+| Juke / Spin / Power / Hurdle | The buttons | J / K / L / H | B / X / A / Y |
+| Switch / Dive / Hit / Strip (defense) | The buttons | Q / E / F / R | B / A / X / Y |
+| Audible / Flip / Hard count (before the snap) | The buttons | V / X / G | LB / RB / Y |
+| Time out | Time out, right after the whistle or on the play-call sheet | T | View (Select) |
+| Fair catch | Fair catch, while a punt to you is in the air | Space | A |
+| Pause | The pause button under the scoreboard | P or Esc | Start |
+| Zoom the camera | − and + under the scoreboard | − and =, or the mouse wheel | Right stick |
+| Menus and the play-call sheet | Tap | Tab, Enter | D-pad moves a ring, A picks, B back, LB / RB tabs, LT / RT a page of plays |
+
+Any controller the browser reports works (Xbox, PlayStation, Switch Pro and most others); it takes over from its first
+press, so one left plugged in changes nothing until you use it.
 
 Settings has the accent color, 2D or 3D graphics, sharpness, camera zoom, shadows, the glow pass, close-up model detail,
 replays, penalties, the button side, volume, sound, music, the commentary, vibration and the control tips.

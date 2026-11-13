@@ -220,7 +220,18 @@ window.A = (() => {
       const rects = [...rg.getClientRects()].filter(r => r.width > 0.5);
       if (!rects.length) continue;
       let clipped = false;
-      for (const r of rects) {
+      /* a row that scrolls sideways (the play-call row) holds cards off to the side on purpose: a swipe brings them in */
+      let side = null;
+      for (let e = el.parentElement; e && e.id !== 'app'; e = e.parentElement) {
+        const s = getComputedStyle(e);
+        if ((s.overflowX === 'auto' || s.overflowX === 'scroll') && e.scrollWidth > e.clientWidth + 1) {
+          side = e.getBoundingClientRect();
+          break;
+        }
+      }
+      // in such a row, text not wholly inside its window is scrolled away, not cut: skip it; what shows is checked as usual
+      if (side && rects.some(r => r.left < side.left - 1 || r.right > side.right + 1)) continue;
+      if (!side) for (const r of rects) {
         if (r.left < A.left - 1 || r.right > A.right + 1) {
           add('clip', path(el), `runs ${Math.round(Math.max(A.left - r.left, r.right - A.right))}px off the side: "${words(el)}"`, 3);
           clipped = true;

@@ -632,7 +632,7 @@
       }
     }
     ps.recs.sort((a, b) => a.x - b.x).forEach((p, i) => {
-      p.let = 'ABCDE'[i];
+      p.let = (GP.on ? GLET : 'ABCDE')[i];  // with a controller, the button that throws to him
       p.col = LCOL[i];
     });
     const el = P.filter(p => !p.isOL && p !== o.QB), byx = [...el].sort((a, b) => a.x - b.x), d = {};
@@ -706,6 +706,7 @@
         b.bt = r;
       }
     }
+    ps.third = G.down === 3 && !kick ? off : null;  // counted when it ends: third downs tried and made
     if (kick && op.n === 'Punt' && liveReturn()) {
       // the free safety drops back to field the punt
       const r = d.FS;
@@ -1278,6 +1279,7 @@
     if (dr > 2.2 && ndd < 1.6) ip = 0.4;
     if (ud) ip += 0.2;
     if (rnd() < cp) {
+      ps.cp = cp;  // how likely the catch was: the card after an improbable one says so
       ps.carrier = r;
       ps.caught = true;
       G.stats[off].comp++;
@@ -1392,6 +1394,7 @@
       }
     }
     const cl = new Set(), c = ps.carrier, uod = userOnD(), me = AUTO ? null : G.me;
+    if (c) c.top = Math.max(c.top || 0, hyp(c.vx, c.vy));  // the ball carrier's fastest moment, for the top speed card
     for (const p of P) if (p.bt && !p.down && btValid(p)) cl.add(p.bt);
     if (uod) {
       if (G.lock) G.sel = G.me;
@@ -2108,12 +2111,13 @@
           snd('whoop', { x: c.x, delay: 0.5 });  // and so do the men who got there
         } else if (gi >= 15) react(off, 0.6 + Math.min(0.6, gi / 50), 2.6);
         else if (gi < 0) react(1 - off, 0.4, 1.5);
+        const inches = !AUTO && !QUIET && Math.abs((y - ps.fd) * dir) < 0.35 && ps.fd > 1 && ps.fd < 99;  // too close to call by eye: the chains come out
         if ((y - ps.fd) * dir >= 0) {
           const dn = G.down;
           setBall(off, y, x);
           big = 'First down';
           G.sig = 'fd';
-          sub = `${gi}-yard ${ps.caught?'catch':'run'} · ${c.name}`;
+          sub = inches ? 'Measurement · the nose of the ball is past the stick' : `${gi}-yard ${ps.caught?'catch':'run'} · ${c.name}`;
           if (off === 0) {
             snd('chime');
             if (gi < 15) react(0, 0.45, 1.8);
@@ -2126,6 +2130,7 @@
           G.bx = hash(x);
           G.togo = (ps.fd - G.los) * dir;
           big = sack ? 'Sack!' : gi > 0 ? `+${gi} yard${gi>1?'s':''}` : gi === 0 ? 'No gain' : `Loss of ${-gi}`;
+          if (inches) sub = `Measurement · short by ${Math.max(1, Math.round((ps.fd - y) * dir * 36))} inches`;
         }
       }
     } else if (kind === 'fg') {
@@ -2176,7 +2181,19 @@
     cpuTimeout();
     if (G.ot && score) G.final = true;
     G.last = sub === 'Turnover on downs' ? sub : big;
+    if (ps.third != null && !ps.thirdDone) {
+      ps.thirdDone = true;
+      const t3 = G.third || (G.third = [[0, 0], [0, 0]]);
+      t3[ps.third][0]++;
+      if (big === 'First down' || (kind === 'td' && c && c.team === ps.third)) t3[ps.third][1]++;
+    }
     callPlay(kind, kind === 'td' ? tryRes : arg, big, sub, rpGain, c, s0);
+    if (!AUTO && !QUIET && !G.drill && c && c.team === off && (kind === 'td' || kind === 'tackle' || kind === 'oob')) {
+      /* the broadcast's tracking numbers: how unlikely a catch was, and how fast a long run got */
+      const gain = kind === 'td' ? Math.round(((off === 0 ? 100 : 0) - los) * dir) : rpGain, caught = !!ps.caught, cp = caught ? ps.cp : null, mph = (c.top || 0) * 2.0455;  // read now: the play is gone when the card goes up
+      if (cp != null && cp < 0.32 && gain >= 8) setTimeout(() => statCard(c, Math.round(cp * 100) + '%', 'Completion probability', `${gain}-yard catch`), kind === 'td' ? 6000 : 1000);
+      else if (gain >= 25 && mph >= 15) setTimeout(() => statCard(c, mph.toFixed(1), 'Top speed · mph', `${gain}-yard ${caught ? 'catch' : 'run'}${kind === 'td' ? ' · touchdown' : ''}`), 6000);
+    }
     if (!AUTO && !QUIET && !G.drill && c && c.team === off) {
       /* your man's line if he was in it (a career), otherwise the scorer's, or the runner's after 20 yards or more */
       const caught = !!ps.caught, mine = G.me && (c === G.me || (ps.passer === G.me && caught)) ? G.me : null, who = mine || c, gain = rpGain;  // read now: the play is gone by the time the card goes up
@@ -2597,8 +2614,8 @@
 
   /* one play of a category for side t. o.star: the career player's role (his coach leans on him); o.who: only runs by
      that role; o.back: only passes with a route for the back; o.not: plays to leave out; o.f: a formation to stay away from */
-  function pickOff(t, cat, R, o = {}) {
-    const toGoal = t === 0 ? 100 - G.los : G.los, S = schemeOf(t), star = o.star, hist = (G.called && G.called[t]) || [], n = hist.length;
+  function eligibleOff(t, cat, o = {}) {
+    const toGoal = t === 0 ? 100 - G.los : G.los;
     let list = OFF.filter(p => p.cat === cat && !p.quick && (!p.short || G.togo <= 2) && (p.rz !== 2 || toGoal <= 25) && !(o.not && o.not.includes(p)));
     if (o.who) {
       const w = list.filter(p => p.run && p.run.who === o.who);
@@ -2608,9 +2625,12 @@
       const w = list.filter(p => p.r && p.r.RB);
       if (w.length) list = w;
     }
-    if (!list.length) return null;
-    let tot = 0;
-    const ws = list.map(p => {
+    return list;
+  }
+
+  function offWeights(list, t, cat, o = {}) {
+    const toGoal = t === 0 ? 100 - G.los : G.los, S = schemeOf(t), star = o.star, hist = (G.called && G.called[t]) || [], n = hist.length;
+    return list.map(p => {
       let w = S.f[p.f] ?? 1;
       if (p.pa) w *= S.pa || 1;
       if (p.gadget) w *= 0.3 * (S.gadget || 1) * (star === 'X' && p.run.who === 'X' ? 3 : 1);
@@ -2622,21 +2642,30 @@
       let used = 0;
       for (const h of hist) if (h === p.n) used++;
       w /= 1 + used * 0.5;
-      tot += w;
       return w;
     });
+  }
+
+  function pickOff(t, cat, R, o = {}) {
+    const list = eligibleOff(t, cat, o);
+    if (!list.length) return null;
+    const ws = offWeights(list, t, cat, o);
+    let tot = 0;
+    for (const w of ws) tot += w;
     let x = R() * tot;
     for (let i = 0; i < list.length; i++) if ((x -= ws[i]) <= 0) return list[i];
     return list[list.length - 1];
   }
 
-  function callOff(t, R) {
-    const toGoal = t === 0 ? 100 - G.los : G.los, ld = G.score[t] - G.score[1 - t], S = schemeOf(t);
-    if (G.q === 4 && ld > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1 - t]) * 40) return OFF.find(p => p.quick === 'kneel');  // ahead late: run it out
-    if (G.down === 4) {
+  /* the situation, without dice: a kick or kneel the moment demands (fixed), the chance of a run (pr), of an option
+     (rpoQ) and of a deep pass when it is a pass (deep) */
+  function callPlan(t) {
+    const toGoal = t === 0 ? 100 - G.los : G.los, ld = G.score[t] - G.score[1 - t], S = schemeOf(t), c = { fixed: null };
+    if (G.q === 4 && ld > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1 - t]) * 40) c.fixed = OFF.find(p => p.quick === 'kneel');  // ahead late: run it out
+    else if (G.down === 4) {
       const desp = G.q >= 4 && ld < 0 && G.clock < 100;
-      if (toGoal + 17 <= 52 && !(desp && ld < -3)) return OFF.find(p => p.n === 'Field Goal');
-      if (!(desp || (G.togo <= 1.5 && toGoal < 60))) return OFF.find(p => p.n === 'Punt');
+      if (toGoal + 17 <= 52 && !(desp && ld < -3)) c.fixed = OFF.find(p => p.n === 'Field Goal');
+      else if (!(desp || (G.togo <= 1.5 && toGoal < 60))) c.fixed = OFF.find(p => p.n === 'Punt');
     }
     let pr = G.togo > 7 ? 0.3 : G.togo < 3 ? 0.65 : 0.45;
     if (G.down >= 3 && G.togo > 4) pr = 0.12;
@@ -2645,15 +2674,62 @@
     if (two) pr = Math.min(pr, 0.15);
     // career: the coach leans on the user's position so they stay involved
     const star = G.lock && t === 0 && !AUTO ? G.lock : null;
-    if ((star === 'QB' || star === 'X') && G.togo >= 3 && G.togo <= 10 && R() < 0.12) return pickOff(t, 'rpo', R, { star });  // your coach likes an option now and then (never rolled for a computer-only game)
+    c.star = star;
+    c.rpoQ = (star === 'QB' || star === 'X') && G.togo >= 3 && G.togo <= 10 ? 0.12 : 0;  // your coach likes an option now and then (never for a computer-only game)
     if (star === 'RB') pr = Math.max(pr, G.down >= 3 && G.togo > 6 ? 0.3 : 0.5);  // measured: at 0.6 a back's team scored too little to win
     else if (star === 'X') pr *= G.drill ? 0 : 0.5;
     const foe = G.lock && t === 1 && !AUTO ? G.lock : null;  // and the opponent tests a defender
     if (foe === 'MLB') pr = Math.min(0.75, pr + 0.15);
     else if (foe === 'CB1') pr *= 0.75;
-    if (R() < pr) return pickOff(t, 'run', R, { star, who: star === 'RB' ? 'RB' : null });
-    const deep = clamp((G.togo > 8 ? 0.5 : 0.3) + (S.deep || 0) + (two && toGoal > 30 ? 0.15 : 0), 0.1, 0.75);
-    return pickOff(t, R() < deep ? 'deep' : 'short', R, { star, back: star === 'RB' });
+    c.pr = pr;
+    c.deep = clamp((G.togo > 8 ? 0.5 : 0.3) + (S.deep || 0) + (two && toGoal > 30 ? 0.15 : 0), 0.1, 0.75);
+    return c;
+  }
+
+  function callOff(t, R) {
+    const c = callPlan(t);
+    if (c.fixed) return c.fixed;
+    if (c.rpoQ && R() < c.rpoQ) return pickOff(t, 'rpo', R, { star: c.star });
+    if (R() < c.pr) return pickOff(t, 'run', R, { star: c.star, who: c.star === 'RB' ? 'RB' : null });
+    return pickOff(t, R() < c.deep ? 'deep' : 'short', R, { star: c.star, back: c.star === 'RB' });
+  }
+
+  /* The coach's ranking for the call sheet: every play he might call here, ordered by how likely the play caller above
+     is to call it (the same plan and weights, as chances instead of dice), shaken a little with Math.random so the same
+     down and distance does not always put the same three on top. A kick or kneel the moment demands goes first. */
+  function rankOff(t) {
+    const c = callPlan(t), r = Math.max(c.rpoQ, 0.06), odds = [], by = {};
+    const q = { rpo: r, run: (1 - r) * c.pr, deep: (1 - r) * (1 - c.pr) * c.deep, short: (1 - r) * (1 - c.pr) * (1 - c.deep) };
+    for (const cat in q) {
+      const o = { star: c.star, who: cat === 'run' && c.star === 'RB' ? 'RB' : null, back: cat !== 'run' && c.star === 'RB' }, list = eligibleOff(t, cat, o), ws = offWeights(list, t, cat, o);
+      const tot = ws.reduce((a, b) => a + b, 0) || 1;
+      by[cat] = list.map((p, i) => [p, q[cat] * ws[i] / tot * (0.7 + 0.6 * Math.random())]).sort((a, b) => b[1] - a[1]);
+      odds.push(...by[cat]);
+    }
+    /* His top three share out between the kinds of play by how likely each kind is (the way seats are shared out by
+       votes): third and one gets two runs and a pass, first and ten a run, a short pass and a shot. Ranked by single
+       plays instead, the kind with the fewest plays in the book would always fill the top. */
+    const top = [], took = { rpo: 0, run: 0, deep: 0, short: 0 };
+    for (let k = 0; k < 3; k++) {
+      let bc = null, bv = 0;
+      for (const cat in q) if (by[cat].length > took[cat] && q[cat] / (1 + took[cat]) > bv) {
+        bv = q[cat] / (1 + took[cat]);
+        bc = cat;
+      }
+      if (!bc) break;
+      top.push(by[bc][took[bc]++][0]);
+    }
+    const ranked = [...top, ...odds.sort((a, b) => b[1] - a[1]).map(e => e[0]).filter(p => !top.includes(p))];
+    return c.fixed ? [c.fixed, ...ranked] : ranked;
+  }
+
+  /* the same for the defense: the calls that fit the down and distance first, then the rest by how often they are called */
+  function rankDef() {
+    const pool = G.togo <= 1.5 || G.los <= 3 ? ['Goal Line'] : G.down >= 3 ? (G.togo >= 12 ? ['Prevent', 'Cover 4'] : G.togo >= 7 ? ['Cover 4', 'Cover 6', 'Tampa 2', 'Fire Zone'] : ['Cover 1 Man', 'Cover 2 Man', 'Man Blitz', 'Overload'])
+      : G.togo >= 10 && G.down === 2 ? ['Cover 3', 'Cover 6', 'Zone Blitz'] : ['Cover 2', 'Cover 3', 'Tampa 2', 'Cover 1 Man', 'Fire Zone'];
+    const last = G.dcalled && G.dcalled[0][G.dcalled[0].length - 1], fresh = pool.filter(n => n !== last).sort(() => Math.random() - 0.5);
+    const names = [...fresh, ...pool, ...DBASE.map(d => d[0]), ...DEF.map(d => d.n)];
+    return [...new Set(names)].map(DEFN);
   }
 
   /* the computer's call; half its plays are run to the other side (the formation and every route mirrored) */
@@ -2869,6 +2945,7 @@
     G.audI = -1;
     G.audList = audibleList(G.op);
     setupPlay();
+    if (G.down === 3 && G.op.cat !== 'special' && !G.drill) thirdCard();
     G.preT = 0;
     if (G.op.cat === 'special') {
       const fg = G.op.n === 'Field Goal', d = Math.round(((G.poss === 0 ? 100 : 0) - G.los) * G.dir + 17);
@@ -3293,6 +3370,25 @@
     s.dive = 0.32;
   }
 
+  /* The hard count: before the snap the quarterback barks a sudden, loud "Hut!" with no snap behind it, hoping a
+     defender jumps. Once a play. In the league's penalty tables defensive offside and neutral zone infractions together
+     come to under one a game and false starts to about two and a half, so it works about one time in eight (offside,
+     five yards, replay the down) and backfires about one time in twenty-five (your own lineman flinches). */
+  function hardCount() {
+    if (G.state !== 'pre' || !ps || ps.hard || (ps.mode !== 'pass' && ps.mode !== 'run') || P.some(p => p.jog)) return;
+    if (!(G.lock ? G.me && G.me === ps.qb : G.poss === 0)) return;
+    ps.hard = true;
+    G.pad = null;  // the button goes: one try a play
+    snd('cadence', { x: ps.bx });
+    snd('calls', { x: ps.bx, delay: 0.35 });
+    const r = Math.random(), pen = SET.pen !== false && !G.drill;
+    if (pen && r < 0.12) {
+      toast('They jumped!');
+      flag('Offside', 1 - ps.offTeam);
+    } else if (pen && r < 0.16) flag('False start', ps.offTeam);
+    else toast('Hard count · nobody jumped');
+  }
+
   /* Changes at the line of scrimmage. On offense Audible steps through four standby plays and Flip mirrors the play;
      on defense Audible steps through the coverage calls. The other side does not get to answer. */
   const AUDIBLES = ['Inside Zone', 'Slants', 'Four Verticals', 'HB Draw'];
@@ -3396,6 +3492,7 @@
       return;
     }
     if (k === 'audible' || k === 'flip') return audible(k === 'flip');
+    if (k === 'hard') return hardCount();
     if (k === 'timeout') {
       if ((G.state === 'dead' || G.state === 'call') && !G.lock) {
         timeout(0);
@@ -3509,6 +3606,7 @@
       if (ps && ps.mode !== 'kick') {
         B('Audible', '', () => act('audible'));
         B('Flip', '', () => act('flip'));
+        if (!ps.hard) B('Hard count', 'hc', () => act('hard'));
       }
     } else if (kind === 'ready') B('READY', 'big', () => act('main'));
     else if (kind === 'kick') B('KICK', 'big', () => act('main'));
@@ -3578,6 +3676,7 @@
     if (e.code === 'KeyV') act('audible');
     if (e.code === 'KeyX') act('flip');
     if (e.code === 'KeyC') act('call');
+    if (e.code === 'KeyG') act('hard');
     if (e.code === 'Minus' || e.code === 'BracketLeft') zoomBy(-1);
     if (e.code === 'Equal' || e.code === 'BracketRight') zoomBy(1);
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
@@ -3701,10 +3800,204 @@
       x = kx / m;
       y = ky / m;
     }
+    if (!kx && !ky && hyp(x, y) < 0.18 && (GP.x || GP.y)) {
+      x = GP.x;
+      y = GP.y;
+    }
     inp.x = x;
     inp.y = y;
     inp.manual = hyp(x, y) > 0.18;
-    inp.sprint = !!(G.sprintBtn || keys.ShiftLeft || (keys.Space && G.state === 'live'));
+    inp.sprint = !!(G.sprintBtn || keys.ShiftLeft || (keys.Space && G.state === 'live') || GP.sprint);
+  }
+
+  /* ---------- controllers ----------
+     Any controller the browser sees (Xbox, PlayStation, Switch Pro and most others report the standard layout).
+     On the field the left stick or the d-pad moves, RT (R2) sprints, the right stick zooms, Start pauses and View
+     (Select) calls a time out; the face buttons do what the buttons beside the field do:
+       before the snap  A snap (or Ready), Y hard count, LB audible, RB flip
+       passing          A, B, X, Y and RB throw to the receiver wearing that letter (hold to build power, let go to throw)
+       running          A power, B juke, X spin, Y hurdle      defense  A dive, B switch, X hit, Y strip
+       a receiver       A calls for the ball                   kicks    A kicks, A calls a fair catch
+     Off the field the d-pad or stick moves a ring between the buttons on screen, A presses, B goes back, LB and RB
+     change tabs, LT and RT jump a page along the play-call row. */
+  const GP = { on: false, prev: [], x: 0, y: 0, sprint: false, nav: { dir: '', t: 0 }, zoomT: 0, foc: null, last: null };
+  const GB = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+  const GLET = ['A', 'B', 'X', 'Y', 'RB'];  // the throw buttons, in the order of the receivers across the field
+  const GMAP = { snap: { A: 'main', Y: 'hard', LB: 'audible', RB: 'flip' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' },
+    def: { A: 'dive', B: 'switch', X: 'hit', Y: 'strip' }, deflock: { A: 'dive', X: 'hit', Y: 'strip' }, route: { A: 'call' }, defpre: { B: 'switch', LB: 'audible' }, loose: { A: 'dive' }, timeout: { A: 'timeout' } };
+  addEventListener('gamepadconnected', e => toast('Controller connected' + (e.gamepad && e.gamepad.mapping === 'standard' ? '' : ' · buttons may differ')));
+  addEventListener('gamepaddisconnected', () => toast('Controller disconnected'));
+
+  const shown = el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+  };
+
+  function pollPad(dt) {
+    const all = navigator.getGamepads ? [...navigator.getGamepads()].filter(p => p && p.connected) : [], gp = all.find(p => p.mapping === 'standard') || all[0];
+    if (!gp) {
+      if (GP.on) {
+        GP.on = false;
+        GP.x = GP.y = 0;
+        GP.sprint = false;
+        G.pad = null;
+      }
+      return;
+    }
+    const val = i => (gp.buttons[i] ? gp.buttons[i].value || (gp.buttons[i].pressed ? 1 : 0) : 0), now = gp.buttons.map((_, i) => val(i) > 0.5), was = GP.prev;
+    GP.prev = now;
+    const hit = i => now[i] && !was[i], rel = i => !now[i] && was[i];
+    if (!GP.on) {
+      if (!now.some(Boolean) && Math.hypot(gp.axes[0] || 0, gp.axes[1] || 0) < 0.5) return;  // it takes over from the first press, so a controller left plugged in changes nothing
+      GP.on = true;
+      G.pad = null;  // the field buttons are drawn again with the controller's letters
+      const ui = uiLayer();
+      if (ui) return navUI(ui, 0, 0, () => false, dt);  // on a screen the first press only shows the ring: it does not pick anything yet
+    }
+    let x = gp.axes[0] || 0, y = -(gp.axes[1] || 0);
+    const m = Math.hypot(x, y);
+    if (m < 0.2) x = y = 0;
+    else if (m > 1) {
+      x /= m;
+      y /= m;
+    }
+    if (now[GB.RIGHT] || now[GB.LEFT] || now[GB.UP] || now[GB.DOWN]) {
+      x = (now[GB.RIGHT] ? 1 : 0) - (now[GB.LEFT] ? 1 : 0);
+      y = (now[GB.UP] ? 1 : 0) - (now[GB.DOWN] ? 1 : 0);
+      const k = Math.hypot(x, y) || 1;
+      x /= k;
+      y /= k;
+    }
+    if (hit(GB.START)) {
+      if (G.paused) closePause();
+      else if (G.ros && G.state !== 'over' && G.state !== 'menu') openPause();
+    }
+    const ui = uiLayer();
+    if (ui) {
+      GP.x = GP.y = 0;
+      GP.sprint = false;
+      return navUI(ui, x, y, hit, dt);
+    }
+    if (GP.foc) GP.foc.classList.remove('gpf');
+    GP.foc = null;
+    GP.x = x;
+    GP.y = y;
+    GP.sprint = val(GB.RT) > 0.3;
+    const zy = -(gp.axes[3] || 0);
+    if (Math.abs(zy) > 0.6) {
+      if ((GP.zoomT -= dt) <= 0) {
+        zoomBy(zy > 0 ? 1 : -1);
+        GP.zoomT = 0.28;
+      }
+    } else GP.zoomT = 0;
+    if (hit(GB.VIEW)) act('timeout');
+    if (G.pad === 'pass') {
+      [GB.A, GB.B, GB.X, GB.Y, GB.RB].forEach((b, i) => {
+        if (hit(b)) act('num', i);
+        if (rel(b)) endCharge(i);
+      });
+      return;
+    }
+    const map = GMAP[G.pad] || {};
+    for (const k in map) if (hit(GB[k])) act(map[k]);
+  }
+
+  /* what a controller is pointing at when it is not playing: a dialog over the game, or the screen's own buttons */
+  function uiLayer() {
+    const ov = $('#ov');
+    if (ov && !ov.hidden && ov.querySelector('button')) return ov;
+    if (G.state !== 'pre' && G.state !== 'live' && scr.querySelector('button, input')) return scr;
+    return null;
+  }
+
+  function gpFocus(el) {
+    if (!el) return;
+    if (GP.foc && GP.foc !== el) GP.foc.classList.remove('gpf');
+    GP.foc = el;
+    el.classList.add('gpf');
+    if (el.tagName !== 'INPUT') el.focus({ preventScroll: true });
+    const row = el.closest('.grid.row');
+    if (row && row.pageTo) row.pageTo([...row.children].indexOf(el));
+    else el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  function gpPress(el) {
+    GP.last = { id: el.id, text: el.textContent.trim() };  // so the ring finds its place again when the screen is redrawn
+    if (el.tagName === 'INPUT') {
+      if (el.id === 'cn' && !el.value) {
+        // no keyboard in hand: a name is picked for you (type over it if you have one)
+        el.value = pick(SUR);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      el.focus();
+      return;
+    }
+    el.click();
+  }
+
+  function navUI(root, x, y, hit, dt) {
+    const els = [...root.querySelectorAll('button, input, select, a[href]')].filter(el => !el.disabled && el.getAttribute('aria-disabled') !== 'true' && shown(el));
+    if (!els.length) return;
+    let cur = GP.foc && els.includes(GP.foc) ? GP.foc : null;
+    if (!cur) {
+      const L = GP.last, again = L && ((L.id && els.find(el => el.id === L.id)) || els.find(el => el.textContent.trim() === L.text));
+      cur = again || els.find(el => el.matches('.card.sug, .go, .mode.main, #intro, #scn, #pr')) || els[0];
+      gpFocus(cur);
+    }
+    const dir = Math.abs(x) > 0.5 || Math.abs(y) > 0.5 ? (Math.abs(x) > Math.abs(y) ? (x > 0 ? 'R' : 'L') : y > 0 ? 'U' : 'D') : '';
+    const move = d => {
+      if (cur.tagName === 'INPUT' && cur.inputMode === 'numeric' && (d === 'L' || d === 'R')) {
+        cur.value = String(clamp((parseInt(cur.value, 10) || 0) + (d === 'R' ? 1 : -1), 1, 99));  // a number box: left and right change it
+        cur.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+      const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+      let best = null, bs = 1e9;
+      for (const el of els) {
+        if (el === cur) continue;
+        const r = el.getBoundingClientRect(), dx = r.left + r.width / 2 - ax, dy = r.top + r.height / 2 - ay;
+        const along = d === 'R' ? dx : d === 'L' ? -dx : d === 'D' ? dy : -dy, across = d === 'R' || d === 'L' ? Math.abs(dy) : Math.abs(dx);
+        if (along <= 4) continue;
+        const sc = along + across * 2.2;
+        if (sc < bs) {
+          bs = sc;
+          best = el;
+        }
+      }
+      if (best) gpFocus((cur = best));
+    };
+    if (dir !== GP.nav.dir) {
+      GP.nav.dir = dir;
+      GP.nav.t = 0.38;
+      if (dir) move(dir);
+    } else if (dir && (GP.nav.t -= dt) <= 0) {
+      GP.nav.t = 0.11;
+      move(dir);
+    }
+    if (hit(GB.A)) return gpPress(cur);
+    if (hit(GB.B)) {
+      if (G.paused) return $('#pk') ? $('#pk').click() : closePause();
+      const b = [...root.querySelectorAll('.back, #pk')].find(shown);
+      if (b) gpPress(b);
+      return;
+    }
+    if (hit(GB.LB) || hit(GB.RB)) {
+      // the tabs on this screen (the group holding the ring, or the first one)
+      const groups = [...root.querySelectorAll('.tabs, .seg')].filter(shown), g = groups.find(g => g.contains(cur)) || groups[0];
+      if (g) {
+        const bs = [...g.querySelectorAll('button')].filter(shown), i = Math.max(0, bs.findIndex(b => b.classList.contains('on'))), nb = bs[clamp(i + (hit(GB.RB) ? 1 : -1), 0, bs.length - 1)];
+        if (nb && nb !== bs[i]) gpPress(nb);
+      }
+      return;
+    }
+    if (hit(GB.LT) || hit(GB.RT)) {
+      // a page along the play-call row
+      const cards = [...root.querySelectorAll('.grid.row .card')];
+      if (cards.length) {
+        const i = Math.max(0, cards.indexOf(cur));
+        gpFocus(cards[clamp(i - (i % 3) + (hit(GB.RT) ? 3 : -3), 0, cards.length - 1)]);
+      }
+    }
   }
 
   /* ---------- sound and feedback ---------- */
@@ -3869,6 +4162,21 @@
     if (!line) return;
     const t = TEAMS[G.tm[p.team]];
     bcShow(`<div class="bcard" style="--c:${t.c1};--k:${inkOn(t.c1)}"><b>${p.num}</b><div><strong>${bcEsc(p.name)}</strong><span>${bcEsc(t.name)} · ${bcEsc(ROLE_NAME[p.role] || String(p.role).replace(/\d+$/, ''))}${tag ? ' · ' + tag : ''}</span><em>${line}</em></div></div>`, 4200);
+  }
+
+  /* one tracking number for a player: big on the left in his team's color, what it is, and the play it came from */
+  function statCard(p, big, what, play) {
+    if (!bcLive() || !p) return;
+    const t = TEAMS[G.tm[p.team]];
+    bcShow(`<div class="bcard num" style="--c:${t.c1};--k:${inkOn(t.c1)}"><b>${big}</b><div><strong>${bcEsc(p.name)} #${p.num}</strong><span>${what}</span><em>${bcEsc(play)}</em></div></div>`, 4600);
+  }
+
+  /* third down: how often the side with the ball has made it today */
+  function thirdCard() {
+    const t3 = G.third && G.third[G.poss];
+    if (!bcLive() || !t3 || !t3[0] || performance.now() - bcAt < 7000) return;
+    const t = TEAMS[G.tm[G.poss]];
+    bcShow(`<div class="bcard num" style="--c:${t.c1};--k:${inkOn(t.c1)}"><b>3rd</b><div><strong>Third down · ${t.ab}</strong><span>${t3[1]} of ${t3[0]} today</span><em>${downTxt()}</em></div></div>`, 3600);
   }
 
   function teamStatsCard(title) {
@@ -4231,32 +4539,16 @@
     }
   }
 
-  /* side: 'off' (exhibition offense), 'def' (exhibition defense), 'qb' (career quarterback: coach sends three plays) */
-  /* What a coach would call here. It only marks one card on the sheet as "Suggested" (and opens the sheet on that
-     card's tab); the call is still yours. The same play caller the computer uses, rolled with Math.random so it never
-     disturbs a seeded run, and steering away from what you have already called. */
-  function suggestOff() {
-    const toGoal = 100 - G.los, ahead = G.score[0] - G.score[1], R = Math.random;
-    if (G.try2 != null) return (pickOff(0, R() < 0.3 ? 'run' : 'short', R) || OFF[0]).n;
-    if (G.q === 4 && ahead > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1]) * 40) return 'QB Kneel';
-    if (G.down === 4) return toGoal <= 35 ? 'Field Goal' : G.togo <= 1 && toGoal < 60 ? (R() < 0.5 ? 'QB Sneak' : 'Lead Dive') : G.q >= 4 && ahead < 0 && G.clock < 100 ? 'Four Verticals' : 'Punt';
-    if (G.q >= 4 && ahead < 0 && G.clock < 90) return pickOff(0, toGoal > 25 ? 'deep' : 'short', R).n;
-    return callOff(0, R).n;
-  }
-
-  function suggestDef() {
-    const pool = G.togo <= 1.5 || G.los <= 3 ? ['Goal Line'] : G.down >= 3 ? (G.togo >= 12 ? ['Prevent', 'Cover 4'] : G.togo >= 7 ? ['Cover 4', 'Cover 6', 'Tampa 2', 'Fire Zone'] : ['Cover 1 Man', 'Cover 2 Man', 'Man Blitz', 'Overload'])
-      : G.togo >= 10 && G.down === 2 ? ['Cover 3', 'Cover 6', 'Zone Blitz'] : ['Cover 2', 'Cover 3', 'Tampa 2', 'Cover 1 Man', 'Fire Zone'];
-    const last = G.dcalled && G.dcalled[0][G.dcalled[0].length - 1], fresh = pool.filter(n => n !== last), list = fresh.length ? fresh : pool;
-    return list[Math.floor(Math.random() * list.length)];
-  }
-
+  /* The play-call sheet. side: 'off' (your offense), 'def' (your defense), 'qb' (a career quarterback: the coach sends
+     his call). Three plays show at a time, in a row you swipe (or scroll, or page with the arrows) for more: on the
+     Coach tab the first three are the coach's three likeliest calls for this down, distance and score, then the rest of
+     what he would call, in order. The other tabs hold every play of one kind, best first. */
   function showCall(side) {
-    const sug = side === 'off' ? suggestOff() : side === 'def' ? suggestDef() : null, sugPlay = side === 'off' && OFF.find(p => p.n === sug);
-    let cat = sugPlay ? sugPlay.cat : G.down === 4 ? 'special' : 'run';
-    const cats = [['run', 'Run'], ['rpo', 'RPO'], ['short', 'Short'], ['deep', 'Deep'], ['special', 'Special']].filter(c => G.try2 == null || c[0] !== 'special');  // no kicks on a two-point try
-    let qb = null;
-    if (side === 'qb') {
+    const off = side !== 'def', qbSide = side === 'qb';
+    let ranked;
+    if (side === 'def') ranked = rankDef();
+    else if (!qbSide) ranked = rankOff(0);
+    else {
       // the coach's call and two others of a different kind, from other formations where he can
       const cats = G.op.cat === 'run' ? ['short', G.togo > 6 ? 'deep' : 'short'] : G.op.cat === 'deep' ? ['run', 'short'] : ['run', 'deep'];
       if (G.down >= 3 && G.togo > 5) cats[cats.indexOf('run') < 0 ? 0 : cats.indexOf('run')] = 'short';
@@ -4266,12 +4558,17 @@
         const p = pickOff(0, c, Math.random, { star: G.lock, not: [...picked, ...skip], f: G.op.f });
         if (p) picked.push(p);
       }
-      qb = picked;
+      // his call and two others first, then anything else in the book, in the order he would call it
+      ranked = [...picked, ...rankOff(0).filter(p => !picked.includes(p) && p.cat !== 'special')];
     }
+    const top = ranked[0], order = new Map(ranked.map((p, i) => [p, i]));
+    const cats = off ? [['coach', 'Coach'], ['run', 'Run'], ['rpo', 'RPO'], ['short', 'Short'], ['deep', 'Deep'], ...(qbSide || G.try2 != null ? [] : [['special', 'Special']])] : null;  // no kicks on a two-point try
+    let cat = 'coach';
+    const tag = (p, i) => cat === 'coach' || !off ? (i < 3 ? `<em>${['Coach’s pick', '2nd pick', '3rd pick'][i]}</em>` : '') : p === top ? '<em>Coach’s pick</em>' : '';
     const draw = () => {
-      const list = side === 'off' ? OFF.filter(p => p.cat === cat) : side === 'qb' ? qb : DEF.slice();
-      if (side !== 'qb') list.sort((a, b) => (b.n === sug) - (a.n === sug));  // the suggestion first: a tab holds up to fifteen plays now
-      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${side!=='def'&&hurry(G.poss)?'No huddle · ':''}${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${youChallenge()?`<button class="btn2" id="chal" style="margin:0 0 8px">Challenge the spot · ${G.chal?G.chal[0]:2} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card${p.n===sug?' sug':''}">${side==='qb'&&i===0?'<em>Coach’s pick</em>':p.n===sug?'<em>Suggested</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
+      const list = !off || cat === 'coach' ? ranked : OFF.filter(p => p.cat === cat).sort((a, b) => (order.get(a) ?? 999) - (order.get(b) ?? 999));
+      scr.innerHTML = `<div class="sheet call"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${side!=='def'&&hurry(G.poss)?'No huddle · ':''}${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${youChallenge()?`<button class="btn2" id="chal" style="margin:0 0 8px">Challenge the spot · ${G.chal?G.chal[0]:2} left</button>`:''}${off?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid row" id="crow">${list.map((p,i)=>`<button class="card${p===top?' sug':''}">${tag(p,i)}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div><div class="pgbar"><button class="pgb" id="pgL" aria-label="Previous plays">‹</button><span id="pgN"></span><button class="pgb" id="pgR" aria-label="More plays">›</button></div></div>`;
+      pager($('#crow'), list.length);
       scr.querySelectorAll('.card').forEach((el, i) => {
         drawArt(el.querySelector('canvas'), list[i], side === 'def');
         el.onclick = () => {
@@ -4286,6 +4583,8 @@
       scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
         cat = b.dataset.c;
         draw();
+        const t = scr.querySelector(`.tabs button[data-c="${cat}"]`);
+        if (t && document.activeElement !== t && GP.on) gpFocus(t);  // a controller keeps its place on the tabs
       });
       const tmo = $('#tmo');
       if (tmo) tmo.onclick = () => {
@@ -4299,6 +4598,67 @@
       };
     };
     draw();
+  }
+
+  /* A row of cards three at a time: swipe it, scroll it with a mouse wheel (up and down turn into across), or page it
+     with the arrows under it, which also say where you are ("4–6 of 49"). */
+  function pager(row, n) {
+    const L = $('#pgL'), R = $('#pgR'), N = $('#pgN'), per = 3;
+    const step = () => {
+      const c = row.querySelector('.card');
+      return c ? c.offsetWidth + parseFloat(getComputedStyle(row).columnGap || 8) : row.clientWidth / per;
+    };
+    const upd = () => {
+      const i = Math.round(row.scrollLeft / step()), a = Math.min(n, i + 1), b = Math.min(n, i + per);
+      N.textContent = n <= per ? `${n} play${n === 1 ? '' : 's'}` : `${a}–${b} of ${n}`;
+      L.setAttribute('aria-disabled', i <= 0 ? 'true' : 'false');
+      R.setAttribute('aria-disabled', b >= n ? 'true' : 'false');
+    };
+    /* a page along, eased over a fifth of a second; the browser's own smooth scroll did not move a snapping row at all */
+    const slide = x => {
+      x = clamp(x, 0, row.scrollWidth - row.clientWidth);
+      const x0 = row.scrollLeft, t0 = performance.now(), me = (row.sl = (row.sl || 0) + 1);
+      row.style.scrollSnapType = 'none';
+      const end = () => {
+        if (row.sl !== me) return;
+        row.sl++;
+        row.scrollLeft = x;
+        row.style.scrollSnapType = '';
+        upd();
+      };
+      const f = now => {
+        if (row.sl !== me) return;
+        const u = Math.min(1, (now - t0) / 220);
+        row.scrollLeft = x0 + (x - x0) * (1 - Math.pow(1 - u, 3));
+        if (u < 1) requestAnimationFrame(f);
+        else end();
+      };
+      requestAnimationFrame(f);
+      setTimeout(end, 400);  // where frames are not running (a background tab), it still lands
+    };
+    const go = d => slide((Math.round(row.scrollLeft / step() / per) + d) * per * step());
+    L.onclick = () => go(-1);
+    R.onclick = () => go(1);
+    row.addEventListener('scroll', upd, { passive: true });
+    let acc = 0, lock = 0;
+    row.addEventListener('wheel', e => {
+      // a mouse wheel or a two-finger swipe turns pages: a small nudge on a snapping row would only spring back
+      const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.preventDefault();
+      else return;  // sideways swipes scroll the row natively
+      acc += d;
+      if (performance.now() < lock || Math.abs(acc) < 30) return;
+      go(acc > 0 ? 1 : -1);
+      acc = 0;
+      lock = performance.now() + 320;
+    }, { passive: false });
+    row.pageBy = go;
+    row.pageTo = i => {
+      // the page holding card i (the controller's ring): scrolling it just into view would snap back to the page before
+      const x = Math.floor(i / per) * per * step();
+      if (Math.abs(row.scrollLeft - x) > 2) slide(x);
+    };
+    upd();
   }
 
   const tmBtn = (t, i, on) => `<button class="tm ${on?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`;
@@ -4437,10 +4797,11 @@
   function showHow() {
     scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
   <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard, and beside it − and + zoom the camera out and in.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through other plays from the same formation, Flip to mirror the play.</li><li>Every team has its own offense (air raid, power run, pistol option, spread and more) and nine formations to call from, and coaches do not like to repeat themselves: expect a different look most snaps.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
+  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through other plays from the same formation, Flip to mirror the play.</li><li>Every team has its own offense (air raid, power run, pistol option, spread and more) and nine formations to call from, and coaches do not like to repeat themselves: expect a different look most snaps.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>Hard count, before the snap, barks a fake snap count: now and then a defender jumps offside for five free yards, and once in a while your own lineman flinches instead. One try a play.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
   <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
   <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
-  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. Hold 1–5 to build throw power, let go to throw.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul></div>`;
+  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. Hold 1–5 to build throw power, let go to throw.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, G hard count, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul>
+  <h2>Controller</h2><ul class="how"><li>Any controller your browser sees: plug it in or pair it and press a button. Left stick or d-pad moves, RT (R2) sprints, right stick zooms, Start pauses, View (Select) calls time out.</li><li>Before the snap: A snaps, Y is the hard count, LB audibles, RB flips the play.</li><li>Passing: each receiver's letter becomes a button, A, B, X, Y or RB. Hold it to build power and let go to throw.</li><li>Running: A power, B juke, X spin, Y hurdle. Defense: A dive, B switch, X hit, Y strip. As a receiver, A calls for the ball.</li><li>On the menus and the play-call sheet the d-pad moves a ring, A picks, B goes back, LB and RB change tabs, LT and RT page through the plays.</li></ul></div>`;
     $('#bk').onclick = showMenu;
   }
 
@@ -5282,6 +5643,7 @@
     watchSpeed(raw);
     const n = window.FAST || 1;
     try {
+      if (!AUTO) pollPad(dt);
       for (let i = 0; i < n; i++) step(dt);
       render();
     } catch (e) {
@@ -5313,6 +5675,7 @@
         SEED = n | 0;
       },
       step, render, startCall, resolveChallenge, playScene, endScene,
+      pad: dt => pollPad(dt || 0.016),  // one read of the controller (the test page fakes navigator.getGamepads)
       /* The play lab, for balancing the playbook: one offensive play run n times, headless, from first and ten at the
          35 (o.los, o.down, o.togo to change that) against the computer's defense or o.def, every other snap mirrored.
          Returns each snap's yards, the throw, and how it ended. It leaves a finished test game behind. */

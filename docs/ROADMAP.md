@@ -1047,6 +1047,29 @@ what is next. Update it after every item.
   repeats. Checked: careers QB and WR, a QB season, exhibition (the scripted user scored 36 points in 8 games against
   17 before), the drills, a drawn game, the WR end around (his carry, his line), audit empty at 320x568 and 390x844
   with and without the 34 px strip, no console errors.
+- 01:57 Round 20. The play-call sheet shows three plays at a time in a row that swipes, takes a mouse wheel (a page a
+  notch: a nudge on a snapping row only springs back) and pages with small arrows that say where you are ("4-6 of 46").
+  The Coach tab opens it: `rankOff` ranks every play by the play caller's own chances (`callPlan`, split out of
+  `callOff` with the dice in the same order, so the fingerprint did not change), shaken with Math.random, and shares the
+  top three between the kinds of play by how likely each is, the way seats go by votes (first and ten: a shot, a short
+  pass and a run; third and one: two runs and a pass). A career quarterback gets the same sheet with the coach's call
+  first. Two traps on the way: grid percentage tracks collapsed to 2 px cards in a scrolling row (now flex), and the
+  browser's smooth scroll never moved a snapping row (now a 220 ms slide of our own, landing by timer where frames are
+  not running). The audit now skips text scrolled away in a sideways row and still checks what shows.
+  Controllers (`pollPad` in game.js, the standard Gamepad layout): on the field the stick and d-pad move, RT sprints,
+  the face buttons do the pad's buttons (receivers wear A, B, X, Y and RB); on screens a ring moves with the d-pad
+  (nearest button in that direction), A presses, B goes back, LB and RB change tabs, LT and RT page the play row; the
+  first press only shows the ring. Tested with a fake controller (`PG.dbg.pad`): menus to kickoff, the sheet, hard
+  count, snap, a held-and-released throw, pause and resume.
+  Research (Madden's team books run about 550 to 630 offensive plays in some 40 formations; the league's penalty tables:
+  under one defensive offside or neutral zone infraction a game, about 2.5 false starts; Next Gen Stats: top speed and
+  completion probability) turned into: the hard count (Y, G or a button; works about one time in eight, backfires one
+  in twenty-five), a top speed card after a run or catch of 25 yards or more (yards a second times 2.0455), a completion
+  probability card after a catch the game gave under 32 percent, a third-down line ("2 of 5 today") before third downs,
+  and a measurement when the spot is within a third of a yard of the line to gain. The icon is new (a night game: light
+  banks, the field in perspective, a spiral with its trail; rendered with the system's qlmanage, no download). Checked:
+  fingerprint unchanged, careers, a QB season, exhibition, drills, audit empty at 320x568 and 390x844 with and without
+  the 34 px strip, no console errors.
 
 ## Morning hand-off
 
@@ -1310,6 +1333,45 @@ what is next. Update it after every item.
 - [x] Draft day stage.
 - [x] Press conference podium opener.
 - [x] Hall of fame induction.
+
+### Round 20 (the owner at 01:05 on 2026-11-13: "show 3 plays at a time and allow easy scrolling for more plays, obv top
+### 3 plays are most suggested by coach, make the game icon a lot better, add a better description on github, research a
+### lot on football and games for it and see what small details to add ... i really want to work on making the
+### animations and models better after all this as well, i want full controller support too and more things to work on
+### for the game i want big major additions and such")
+- [x] The play-call sheet three at a time, the coach's top three first, swipe, wheel or arrows for more.
+- [x] A new game icon (and PNG sizes), the GitHub description and topics, a new README opening.
+- [x] Small details from research: the hard count, top speed and completion probability cards, the third-down line,
+  the measurement.
+- [x] Full controller support (the Gamepad API): the field, the menus, the play-call sheet, the pause dialog.
+- [ ] Animations and models: the owner's next priority (see the plan below).
+- [ ] The big additions below, in the order the owner picks.
+
+### The plan for animations and models (Round 21, the owner's priority "after all this")
+Today a player is about thirty instanced parts (rounded boxes and capsules) posed joint by joint in `render3d.js`.
+Ordered by what a phone would notice most:
+1. One skinned body per player instead of separate parts: a procedural mesh (torso, arms, legs as one surface) bound to
+   a skeleton, so elbows, knees and shoulders bend without seams. three.js `SkinnedMesh` with 18 bones, built in code
+   (no downloaded model), and the existing pose vectors drive the bones. Instancing goes; measure the frame rate on a
+   phone at 22 players before keeping it.
+2. Gait blends by speed: walk, jog, run, sprint and backpedal mixed by velocity, with foot planting (the feet stop
+   sliding at any speed, not only the eight sampled ones `PG.r3d.gait` measures).
+3. Football-specific motions: three, five and seven step drops, a throwing motion with follow-through, a catch reaching
+   for the ball (high point, diving, a toe tap at the sideline), stances for linemen and receivers, a form tackle as a
+   paired animation (tackler and runner keyed to each other), a stiff arm that reaches.
+4. Equipment detail: facemask bars, helmet decals and numbers, visors, sleeves, gloves, towels, cleats; jersey cloth
+   shading (a normal map made in a shader), grass stains as a game goes on.
+5. Faces and hair under the helmet in close-ups and cutscenes (the cutscenes already show hair and a cap).
+
+### Big additions to choose from (Round 22 and on)
+- Pre-snap motion: jet and orbit motion and shifts, routes built from where the man is at the snap.
+- Franchise mode: run a whole team (roster, contracts, the draft, free agency, the depth chart) for seasons.
+- Two players on one device (or two phones over a peer-to-peer connection), head to head.
+- Create a play: draw routes on the card art, keep your own book.
+- Practice mode open to players: pick a play and a coverage, run it as often as you like (the play lab, with a field).
+- A living league: every player progresses and ages, injuries, weekly awards, a scores ticker, a halftime show.
+- Stadiums with their own look per team (roof, end zone art, colors), weather by city.
+- Difficulty sliders (pass coverage, AI accuracy, fatigue) and remappable controller buttons.
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:

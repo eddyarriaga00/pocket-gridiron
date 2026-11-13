@@ -1,14 +1,106 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#060a13"/>
-  <rect y="300" width="512" height="212" fill="#2a8440"/>
-  <rect y="300" width="512" height="10" fill="#ffffff"/>
-  <rect y="400" width="512" height="6" fill="#ffffff" opacity=".6"/>
-  <g transform="rotate(-28 256 236)">
-    <ellipse cx="256" cy="236" rx="150" ry="92" fill="#8a5326"/>
-    <rect x="186" y="230" width="140" height="12" rx="6" fill="#ffffff"/>
-    <rect x="206" y="212" width="12" height="48" rx="6" fill="#ffffff"/>
-    <rect x="250" y="212" width="12" height="48" rx="6" fill="#ffffff"/>
-    <rect x="294" y="212" width="12" height="48" rx="6" fill="#ffffff"/>
+  <!-- Pocket Gridiron: a night game. Stadium light banks over a field in perspective, and a spiral under the lights.
+       Full bleed for maskable icons; the ball stays inside the central safe circle. No yellow, by the owner's taste. -->
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="22%" r="85%">
+      <stop offset="0" stop-color="#1e4a86"/>
+      <stop offset=".5" stop-color="#0c1d3a"/>
+      <stop offset="1" stop-color="#04080f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".95"/>
+      <stop offset=".2" stop-color="#d6ebff" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#9cc9ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="turf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a8f49"/>
+      <stop offset="1" stop-color="#0d4322"/>
+    </linearGradient>
+    <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfe6ff" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#cfe6ff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="leather" cx="36%" cy="30%" r="78%">
+      <stop offset="0" stop-color="#cf7b43"/>
+      <stop offset=".42" stop-color="#8f4522"/>
+      <stop offset=".85" stop-color="#4a200d"/>
+      <stop offset="1" stop-color="#2c1206"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4dabf7" stop-opacity="0"/>
+      <stop offset=".7" stop-color="#6fbaff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#bfe0ff" stop-opacity=".9"/>
+    </linearGradient>
+    <clipPath id="ball"><ellipse cx="0" cy="0" rx="124" ry="74"/></clipPath>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#sky)"/>
+
+  <!-- the light banks and their glow -->
+  <circle cx="96" cy="92" r="170" fill="url(#glow)" opacity=".8"/>
+  <circle cx="416" cy="92" r="170" fill="url(#glow)" opacity=".8"/>
+  <g fill="#f4f9ff">
+    <rect x="62" y="70" width="68" height="34" rx="5" fill="#1a2c4a"/>
+    <rect x="382" y="70" width="68" height="34" rx="5" fill="#1a2c4a"/>
+    <g opacity=".95">
+      <circle cx="73" cy="80" r="5"/><circle cx="87" cy="80" r="5"/><circle cx="101" cy="80" r="5"/><circle cx="115" cy="80" r="5"/>
+      <circle cx="73" cy="94" r="5"/><circle cx="87" cy="94" r="5"/><circle cx="101" cy="94" r="5"/><circle cx="115" cy="94" r="5"/>
+      <circle cx="393" cy="80" r="5"/><circle cx="407" cy="80" r="5"/><circle cx="421" cy="80" r="5"/><circle cx="435" cy="80" r="5"/>
+      <circle cx="393" cy="94" r="5"/><circle cx="407" cy="94" r="5"/><circle cx="421" cy="94" r="5"/><circle cx="435" cy="94" r="5"/>
+    </g>
+    <rect x="93" y="104" width="6" height="60" fill="#1a2c4a"/>
+    <rect x="413" y="104" width="6" height="60" fill="#1a2c4a"/>
   </g>
-  <rect y="0" width="512" height="16" fill="#4c9aff"/>
+
+  <!-- the stands, a dark band of crowd under the lights -->
+  <path d="M0 300 L0 262 Q256 228 512 262 L512 300 Z" fill="#0a1426"/>
+  <path d="M0 268 Q256 236 512 268" stroke="#2d4f86" stroke-width="3" fill="none" opacity=".8"/>
+
+  <!-- the field, looking downfield: yard lines closer together toward the far end -->
+  <path d="M-60 512 L118 300 L394 300 L572 512 Z" fill="url(#turf)"/>
+  <path d="M118 300 L394 300 L404 330 L108 330 Z" fill="url(#haze)"/>
+  <g stroke="#ffffff" stroke-linecap="round">
+    <path d="M118 300 L-60 512 M394 300 L572 512" stroke-width="6"/>
+    <path d="M114 305 L398 305" stroke-width="3" opacity=".75"/>
+    <path d="M106 315 L406 315" stroke-width="3.4" opacity=".78"/>
+    <path d="M95 328 L417 328" stroke-width="3.8" opacity=".8"/>
+    <path d="M79 347 L433 347" stroke-width="4.4" opacity=".82"/>
+    <path d="M56 374 L456 374" stroke-width="5" opacity=".85"/>
+    <path d="M22 414 L490 414" stroke-width="6" opacity=".88"/>
+    <path d="M-30 476 L542 476" stroke-width="7.5" opacity=".9"/>
+  </g>
+  <g stroke="#ffffff" stroke-width="3" opacity=".7">
+    <path d="M226 336 L224 342 M286 336 L288 342 M224 358 L222 366 M288 358 L290 366 M220 390 L217 400 M292 390 L295 400 M214 440 L210 454 M298 440 L302 454"/>
+  </g>
+
+  <!-- the spiral's trail -->
+  <path d="M58 360 C 130 300, 190 270, 250 252" stroke="url(#trail)" stroke-width="30" stroke-linecap="round" fill="none" opacity=".8"/>
+  <path d="M96 392 C 160 330, 210 300, 262 284" stroke="url(#trail)" stroke-width="10" stroke-linecap="round" fill="none" opacity=".95"/>
+  <path d="M40 318 C 120 268, 180 246, 236 232" stroke="url(#trail)" stroke-width="8" stroke-linecap="round" fill="none" opacity=".85"/>
+
+  <!-- the ball -->
+  <g transform="translate(286 226) rotate(-30)">
+    <ellipse cx="6" cy="14" rx="124" ry="74" fill="#000" opacity=".35"/>
+    <ellipse cx="0" cy="0" rx="124" ry="74" fill="url(#leather)"/>
+    <g clip-path="url(#ball)">
+      <path d="M-124 0 Q0 -26 124 0" stroke="#2a1105" stroke-width="3" fill="none" opacity=".55"/>
+      <ellipse cx="-14" cy="-40" rx="86" ry="22" fill="url(#sheen)" opacity=".6"/>
+      <path d="M-124 30 Q0 90 124 30" stroke="#1d0b03" stroke-width="22" fill="none" opacity=".35"/>
+    </g>
+    <ellipse cx="0" cy="0" rx="124" ry="74" fill="none" stroke="#1d0b03" stroke-width="4" opacity=".6"/>
+    <!-- laces -->
+    <rect x="-48" y="-21" width="96" height="11" rx="5.5" fill="#f7f9fc"/>
+    <g fill="#f7f9fc">
+      <rect x="-40" y="-31" width="9" height="31" rx="4"/>
+      <rect x="-21" y="-32" width="9" height="33" rx="4"/>
+      <rect x="-2" y="-33" width="9" height="34" rx="4"/>
+      <rect x="17" y="-32" width="9" height="33" rx="4"/>
+      <rect x="36" y="-31" width="9" height="31" rx="4"/>
+    </g>
+    <rect x="-48" y="-12" width="96" height="3" rx="1.5" fill="#000" opacity=".18"/>
+  </g>
 </svg>

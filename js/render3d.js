@@ -355,6 +355,7 @@
   const REF_COLORS = { jersey: '#f4f4f4', pants: '#15171c', helmet: '#15171c', stripe: '#15171c', trim: '#15171c', sock: '#15171c', number: '#15171c',
     skin: '#d7a078', glove: '#d7a078', shoe: '#0c0c10', mask: '#15171c', visor: '#d7a078' };
   const REF_HIDE = new Set(['pads', 'mask', 'stripe', 'logo', 'sleeve', 'pantStripe', 'wrist', 'ear']);
+  const SUIT = { jersey: '#1d2433', pants: '#1d2433', helmet: '#2b1f17', stripe: '#1d2433', trim: '#1d2433', sock: '#14171f', number: '#1d2433', glove: '#c99a74', shoe: '#0c0c10', mask: '#1d2433', visor: '#c99a74', skin: '#c99a74' };  // a dark suit; the cap is his hair
   const SKIN = ['#f0c8a4', '#d7a078', '#b3764c', '#8a583a', '#66402e'];
 
   /* the number, front and back, wrapped over the chest */
@@ -556,6 +557,32 @@
       }
       return false;
     }
+    if (a === 'shake') {
+      // a handshake: the right hand out low and forward, a little pump
+      const k = Math.sin(time * 9) * 0.06;
+      tg[SRX] = 0.95 + k;
+      tg[SRZ] = -0.12;
+      tg[ER] = 0.45;
+      tg[CHRX] = -0.04;
+      return false;
+    }
+    if (a === 'hold') {
+      // a jersey held up in front of him in both hands, at his chest, his face over it
+      tg[SLX] = tg[SRX] = 1.3;
+      tg[SLZ] = 0.3;
+      tg[SRZ] = -0.3;
+      tg[EL] = tg[ER] = 0.85;
+      tg[CHRX] = 0.06;
+      return false;
+    }
+    if (a === 'clap') {
+      const c = Math.abs(Math.sin(time * 8 + f.seed));
+      tg[SLX] = tg[SRX] = 1.25;
+      tg[SLZ] = -0.05 - c * 0.3;
+      tg[SRZ] = 0.05 + c * 0.3;
+      tg[EL] = tg[ER] = 0.75;
+      return false;
+    }
     if (a === 'trophy') {
       // the trophy over his head in both hands, pumping it up a little, chest out, looking up at it
       const k = Math.abs(Math.sin(time * 2.6));
@@ -673,9 +700,24 @@
       g.add(pts);
       return pts;
     });
+    const boardC = document.createElement('canvas');
+    boardC.width = 1024;
+    boardC.height = 420;
+    const boardTex = new T.CanvasTexture(boardC);
+    boardTex.colorSpace = T.SRGBColorSpace;
+    const draftBoard = new T.Mesh(new T.PlaneGeometry(13, 5.33), new T.MeshBasicMaterial({ map: boardTex }));
+    draftBoard.position.set(FW / 2, 3.4, -(50 + 3.3));
+    g.add(draftBoard);
+    const shirtC = document.createElement('canvas');
+    shirtC.width = 256;
+    shirtC.height = 280;
+    const shirtTex = new T.CanvasTexture(shirtC);
+    shirtTex.colorSpace = T.SRGBColorSpace;
+    const shirt = new T.Mesh(new T.PlaneGeometry(1.25, 1.37), new T.MeshBasicMaterial({ map: shirtTex, transparent: true, side: T.DoubleSide }));
+    g.add(shirt);
     const coin = new T.Mesh(new T.CylinderGeometry(0.17, 0.17, 0.03, 24), new T.MeshPhongMaterial({ color: 0xd4d9e2, specular: 0xffffff, shininess: 110 }));
     g.add(coin);
-    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, coin, teamKey: '' };
+    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, coin, draft: { board: draftBoard, boardC, boardTex, shirt, shirtC, shirtTex, key: '' }, teamKey: '' };
   }
 
   function updateProps(sc, t0, P) {
@@ -689,7 +731,65 @@
     W.tun.visible = on;
     for (const sp of W.smoke) sp.visible = on;
     for (const sp of W.flames) sp.visible = on;
-    Ch.stage.visible = Ch.cup.visible = champ;
+    const draft = sc.kind === 'draft', Dr = props.draft;
+    Ch.stage.visible = champ || draft;
+    Ch.cup.visible = champ;
+    Dr.board.visible = draft;
+    Dr.shirt.visible = draft && !!sc.me && sc.me.act === 'hold';
+    if (draft) {
+      Ch.skirt.color.set(t0.c1);
+      const key = t0.ab + '|' + sc.o.pick + '|' + sc.o.num + '|' + sc.o.name;
+      if (Dr.key !== key) {
+        Dr.key = key;
+        // the board: the draft over the team, in its colors
+        const x = Dr.boardC.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 420);
+        gr.addColorStop(0, '#0b111d');
+        gr.addColorStop(1, t0.c1);
+        x.fillStyle = gr;
+        x.fillRect(0, 0, 1024, 420);
+        x.fillStyle = t0.c1;
+        x.fillRect(0, 404, 1024, 16);
+        x.textAlign = 'center';
+        x.fillStyle = '#c9d3e6';
+        x.font = '700 40px Archivo, Arial, sans-serif';
+        x.fillText(`THE DRAFT \u00b7 ROUND 1 \u00b7 PICK ${sc.o.pick}`, 512, 92);
+        x.fillStyle = '#ffffff';
+        x.font = '800 112px Archivo, Arial, sans-serif';
+        x.fillText(t0.name.toUpperCase(), 512, 230, 960);
+        x.font = '700 44px Archivo, Arial, sans-serif';
+        x.fillText(t0.city.toUpperCase(), 512, 300, 960);
+        Dr.boardTex.needsUpdate = true;
+        // the jersey: the team color, the name across the shoulders, the number under it
+        const s = Dr.shirtC.getContext('2d');
+        s.clearRect(0, 0, 256, 280);
+        s.fillStyle = t0.c1;
+        s.beginPath();
+        s.moveTo(70, 10);
+        s.lineTo(186, 10);
+        s.lineTo(250, 52);
+        s.lineTo(222, 104);
+        s.lineTo(200, 92);
+        s.lineTo(200, 274);
+        s.lineTo(56, 274);
+        s.lineTo(56, 92);
+        s.lineTo(34, 104);
+        s.lineTo(6, 52);
+        s.closePath();
+        s.fill();
+        s.fillStyle = t0.c2;
+        s.textAlign = 'center';
+        s.font = '800 22px Archivo, Arial, sans-serif';
+        s.fillText(String(sc.o.name || '').toUpperCase(), 128, 62, 136);
+        s.font = '800 116px Archivo, Arial, sans-serif';
+        s.fillText(String(sc.o.num), 128, 196);
+        Dr.shirtTex.needsUpdate = true;
+      }
+      const i = P ? P.indexOf(sc.me) : -1, f = i >= 0 ? figs[SIDELINE + i] : null;
+      if (f && Dr.shirt.visible) {
+        f.head.getWorldPosition(CUPAT);
+        Dr.shirt.position.set(CUPAT.x, CUPAT.y - 1.15, CUPAT.z + 0.58);  // held at his chest, in front of him, toward the cameras
+      }
+    }
     const toss = sc.kind === 'toss', ref = toss && sc.ref;
     props.coin.visible = !!ref;
     if (ref) {
@@ -759,6 +859,19 @@
 
   /* the camera for each scene: where it stands (v3) and what it looks at (v3b), from the scene's clock */
   const SCENECAM = {
+    draft(sc, P, v3, v3b) {
+      const t = sc.t, me = sc.me || P[0];
+      if (t < 2.6) {
+        v3.set(FW / 2 - 1, 3.6, -(50 - 11.5));  // the stage and the board, you walking up
+        v3b.set(FW / 2 - 1.5, 2.6, -50);
+      } else if (t < 4.5) {
+        v3.set(FW / 2 + 0.3, 3.3, -(50 - 5.2));  // on the handshake
+        v3b.set(FW / 2, 3, -49.6);
+      } else {
+        v3.set(me.x + 0.4, 3.6, -(me.y - 5.4));  // you with the jersey, the board behind
+        v3b.set(me.x, 3.5, -me.y);
+      }
+    },
     toss(sc, P, v3, v3b) {
       const t = sc.t, ref = sc.ref || P[P.length - 1];
       if (t < 1.4) {
@@ -3026,12 +3139,12 @@
         continue;
       }
       if (fresh) {
-        f.hide = p.ref ? REF_HIDE : null;  // a cutscene's referee is dressed like the officials
-        setBuild(f, p.ref ? BUILD.ref : buildOf(p.role));
-        const home = p.team === 0, c = p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
+        f.hide = p.ref || p.suit ? REF_HIDE : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
+        setBuild(f, p.ref || p.suit ? BUILD.ref : buildOf(p.role));
+        const home = p.team === 0, c = p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
         colorFigure(SIDELINE + i, c);
-        f.num.material = p.ref ? stripeMaterial() : numberMaterial(p.num, c.number);
-        f.nameplate.material = p.ref ? NO_NAME : nameMaterial(p.name, c.number);
+        f.num.material = p.ref ? stripeMaterial() : p.suit ? NO_NAME : numberMaterial(p.num, c.number);
+        f.nameplate.material = p.ref || p.suit ? NO_NAME : nameMaterial(p.name, c.number);
         f.fall = 0;
         f.fallDir = Math.random() < 0.75 ? 1 : -1;
         f.snap = true;

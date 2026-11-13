@@ -225,7 +225,7 @@
      Never in simulations or practice, and Settings can turn them off. Every scene is in SCENES: dur, setup(o) for
      the actors and props, update(sc, dt) to move them, and cues: [time, fn] fired once. */
   const SCENE_PS = { mode: 'scene', carrier: null, air: null, loose: null, recs: [], los: 50, bx: FW / 2, offTeam: 0, fd: 60, qb: null, thrown: true };
-  const cutsOn = () => !AUTO && !QUIET && !G.drill && SET.cuts !== false;
+  const cutsOn = () => !AUTO && !QUIET && !G.drill && SET.cuts !== false && !!R3;  // the 3D view draws them; the flat fallback skips them
 
   function rosterMan(team, role, k) {
     const r = G.ros[team] && G.ros[team][role];
@@ -244,6 +244,20 @@
     $('#hud').hidden = true;
     scr.innerHTML = `<button class="scene" id="scn"><div class="cap">${sc.cap || ''}</div><small>Tap to skip</small></button>`;
     $('#scn').onclick = () => endScene();
+  }
+
+  /* a cutscene away from a game (the draft, the hall of fame): a quiet stadium in the home side's colors, then back to
+     the menus. then(true) when it played, then(false) when cutscenes are off. */
+  function cinema(kind, o, then) {
+    if (!cutsOn() || G.ros) return then(false);
+    G = menuState([o.team, o.vs != null ? o.vs : (o.team + 3) % TEAMS.length]);
+    G.state = 'dead';
+    G.env = o.env || { time: 'night', weather: 'clear' };
+    playScene(kind, o, () => {
+      G = menuState(G.tm);
+      $('#hud').hidden = true;
+      then(true);
+    });
   }
 
   function stepScene(dt) {
@@ -445,6 +459,40 @@
         const c = $('#scn .cap');
         if (c) c.innerHTML = `<small>Coin toss · midfield</small><b>${esc(w.name)} win the toss</b><span>They will receive</span>`;
         if (PG.audio) PG.audio.crowd.cheer(sc.win === 0 ? 0.8 : 0.4, 2);
+      }],
+    ],
+  };
+
+  /* Draft day: a stage at midfield with the draft board behind it in the new team's colors. You walk up onto it, shake
+     the commissioner's hand, then turn to the cameras holding up your new jersey (render3d.js draws it with your name
+     and number) while the announcer reads the pick. */
+  SCENES.draft = {
+    dur: 7.6,
+    setup(sc) {
+      const o = sc.o, t = TEAMS[o.team], role = o.pos === 'WR' ? 'X' : 'QB';
+      const me = { x: FW / 2 - 7.5, y: 47.6, vx: 0, vy: 0, team: 0, role, num: o.num, name: o.name, act: null, spd: 3.2, via: [[FW / 2 - 5.4, 48.8]], go: [FW / 2 - 0.75, 49.6], then: 'shake', face: -Math.PI / 2, at: 0.2 };
+      const boss = { x: FW / 2 + 0.75, y: 49.6, vx: 0, vy: 0, team: 1, role: 'BOSS', num: 0, name: '', suit: true, act: 'stand', face: Math.PI / 2, lift: 0.45 };
+      sc.me = me;
+      sc.boss = boss;
+      sc.cap = `<small>The draft · pick ${o.pick} of 8</small><b>The ${esc(t.city)} ${esc(t.name)} select ${esc(o.name)}</b><span>${o.pos === 'WR' ? 'Wide receiver' : 'Quarterback'} · #${o.num}</span>`;
+      return [me, boss];
+    },
+    update(sc) {
+      sc.me.lift = sc.me.x > FW / 2 - 4.9 ? 0.45 : 0;  // up the step onto the stage
+    },
+    cues: [
+      [0.4, sc => {
+        const o = sc.o;
+        if (PG.audio && PG.audio.pa) PG.audio.pa(`With pick number ${o.pick}, the ${TEAMS[o.team].city} ${TEAMS[o.team].name} select ${o.name}.`, { announcer: true, anywhere: true, wait: 0.1,
+          clips: ['pa.draft.' + o.pick, 'pa.select.' + TEAMS[o.team].ab].concat(o.pos === 'QB' ? ['pa.qb'] : o.pos === 'WR' ? ['pa.wr'] : []) });
+      }],
+      [2.7, sc => (sc.boss.act = 'shake')],
+      [4.5, sc => {
+        sc.me.act = 'hold';
+        sc.me.face = Math.PI;  // to the cameras
+        sc.boss.act = 'clap';
+        snd('fanfare');
+        confetti(0);
       }],
     ],
   };
@@ -5096,7 +5144,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, CELEBS, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, playScene, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
+    startGame, showMenu, toMenu, banner, toast, snd, playScene, cinema, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

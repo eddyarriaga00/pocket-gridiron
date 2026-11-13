@@ -982,6 +982,18 @@ what is next. Update it after every item.
   list); the captains were cut off at the edges (now closer in, the camera further back); the camera looked up at the
   coin into empty sky (now less). Checked: exhibition, careers, drills clean; fingerprint unchanged; audit empty at
   320x568 and 390x844 at three moments of the toss, with and without the 34 px strip.
+- 00:51 Cutscenes, 5 of 7: draft day. `cinema(kind, o, then)` plays a cutscene away from a game: a quiet stadium in the
+  home side's colors (a menu state given the teams and a night sky), then back to the menus; the draft calls it
+  before the board, and the board skips its fanfare and announcement when the scene had them. The scene: the stage
+  at midfield with a draft board behind it (canvas: "THE DRAFT · ROUND 1 · PICK n", the team's name and city in its
+  colors), you walking up the step onto it, the commissioner (a figure in a dark suit, no pads, no number) shaking
+  your hand, then you turning to the cameras with your jersey held up (canvas: your name across the shoulders and
+  your number in the team's colors), confetti, the fanfare, the announcer reading the pick. Fixed on the way: the
+  jersey first covered your face (now at chest height). A page load in the pane once lost render3d.js to the test
+  server's connection resets (no renderer, so no cutscenes): not the code; later runs check that the renderer
+  loaded. The audit's menu walk now passes through the scene (it skips it, after scanning it). Checked: careers,
+  exhibition, drills clean; fingerprint unchanged; audit empty at 320x568 and 390x844 at three moments of the scene
+  and through the whole create-combine-draft path, with and without the 34 px strip.
 
 ## Morning hand-off
 
@@ -1242,7 +1254,7 @@ what is next. Update it after every item.
 - [x] Rival face-off before rival games.
 - [x] Championship trophy.
 - [x] Coin toss at midfield.
-- [ ] Draft day stage.
+- [x] Draft day stage.
 - [ ] Press conference podium opener.
 - [ ] Hall of fame induction.
 

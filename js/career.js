@@ -623,6 +623,12 @@
     checkTrophies();
     persist();
     const others = ['QB', 'RB', 'WR', 'LB', 'CB', 'OT', 'DE', 'S'], any = a => a[Math.floor(Math.random() * a.length)];
+    // draft day on a stage first (the announcer reads the pick there), then the board
+    if (PG.cinema) return PG.cinema('draft', { team: tm, pick, name: C.name, num: C.num, pos: C.pos }, played => draftBoard(grade, order, pick, tm, bonus, pre, others, any, played));
+    draftBoard(grade, order, pick, tm, bonus, pre, others, any, false);
+  }
+
+  function draftBoard(grade, order, pick, tm, bonus, pre, others, any, played) {
     const opens = { Starter: 'you start from day one', Rotation: 'you open in the rotation', Backup: 'you open as a backup' }[roleOf()[1]];
     scr.innerHTML = `<div class="menu solid"><h1 class="sm">The <em>draft</em></h1>
   <p class="tag">${pre.dash?`Dash ${pre.dash.time.toFixed(2)} s, grade ${pre.dash.grade}${pre.work?` · drills grade ${pre.work.grade}`:''} · `:''}Draft grade ${grade}</p>
@@ -630,6 +636,7 @@
   <div class="nx"><small>Pick ${pick} of 8</small><h4>${full(tm)}</h4><p>${C.deal.years}-year contract at ${money(C.deal.pay)} a season · Signing bonus +${fmt(bonus)} XP · Coach trust ${C.trust}: ${opens}.</p></div>
   <button class="go" id="camp">Report to camp</button></div>`;
     $('#camp').onclick = () => showHub('up');
+    if (played) return;  // the stage had the fanfare and the announcer
     PG.snd('fanfare');
     if (PG.audio && PG.audio.pa) PG.audio.pa(`With pick number ${pick}, the ${full(tm)} select ${C.name}.`, { announcer: true, anywhere: true, wait: 0.6,
       clips: ['pa.draft.' + pick, 'pa.select.' + TEAMS[tm].ab].concat(C.pos === 'QB' ? ['pa.qb'] : C.pos === 'WR' ? ['pa.wr'] : []) });  // recorded: the stadium announcer

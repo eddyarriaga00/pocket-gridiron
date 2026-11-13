@@ -381,6 +381,10 @@ window.A = (() => {
       }
       scan('combine after the dash');
       click('#skip');
+      if (q('#scn')) {
+        scan('draft day');  // the cutscene on the stage, then the board
+        click('#scn');
+      }
       scan('draft');
       click('#camp');
       for (const t of ['up', 'season', 'stats', 'social']) {

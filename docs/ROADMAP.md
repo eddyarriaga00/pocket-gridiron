@@ -631,6 +631,18 @@ what is next. Update it after every item.
   three times during long test loops in the hidden pane, which freezes the page between tool calls; no game code
   was in the trace, and it did not happen in the timed runs. Worth a look if a player ever reports sound stopping.
 
+- 19:20 Field sound (automatic run 6). A field goal whose accuracy lands within 0.03 of the line between good and no
+  good (about one kick in fifteen near it) is flown at the upright and leaves it inward or back out. Whether it is
+  good was already decided and the flight time is unchanged, so play is untouched. Forced four kicks in a game (good
+  and missed, at each post): each met its post exactly (23.57 and 29.77 across the field, the posts' own positions)
+  above the crossbar, scored or not as decided, put "off the upright" in the banner, and asked for the clang. Levels
+  through the whole mix (peak / RMS / the part a phone plays): clang -4.1 / -22.4 / -22.4 (first version -30 on a
+  phone, 88% of it under 200 Hz; raised to a 340 Hz tube); the defense's calls peak -11.7 and the whoop -11, level
+  with the quarterback's cadence at -10.1 (first version 6 dB under it); a hard bounce -13.3. 59 of these were asked
+  for over the scripted games. Drawing and sound only: `H.fingerprint()` unchanged, `H.sim` in range, exhibition,
+  both careers, the drills and a drawn game (3,412 frames) clean, audit empty at 320x568 and 390x844, no console
+  errors.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -782,6 +794,11 @@ what is next. Update it after every item.
       two on the ground. Not built: a second man joining the tackle (measured, there is no room for him; see the
       log and "Next ideas"). Still to be judged in motion by a person
 
+- [x] Run 6, field sound. A field goal made or missed by a hair goes off the upright: it clangs (a ringing tube,
+      pitched where a phone can play it), goes on through or bounces back out, and the banner says so. The defense
+      calls out the formation before most snaps and answers an audible; the men who made a sack, an interception or
+      a fumble recovery whoop; the ball thuds on the turf when it bounces. Still to be judged by ear
+
 ### Round 10 (the owner at 17:48 on 2026-11-12: "the voice over is too ai, it needs to be like the nfl commentators";
 ### then, offered four ways to do it, at about 17:58: "of course option 1", the free speech model on his Mac)
 - [x] A recorded broadcast booth in place of the phone's speech voice: a play-by-play man and an analyst, 273 clips
@@ -811,9 +828,8 @@ Major improvements, biggest first:
   join at the full stops. WAITING: the owner was asked at 18:34 on 2026-11-12 whether to do this now or after he has
   judged the booth by ear, and has not answered. An automatic run does not take it until he has (it was put to him
   as his call); it needs no download.
-- More stadium sound: a goal-post "doink" (a miss that hits the upright: the kick's result is already decided, so it
-  would be a change to the ball's flight and a sound, not to play); the defense calling out the play at the line.
-  The stadium announcer on scores and at the end of each quarter belongs with the item above: it is the same voice.
+- The booth has no line for a kick off the upright ("Off the upright... and it's good!"); record it with the next
+  batch of lines (it needs the owner's verdict on the voices first, see the top item).
 - A pile. Run 5 tried a second man reaching in on a tackle and measured it: the first tackler finishes bent over the
   runner with his hips most of a yard up and his helmet over the runner's chest, so from every side a second man's
   back or legs end up in him (10 to 45 cm in every one of 52 stagings). It needs the first tackler to finish flat

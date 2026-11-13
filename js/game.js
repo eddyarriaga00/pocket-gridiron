@@ -236,6 +236,7 @@
     const was = shift ? Object.fromEntries(P.map(p => [p.team + p.role, [p.x, p.y]])) : null, selRole = shift && G.sel ? G.sel.role : null;
     if (!shift) {
       G.cadence = false;  // the quarterback has not called it out yet
+      G.dcall = false;  // nor the defense
       G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc'
       if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false };  // a new possession
       G.drive.plays++;
@@ -1300,6 +1301,7 @@
     if (b.z < 0.16) {
       b.z = 0.16;
       if (b.vz < -1.2) {
+        if (b.vz < -2.2) snd('thud', { x: b.x, power: clamp(-b.vz / 9, 0.25, 1) });  // the first bounces can be heard; the last little hops cannot
         b.vz = -b.vz * 0.45;
         b.vx = b.vx * 0.6 + rnd(-1.6, 1.6);
         b.vy = b.vy * 0.6 + rnd(-1.6, 1.6);
@@ -1586,6 +1588,7 @@
       sub = `${c.name} recovers for the ${tname(t)}` + (f ? ` · forced by ${f.name}` : '');
       G.stats[1 - t].to++;
       react(t, 1.2, 3);
+      snd('whoop', { x: c.x, delay: 0.4 });
       setBall(t, ez ? (t === 0 ? 20 : 80) : c.y, c.x);
     } else if (kind === 'tackle' || kind === 'oob') {
       const t = c.team, y = c.y, x = c.x;
@@ -1608,6 +1611,7 @@
         credit(ps.passer, 'att', 1);
         credit(ps.passer, 'pint', 1);
         react(t, 1.2, 3);
+        snd('whoop', { x, delay: 0.4 });
         const ez = t === 0 ? y <= 0 : y >= 100;
         setBall(t, ez ? (t === 0 ? 20 : 80) : y, x);
       } else if (off === 0 ? y <= 0 : y >= 100) {
@@ -1625,8 +1629,10 @@
         if (sack && me && ps.tackler === me) G.my.sack++;
         if (sack) credit(ps.tackler, 'sack', 1);
         sub = `${c.name} #${c.num}${ps.caught?' · catch':''}${kind==='oob'?' · out of bounds':''}`;
-        if (sack) react(1 - off, 0.9, 2.2);
-        else if (gi >= 15) react(off, 0.6 + Math.min(0.6, gi / 50), 2.6);
+        if (sack) {
+          react(1 - off, 0.9, 2.2);
+          snd('whoop', { x: c.x, delay: 0.5 });  // and so do the men who got there
+        } else if (gi >= 15) react(off, 0.6 + Math.min(0.6, gi / 50), 2.6);
         else if (gi < 0) react(1 - off, 0.4, 1.5);
         if ((y - ps.fd) * dir >= 0) {
           const dn = G.down;
@@ -1654,7 +1660,7 @@
         G.score[off] += 3;
         big = 'It’s good!';
         G.sig = 'td';
-        sub = `${d}-yard field goal`;
+        sub = `${d}-yard field goal` + (ps.kick.post ? ' · in off the upright' : '');
         score = true;
         kickoff(1 - off);
         if (off === 0) snd('chime');
@@ -1662,7 +1668,7 @@
       } else {
         big = 'No good';
         G.sig = 'inc';
-        sub = `${d}-yard attempt`;
+        sub = `${d}-yard attempt` + (ps.kick.post ? ' · off the upright' : '');
         stop = true;
         react(1 - off, 0.7, 2);
         setBall(1 - off, off === 0 ? Math.min(los, 80) : Math.max(los, 20), FW / 2);
@@ -2220,6 +2226,14 @@
       T = 1.5 + d * 0.014;
       h = 7 + d * 0.07;
       ps.kick = { type: 'fg', arg: good, dist: d };
+      /* Off the upright. A kick made or missed by a hair meets the post on its way: it goes on through, or it comes
+         back out. Only where the ball flies changes. Whether the kick is good was settled above, the flight takes as
+         long as it always did, and nothing here draws from the game's generator. */
+      const py = off === 0 ? 110.6 : -10.6, sp = (py - k.y) / (y1 - k.y);
+      if (d <= 63 && Math.abs(acc - thr - G.wx.kick) < 0.03 && sp > 0.3 && sp < 0.95) {
+        x1 = k.x + (FW / 2 + sg * 3.1 - k.x) / sp;  // aimed so that it is at the upright as it crosses the goal line's back edge
+        ps.kick.post = { s: sp, sg, y: py, hit: false };
+      }
     } else {
       const d = 30 + acc * 20 + rnd(-3, 3), y = los + dir * d, x = clamp(ps.bx + rnd(-12, 12), 4, FW - 4), tb = off === 0 ? y >= 99 : y <= 1;
       const fy = tb ? (off === 0 ? 80 : 20) : clamp(y - dir * rnd(0, 9), 2, 98);
@@ -2245,6 +2259,27 @@
     a.x = lerp(a.x0, a.x1, s);
     a.y = lerp(a.y0, a.y1, s);
     a.z = 0.3 + a.h * 4 * s * (1 - s);
+    const post = ps.kick && ps.kick.post;
+    if (post && s >= post.s) {
+      /* it has met the upright: on through and a little inward when the kick is good, back out toward the field and
+         wide when it is not, falling as it goes */
+      const good = ps.kick.arg, out = a.y1 > a.y0 ? 1 : -1, tau = (s - post.s) * a.T;
+      a.rvx = good ? -post.sg * 2.6 : post.sg * 2.2;
+      a.rvy = good ? out * 7 : -out * 3.4;
+      a.rvz = (good ? 1.5 : 0.6) - 14 * tau;
+      a.x = FW / 2 + post.sg * 3.1 + a.rvx * tau;
+      a.y = post.y + a.rvy * tau;
+      a.z = Math.max(0.2, 0.3 + a.h * 4 * post.s * (1 - post.s) + (good ? 1.5 : 0.6) * tau - 7 * tau * tau);
+      if (!post.hit) {
+        post.hit = true;
+        if (!AUTO && !QUIET) {
+          snd('doink', { x: a.x });
+          buzz(30);
+          toast(good ? 'Off the upright, and in!' : 'Off the upright!');
+          if (PG.audio) PG.audio.crowd.ooh(1);  // the whole stadium, whichever side it is on
+        }
+      }
+    }
     const punt = ps.mode === 'kick' && ps.ret && ps.kick && ps.kick.type === 'punt' && !ps.kick.arg.tb;
     if (punt) {
       const recv = 1 - ps.offTeam, dir = recv === 0 ? 1 : -1, r = ps.ret;  // the coverage runs down, the return team drops to block
@@ -2334,6 +2369,7 @@
     }
     if (s >= 1) {
       const k = ps.kick;
+      if (k.post && !AUTO && !QUIET) ps.loose = { x: a.x, y: a.y, z: a.z, vx: a.rvx, vy: a.rvy, vz: a.rvz };  // the ball is still coming down off the post: it lands and bounces while the officials signal
       ps.air = null;
       finish(k.type, k.arg);
     }
@@ -2559,6 +2595,7 @@
       setBrief(briefTxt());
       toast(flipIt ? 'Flipped: ' + G.op.n : 'Audible: ' + G.op.n);
       snd('audible');
+      if (Math.random() < 0.6) snd('calls', { x: ps.bx, delay: 0.45 });  // and the defense checks to it
     } else if (!G.lock && G.poss === 1 && !flipIt) {
       G.dp = DEF[(DEF.indexOf(G.dp) + 1) % DEF.length];
       setupPlay(true);
@@ -4149,6 +4186,11 @@
     } else if (st === 'pre') {
       G.preT += dt;
       jogIn(dt);
+      if (!G.dcall && ps.mode !== 'ko' && G.preT > 0.08 && !P.some(p => p.jog)) {
+        // the defense has seen the formation: most snaps, somebody calls it out before the quarterback starts
+        G.dcall = true;
+        if (Math.random() < 0.7) snd('calls', { x: ps.bx });
+      }
       if (!G.cadence && ps.mode !== 'ko' && G.preT > 0.5 && !P.some(p => p.jog)) {
         // everyone is set: the quarterback calls it out ("Ready ... set"), and the "Hut!" comes with the snap
         G.cadence = true;

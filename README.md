@@ -39,6 +39,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   for this game and spoken by an open speech model; the big calls cut in over the small talk, and the crowd sits under
   them. Settings can turn the commentary off.
 - A stadium you can hear, all of it made in code: the quarterback's cadence, pads that crack harder the faster the hit,
+  the defense calling out the formation before the quarterback starts and whooping after a sack or a takeaway, a field
+  goal that clangs off the upright (in, or out), the ball thudding on the turf,
   a crowd that chants, boos a flag on the home team and builds a wall of noise on third down, the referee's call
   echoing over the speakers, the crowd finishing the announcer's "first down", a band in the stands and a halftime show.
 - Players run on feet that stay where they land: the legs are solved each frame so a planted foot neither slides nor

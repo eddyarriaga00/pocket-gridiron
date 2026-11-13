@@ -738,6 +738,44 @@
       }
       for (let i = 0; i < 2; i++) bark(c, out, t + 0.12 + rnd(0, 0.1), { f0: rnd(105, 140), f1: rnd(78, 95), dur: 0.13, vowel: 'uh', amp: 0.1 });
     },
+    /* The defense before the snap: the middle linebacker calls the strength, somebody down the line answers, a safety
+       checks the coverage. Two or three shouts from different places, shorter and rougher than the quarterback's. */
+    calls(c, out, t) {
+      let at = 0;
+      for (let i = 0, n = 2 + Math.floor(rnd(0, 2)); i < n; i++) {
+        const where = pan(c, rnd(-0.75, 0.75)), f = rnd(118, 178);
+        where.connect(out);
+        bark(c, where, t + at, { f0: f, f1: f * 0.9, dur: rnd(0.09, 0.13), vowel: pickOf(['a', 'o', 'e', 'ae']), amp: rnd(0.22, 0.32), breath: 0.3, scale: 1.04 });
+        if (Math.random() < 0.6) bark(c, where, t + at + 0.13, { f0: f * 0.95, f1: f * 0.8, dur: rnd(0.11, 0.16), vowel: pickOf(['e', 'i', 'a', 'uh']), amp: rnd(0.22, 0.32), breath: 0.3, scale: 1.04 });  // "strong left": two syllables
+        at += rnd(0.24, 0.42);
+      }
+    },
+    /* the defense after a sack or a takeaway: three men whooping, each shout rising */
+    whoop(c, out, t) {
+      for (let i = 0; i < 3; i++) {
+        const where = pan(c, rnd(-0.5, 0.5)), f = rnd(180, 250);
+        where.connect(out);
+        bark(c, where, t + i * rnd(0.12, 0.2), { f0: f, f1: f * 1.25, dur: rnd(0.16, 0.24), vowel: pickOf(['a', 'e', 'o']), amp: rnd(0.22, 0.32), breath: 0.25, scale: 1.08 });
+      }
+    },
+    /* A kicked ball off the upright: leather on aluminium, then the hollow post ringing. A tube fixed at one end rings
+       at about 1, 2.76, 5.4 and 8.9 times its lowest note, which is why it clangs instead of singing; a second
+       partial a few hertz off the lowest makes it beat. Pitched where a phone speaker can play it. */
+    doink(c, out, t) {
+      const k = rnd(0.95, 1.05);
+      chain(noise(c, 'white', t, 0.06), filter(c, 'bandpass', 1400, 1.4), env(c, t, 0.001, 1.0, 0.04), out);  // the slap of the ball
+      chain(noise(c, 'pink', t, 0.08), filter(c, 'lowpass', 400), env(c, t, 0.002, 0.5, 0.06), out);
+      for (const [f, a, d] of [[340, 1, 0.85], [938, 0.75, 0.6], [1836, 0.45, 0.38], [3026, 0.2, 0.22]]) chain(osc(c, 'sine', f * k, t, d + 0.05), env(c, t, 0.002, 0.42 * a, d), out);
+      chain(osc(c, 'sine', 344 * k, t, 0.8), env(c, t, 0.002, 0.28, 0.75), out);
+    },
+    /* the ball coming down on the turf: a dull thump, harder the further it fell */
+    thud(c, out, t, o) {
+      const p = power(o, 0.6), th = osc(c, 'sine', 120, t, 0.12);
+      th.frequency.exponentialRampToValueAtTime(60, t + 0.09);
+      chain(th, env(c, t, 0.002, 0.35 * p, 0.1), out);
+      chain(noise(c, 'white', t, 0.06), filter(c, 'bandpass', 480, 1), env(c, t, 0.002, 0.9 * p, 0.045), out);
+      chain(noise(c, 'white', t, 0.04), filter(c, 'bandpass', 1500, 1.2), env(c, t, 0.001, 0.45 * p, 0.03), out);
+    },
     /* a loose ball: everybody near it shouts at once */
     shout(c, out, t) {
       for (let i = 0; i < 4; i++) bark(c, out, t + i * 0.11 + rnd(0, 0.04), { f0: rnd(170, 240), f1: rnd(150, 200), dur: 0.12, vowel: 'a', amp: 0.2, breath: 0.25, scale: 1.1 });
@@ -1561,7 +1599,11 @@
 
   /* ---------- public ---------- */
 
+  const NOTED = { doink: 1, calls: 1, whoop: 1 };  // effects worth a line in `asked`, so a scripted game shows they were asked for
+
+  /* opts.x: where across the field it happened (it pans); opts.delay: that many seconds from now */
   function play(name, opts) {
+    if (NOTED[name]) note(name);
     if (!ctx || !S.snd || ctx.state !== 'running' || !SFX[name]) return;
     try {
       let out = bus[ROUTE[name] || 'sfx'];
@@ -1571,7 +1613,7 @@
         p.connect(out);
         out = p;
       }
-      SFX[name](ctx, out, ctx.currentTime + 0.001, opts);
+      SFX[name](ctx, out, ctx.currentTime + 0.001 + ((opts && opts.delay) || 0), opts);
     } catch (_) {}
   }
 

@@ -872,6 +872,22 @@ what is next. Update it after every item.
   comment swallowing half a line during the work broke the podium for one test run and was caught by the harness.
   After: 0 repeated lines in 11 weeks, no broken text, no name clashes; fingerprint unchanged; careers, a WR season,
   drills clean; audit empty at 320x568 and 390x844.
+- 23:38 The media, more (automatic run 16, the first of "Next ideas"). Media day: the hub's next-game card offers one
+  question about your rival the week you play him (`PG.media.mediaDay`), once a week; its answer counts like the
+  podium's and can set the callout. The booth: `G.callout` comes from the career (`startGame({callout})`); new calls
+  call.guar / call.trash at the open (instead of a.intro), a.callout, call.td the first time your side scores to lead
+  (three in four), call.shaky from the play-call screen when behind in the last 2:30 of the fourth (it first sat in
+  voPre, which only runs when a drive opens, and never fired), call.won / call.lost at the final whistle in place of
+  a.final: 7 calls, 14 clips, recorded with the local model (471 clips, 4.3 MB). Endorsements: two games in a row at
+  hype 55+ bring an offer (pay a game = followers / 50, 80 to 500 XP; four times that to sign), shown on the reaction
+  screen and the Social tab, signable from either; an unanswered offer expires after two games; two deals at most;
+  a deal ends when hype drops under 25, with the brand's post. Also: a rival answers a guarantee aimed at him; a
+  loss has its own thread lines under the final; avatar initials turn near-black on a light team color (the Comets'
+  orange failed contrast at 3.0:1). Checked: an offer after two hot games, signing (+1,040 XP, +260 a game in the next
+  result), a brand leaving at hype 5, media day setting a guarantee that the next game settled (+400), every booth
+  line logged in place across five games. Fingerprint unchanged; careers, a QB season, drills clean; audit empty at
+  320x568 (with a Comets career) and 390x844, including the hub, Social tab with an offer, and media day. (This entry
+  went up in a second commit: the first one's log script failed on a brace.)
 
 ## Morning hand-off
 
@@ -1124,12 +1140,10 @@ what is next. Update it after every item.
 - [x] The reaction feed: fans of both teams, analysts, reporters, teammates, rival, the coach quoted; volume, likes,
   replies, trending and a viral post scale with the game.
 - [x] The Social tab in the hub; the callout on the next-game card; the coach's word on your podium answers.
-- [ ] Next, if wanted: media day before a rival game; endorsements as hype pays off; the booth mentioning a callout.
+- [x] Media day before a rival game; endorsements as hype pays off; the booth bringing up a callout (automatic run 16).
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
-- The media, more (Round 15 follow-ups): a midweek media day before a rival game, endorsement deals once hype holds
-  high, and the booth bringing up your callout during the game it is about.
 - The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
   sound now is still unjudged). If they are still too calm, the next step is a more expressive open speech model with
   an excitement control: a multi-gigabyte download, which needs his say-so first. Voices are lines in

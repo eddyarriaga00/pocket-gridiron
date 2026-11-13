@@ -71,6 +71,8 @@
     L.week = 0;
     L.phase = 'reg';
     L.sched = schedule(L.lg);
+    L.prime = shuffle([...Array(L.sched.length - 1).keys()].map(i => i + 1)).slice(0, 3).sort((a, b) => a - b);  // three of your games under the lights, never the opener
+    L.pend = null;
     L.tab = TEAMS.map(() => ({ w: 0, l: 0, t: 0, pf: 0, pa: 0 }));
     L.po = null;
     L.around = [];
@@ -125,6 +127,23 @@
   /* the words for each stage, for the hubs' "continue" lines */
   const stage = L => L.phase === 'reg' ? `week ${L.week + 1}` : L.phase === 'qf' ? 'divisional round' : L.phase === 'semi' ? (full2(L) ? 'conference final' : 'semifinal') : L.phase === 'final' ? 'championship game' : 'offseason';
 
+  /* primetime: the week's showcase game at night, the whole league watching. Three of yours in a season, and the
+     conference final and the championship always */
+  const prime = L => (L.phase === 'reg' ? !!(L.prime && L.prime.includes(L.week)) : L.phase === 'semi' || L.phase === 'final') && full2(L);
+
+  /* the rest of this week's games, played out before yours kicks off, so the broadcast can follow them as they go and
+     the standings get the same results afterwards: [team, score, team, score] */
+  function preWeek(L) {
+    if (L.phase !== 'reg') return null;
+    if (L.pend && L.pend.week === L.week && L.pend.lg === L.lg) return L.pend.games;
+    const games = L.sched[L.week].filter(g => !g.includes(L.team)).map(([a, b]) => {
+      const [sa, sb] = simScore(L, a, b);
+      return [a, sa, b, sb];
+    });
+    L.pend = { week: L.week, lg: L.lg, games };
+    return games;
+  }
+
   function nextOpp(L) {
     if (L.phase !== 'reg') return L.po.opp;
     const m = L.sched[L.week].find(p => p.includes(L.team));
@@ -143,9 +162,11 @@
     if (L.phase === 'reg') {
       record(L, L.team, opp, us, them);
       L.around = [];
+      const pre = L.pend && L.pend.week === L.week && L.pend.lg === L.lg ? L.pend.games : null;
+      L.pend = null;
       for (const [a, b] of L.sched[L.week]) {
         if (a === L.team || b === L.team) continue;
-        const [sa, sb] = simScore(L, a, b);
+        const g = pre && pre.find(x => x[0] === a && x[2] === b), [sa, sb] = g ? [g[1], g[3]] : simScore(L, a, b);  // the scores the broadcast already showed
         record(L, a, b, sa, sb);
         L.around.push([a, sa, b, sb]);
       }
@@ -298,5 +319,5 @@
       <p class="note">The four division winners of each conference make the playoffs.</p>${around}`;
   }
 
-  PG.league = { start, fix, record, simScore, simWinner, seeds, confSeeds, recTxt, label, short, weekNo, stage, nextOpp, advance, standingsHtml, bracketHtml, divTeams, divName, divOf, full: full2, schedule };
+  PG.league = { prime, preWeek, start, fix, record, simScore, simWinner, seeds, confSeeds, recTxt, label, short, weekNo, stage, nextOpp, advance, standingsHtml, bracketHtml, divTeams, divName, divOf, full: full2, schedule };
 })();

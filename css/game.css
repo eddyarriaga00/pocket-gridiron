@@ -235,15 +235,19 @@ input[type=color]{width:100%;height:44px;padding:3px;border-radius:8px;border:1p
 .sw button.on{box-shadow:0 0 0 2px var(--ink)}
 .chip{height:28px;min-width:52px;padding:0 12px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
 .how{margin:0;padding:0 0 0 16px;color:var(--mute);font-size:12.5px;line-height:1.6}
-.intro{pointer-events:auto;margin:0 14px 19vh;padding:14px 14px 12px;border-radius:14px;background:rgba(8,13,24,.82);border:1px solid var(--line);color:var(--ink);text-align:center;backdrop-filter:blur(6px)}
+.intro{pointer-events:auto;margin:0 14px 19vh;padding:14px 14px 12px;border-radius:14px;background:rgba(8,13,24,.9);border:1px solid var(--line);color:var(--ink);text-align:center;backdrop-filter:blur(6px)}
 .intro .mu{display:flex;align-items:center;justify-content:center;gap:12px}
 .intro .mu div{flex:1;padding:8px 6px;border-radius:10px;background:var(--panel2);border-bottom:3px solid var(--c)}
 .intro .mu b{display:block;font-family:var(--display);font-size:24px;font-weight:800;letter-spacing:.03em}
 .intro .mu span{display:block;color:var(--mute);font-size:11px;font-weight:600}
 .intro .mu i{display:block;margin-top:3px;font-style:normal;color:var(--ink);opacity:.78;font-size:10.5px;font-weight:600}
-.intro em{font-style:normal;font-family:var(--display);font-size:11px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.1em}
+.intro em{font-style:normal;font-family:var(--display);font-size:11px;font-weight:700;color:#a3b0c6;text-transform:uppercase;letter-spacing:.1em}
 .intro p{margin:10px 0 2px;font-family:var(--display);font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-.intro small{color:var(--mute);font-size:10.5px}
+.intro p.prime{color:var(--acc);letter-spacing:.12em}
+.nx.prime{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.nx.prime small{color:var(--acc)}
+.note.hi{color:var(--ink)}
+.intro small{color:#a3b0c6;font-size:10.5px}  /* lighter than the usual mute: the card sits over a day game too */
 .potg{margin:10px 0 2px;padding:9px 10px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);text-align:left}
 .potg small{display:block;color:var(--acc);font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
 .potg b{display:block;font-family:var(--display);font-size:13.5px;font-weight:800;margin-top:2px}

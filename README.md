@@ -46,7 +46,10 @@ A season saved in the old eight-team league finishes the old way and the next on
   leaders, honors and playoffs with a bracket. You sign a contract at the draft, can ask for a trade while it runs,
   and choose among the eight best offers when it ends. The draft is a full first round of 32. The coach has a word
   for you after every game, and a rival at your position on the best team in your division is the man to beat (you
-  play him twice a season). There are 14 trophies.
+  play him twice a season). There are 14 trophies. Three games a season are primetime (at night, the whole league
+  watching, XP +25%; the conference final and the championship always are); a big win can make you your conference's
+  Player of the Week (+400 XP and a post from the league); every stat keeps your single-game career high, and the
+  broadcast says so the moment you pass one. Edit team names from the hub or the new-career screen too.
 - **Season.** Take one team through the ten-week season and the eight-team playoff, calling and playing every snap. Your roster
   keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.
@@ -69,9 +72,11 @@ A season saved in the old eight-team league finishes the old way and the next on
   then everything else he would call, in order; swipe, scroll or page with the arrows for more. The Run, RPO, Short,
   Deep and Special tabs hold every play of one kind, best first. A career quarterback gets the same sheet, the coach's
   call first.
-- Tracking numbers on the broadcast: a long run or catch shows the ball carrier's top speed in miles an hour, an
-  improbable catch its completion probability, and third downs how often the offense has made them today. A spot
-  inches from the line to gain goes to a measurement.
+- Tracking numbers on the broadcast: a long run or catch shows the ball carrier's top speed in miles an hour (held
+  over a third of a second, the way tracking chips report it: the fastest come out near 21), an improbable catch its
+  completion probability, and third downs how often the offense has made them today. A spot inches from the line to
+  gain goes to a measurement. At the quarter breaks of a season or career game, the scores around the league so far,
+  your division's games first (those games were played out at kickoff, so the standings later match).
 - Every team has its own offense, named on the matchup card before kickoff: air raid, power run, pistol option, west
   coast, spread, vertical, run and shoot, pro style. Each favours its own formations, play action or trick plays, and
   every play caller (the computer's, your coach's in a career, the "Suggested" card) remembers what it has called:

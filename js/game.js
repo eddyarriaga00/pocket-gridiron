@@ -153,7 +153,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, diff: o.diff ?? 1, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, prime: !!o.prime, around: o.around || null, highs: o.highs || null, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     G.callout = o.callout || null;
@@ -202,7 +202,7 @@
       G.state = 'intro';
       const sty = i => (SCHEME[i] ? `<i>${SCHEME[i].n} offense</i>` : '');  // each team calls its own kind of game
       scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span>${sty(o.a)}</div><em>vs</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span>${sty(o.b)}</div></div>
-  <p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><p class="toss">${TEAMS[G.tm[G.first]].name} won the toss · will receive</p><small>Tap to skip</small></button>`;
+  ${G.prime ? '<p class="prime">Primetime · the whole league is watching</p>' : ''}<p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><p class="toss">${TEAMS[G.tm[G.first]].name} won the toss · will receive</p><small>Tap to skip</small></button>`;
       $('#intro').onclick = endIntro;
       /* the coin toss was won by the side that receives: the referee says so over the speakers, then the broadcast opens
          with a welcome, who is playing, and a word from the analyst if there is time before the ball is kicked */
@@ -1396,7 +1396,12 @@
       }
     }
     const cl = new Set(), c = ps.carrier, uod = userOnD(), me = AUTO ? null : G.me;
-    if (c) c.top = Math.max(c.top || 0, hyp(c.vx, c.vy));  // the ball carrier's fastest moment, for the top speed card
+    if (c) {
+      // the ball carrier's fastest moment, for the top speed card: his speed held over about a third of a second, the
+      // way tracking chips report it (a juke or a hit is a jolt of a frame or two, not a speed; unsmoothed it read 27 mph)
+      c.sv = (c.sv || 0) + (hyp(c.vx, c.vy) - (c.sv || 0)) * Math.min(1, dt / 0.35);
+      c.top = Math.max(c.top || 0, c.sv);
+    }
     for (const p of P) if (p.bt && !p.down && btValid(p)) cl.add(p.bt);
     if (uod) {
       if (G.lock) G.sel = G.me;
@@ -2219,6 +2224,7 @@
       if (big === 'First down' || (kind === 'td' && c && c.team === ps.third)) t3[ps.third][1]++;
     }
     callPlay(kind, kind === 'td' ? tryRes : arg, big, sub, rpGain, c, s0);
+    if (!AUTO && !QUIET && !G.drill && G.highs) highCheck();
     if (!AUTO && !QUIET && !G.drill && c && c.team === off && (kind === 'td' || kind === 'tackle' || kind === 'oob')) {
       /* the broadcast's tracking numbers: how unlikely a catch was, and how fast a long run got */
       const gain = kind === 'td' ? Math.round(((off === 0 ? 100 : 0) - los) * dir) : rpGain, caught = !!ps.caught, cp = caught ? ps.cp : null, mph = (c.top || 0) * 2.0455;  // read now: the play is gone when the card goes up
@@ -2435,6 +2441,7 @@
         G.clock = G.ql;
         banner(`End of the ${G.q === 2 ? '1st' : '3rd'} quarter`, 'The teams switch ends', 1800);  // render3d.js turns the stadium round
         if (!AUTO && !QUIET) setTimeout(() => teamStatsCard(`After ${G.q === 2 ? 'one' : 'three'}`), 1900);
+        if (G.around) G.aroundDue = G.q - 1;  // the other games, as far as they have got: shown at your next snap (in a career the quarter often ends in a drive you only hear about)
         vo(G.q === 2 ? 'q.end1' : 'q.end3');
       }
     }
@@ -2976,6 +2983,11 @@
     G.audI = -1;
     G.audList = audibleList(G.op);
     setupPlay();
+    if (G.aroundDue && !AUTO && !QUIET) {
+      const q = G.aroundDue;
+      G.aroundDue = 0;
+      setTimeout(() => aroundCard(q), Math.max(500, 7600 - (performance.now() - bcAt)));  // after the quarter's team stats card, if that is still up
+    }
     if (G.down === 3 && G.op.cat !== 'special' && !G.drill) thirdCard();
     G.preT = 0;
     if (G.op.cat === 'special') {
@@ -4203,6 +4215,37 @@
     bcShow(`<div class="bcard num" style="--c:${t.c1};--k:${inkOn(t.c1)}"><b>${big}</b><div><strong>${bcEsc(p.name)} #${p.num}</strong><span>${what}</span><em>${bcEsc(play)}</em></div></div>`, 4600);
   }
 
+  /* Around the league at a quarter break: the other games this week, as far as they have got. Their finals were played
+     out before kickoff (league.js preWeek), so a score here is a step on the way to the one in the standings later.
+     Your division's games first. */
+  const STEPS = [0, 3, 6, 7, 10, 13, 14, 16, 17, 20, 21, 23, 24, 27, 28, 30, 31, 34, 35, 37, 38, 41, 42, 44, 45, 48, 49, 52];
+  function partial(final, q) {
+    const want = final * q / 4;
+    let s = 0;
+    for (const v of STEPS) if (v <= want + 1.5 && v <= final) s = v;
+    return s;
+  }
+
+  function aroundCard(q) {
+    if (!bcLive() || !G.around || !G.around.length) return;
+    const me = TEAMS[G.tm[0]], mine = g => TEAMS[g[0]].conf === me.conf && TEAMS[g[0]].div === me.div ? 0 : 1;
+    const games = G.around.slice().sort((a, b) => mine(a) - mine(b)).slice(0, 4), row = ([a, sa, b, sb]) => `<tr><td>${partial(sa, q)}</td><th>${TEAMS[a].ab} · ${TEAMS[b].ab}</th><td>${partial(sb, q)}</td></tr>`;
+    bcShow(`<div class="bstats"><div class="bh"><small>Around the league · end of Q${q}</small></div><table>${games.map(row).join('')}</table></div>`, 5200);
+  }
+
+  /* a career high, passed during this game: once a stat, and only once the old one was worth beating */
+  const HIGHS = { pyd: ['passing yards', 120], ptd: ['touchdown passes', 2], comp: ['completions', 10], recyd: ['receiving yards', 60], rec: ['catches', 4], rectd: ['touchdown catches', 1], ryd: ['rushing yards', 30] };
+  function highCheck() {
+    const h = G.highs, my = G.my, me = G.me;
+    if (!h || !my || !me) return;
+    for (const k in HIGHS) if ((my[k] || 0) > (h[k] || 0) && (h[k] || 0) >= HIGHS[k][1] && !(G.hiSaid || (G.hiSaid = {}))[k]) {
+      G.hiSaid[k] = 1;
+      const who = { team: 0, name: me.name, num: me.num }, v = my[k], old = h[k];
+      setTimeout(() => statCard(who, String(v), 'Career high · ' + HIGHS[k][0], `the old one was ${old}`), 2600);
+      return;  // one a play
+    }
+  }
+
   /* third down: how often the side with the ball has made it today */
   function thirdCard() {
     const t3 = G.third && G.third[G.poss];
@@ -4745,10 +4788,11 @@
   }
   applyTeams();
 
-  function showTeams(sel) {
+  function showTeams(sel, back) {
+    back = back || showSettings;
     const o = load('pg.teams', {}) || {}, t = TEAMS[sel], clean = (v, n) => String(v || '').replace(/[<>&"]/g, '').trim().slice(0, n);
     scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Settings</button><h1 class="sm">Edit <em>teams</em></h1>
-  <p class="tag">Rename any team on this device: what you type stays in this browser. Pick a team, change it, save.</p>
+  <p class="tag">Rename any team on this device: what you type stays in this browser, and every mode (your career too) uses it. Pick a team, change it, save.</p>
   <div class="ted" style="--c:${t.c1}"><i></i><div><b>${esc(t.city)} ${esc(t.name)}</b><span>${esc(t.ab)} · ${PG.data.CONF[t.conf]} ${PG.data.DIV[t.div]}${o[sel] ? ' · renamed' : ''}</span></div></div>
   <div class="cols"><div><label class="lbl" for="tc">City</label><input id="tc" maxlength="16" autocomplete="off" value="${esc(t.city)}"></div>
   <div><label class="lbl" for="tn">Nickname</label><input id="tn" maxlength="14" autocomplete="off" value="${esc(t.name)}"></div></div>
@@ -4757,8 +4801,8 @@
   <div class="row2"><button class="go sm" id="tsv">Save</button><button class="btn2" id="trs"${o[sel] ? '' : ' disabled'}>Back to ${esc(TEAM0[sel].name)}</button></div>
   <h2>Teams</h2><div class="teams" id="tlist">${teamGrid(sel)}</div>
   ${Object.keys(o).length ? '<button class="btn2 warn" id="tra" style="margin-top:12px">Put every team back</button>' : ''}</div>`;
-    $('#bk').onclick = showSettings;
-    scr.querySelectorAll('#tlist .tm').forEach(b => b.onclick = () => showTeams(+b.dataset.i));
+    $('#bk').onclick = () => back();
+    scr.querySelectorAll('#tlist .tm').forEach(b => b.onclick = () => showTeams(+b.dataset.i, back));
     $('#tsv').onclick = () => {
       const v = { city: clean($('#tc').value, 16) || TEAM0[sel].city, name: clean($('#tn').value, 14) || TEAM0[sel].name, ab: clean($('#ta').value, 3).toUpperCase() || TEAM0[sel].ab, c1: $('#t1').value, c2: $('#t2').value };
       const same = Object.keys(v).every(k => v[k] === TEAM0[sel][k]);
@@ -4767,19 +4811,19 @@
       save('pg.teams', o);
       applyTeams();
       toast(same ? 'Back to the original' : 'Saved: ' + v.city + ' ' + v.name);
-      showTeams(sel);
+      showTeams(sel, back);
     };
     $('#trs').onclick = () => {
       delete o[sel];
       save('pg.teams', o);
       applyTeams();
-      showTeams(sel);
+      showTeams(sel, back);
     };
     if ($('#tra')) $('#tra').onclick = () => {
       save('pg.teams', {});
       applyTeams();
       toast('Every team is back to its own name');
-      showTeams(sel);
+      showTeams(sel, back);
     };
   }
 
@@ -5748,7 +5792,7 @@
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, CELEBS, rnd, pick, clamp, load, save, scr, $,
     startGame, showMenu, toMenu, banner, toast, snd, playScene, cinema, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
-    vk, teamGrid,
+    vk, teamGrid, showTeams, inkOn,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

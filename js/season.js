@@ -127,7 +127,7 @@
         <button class="go sm" id="nxs">Start season ${S.year + 1}</button></div>`;
     }
     const o = LG.nextOpp(S);
-    return `<div class="nx"><small>${LG.label(S)}</small><h4>vs ${full(o)}</h4>
+    return `<div class="nx${LG.prime(S) ? ' prime' : ''}"><small>${LG.label(S)}${LG.prime(S) ? ' · Primetime' : ''}</small><h4>vs ${full(o)}</h4>
       <p>${S.ovrs[o]} OVR, ${LG.recTxt(S, o)} · You are ${LG.recTxt(S, S.team)}</p>
       <button class="go sm" id="play">Play game</button></div>`;
   }
@@ -200,8 +200,10 @@
     const opp = LG.nextOpp(S);
     PG.snd('whistle');
     ensureRoster();
+    const pt = LG.prime(S), env = PG.envFor(S.year + 50, LG.weekNo(S), S.phase !== 'reg' || S.week >= S.sched.length - 4);
+    if (pt) env.time = 'night';  // primetime is a night game
     PG.startGame({ a: S.team, b: opp, ql: S.ql, diff: S.diff, mode: 'season', ros0: S.roster, ovr: [S.ovrs[S.team], S.ovrs[opp]], mustWin: S.phase !== 'reg',
-      env: PG.envFor(S.year + 50, LG.weekNo(S), S.phase !== 'reg' || S.week >= S.sched.length - 4),
+      prime: pt, around: LG.full(S) ? LG.preWeek(S) : null, env,
       onEnd: r => gameEnd(r, opp), onQuit: () => hub('table') });
   }
 

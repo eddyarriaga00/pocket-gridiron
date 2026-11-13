@@ -1118,6 +1118,21 @@ what is next. Update it after every item.
   identical; only the career schedule in it went from 7 weeks to 10, new baseline stored), careers, a full WR season
   through the playoffs, exhibition, drills, the booth asks for nothing missing, the editor (rename, reload, reset),
   audit empty at 320x568 and 390x844 with and without the 34 px strip, no console errors.
+- 02:40 Round 24, before the owner went to sleep. For a career (and season mode): three primetime games a season
+  (`L.prime`, never the opener; the conference final and the championship always), at night, XP +25% and a hype bump,
+  marked on the next-game card and the matchup card; Player of the Week in your conference (a win with an A+, or an A
+  one time in three: +400 XP, a post from the league, in the headline; the first try gave it on two of three games,
+  losses included); career highs per stat (`C.highs`), listed on the results when beaten and announced on the
+  broadcast during the game once the old one was worth beating (`highCheck`); scores around the league at the end of
+  the first and third quarters, your division first: the week's other games are now played out at kickoff (`preWeek`,
+  `L.pend`) and the standings use those same results, and the card waits for your next snap because in a career the
+  quarter often ends in a drive you only hear about; the team editor from the career hub and the new-career screen.
+  Top speed is now held over a third of a second: unsmoothed, a juke read 27 mph; four computer games now top out at
+  21.2 (median 16.5). New team colors broke two contrasts (the social avatar on Tampa Bay's sky blue, the matchup
+  card's small text over a day game): the avatar takes its ink from the color, the card is a little darker. Checked:
+  fingerprint unchanged, careers, a full QB season (3 primetime games at night, one Player of the Week), exhibition,
+  drills, audit empty at 320x568 and 390x844 with and without the 34 px strip, no console errors. The NFL and Madden
+  list for the loop is in "Next ideas", career first.
 
 ## Morning hand-off
 
@@ -1422,9 +1437,45 @@ Ordered by what a phone would notice most:
 - Stadiums with their own look per team (roof, end zone art, colors), weather by city.
 - Difficulty sliders (pass coverage, AI accuracy, fatigue) and remappable controller buttons.
 
+### Round 24 (the owner at 02:35 on 2026-11-13, going to sleep: "i need it to be in career mode as well since that's the
+### main mode here / loop and keep improving and adding more and optimizing and more small details until 10am, keep going
+### even if usage finishes / before i go to sleep though, please add as much as u can from the nfl and madden if possible")
+Career mode is the main mode: every item below is built for a career first. Original names only (no league, team or
+game marks; "primetime", "Player of the Week" and the like are plain words, not marks).
+- [x] Primetime games, Player of the Week, career highs on the broadcast, scores around the league at quarter breaks,
+  the team editor from the career hub and the new-career screen (02:40, by hand before the loop).
+- [ ] The rest is in "Next ideas", NFL and Madden first.
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
-Major improvements, biggest first:
-- Animations and models, the owner's priority (the Round 21 plan above), one piece a run: next the quarterback's three,
+NFL and Madden, for a career first (Round 24), biggest that fits a run first:
+- Weather and roofs by city: domed and covered stadiums (Atlanta, Detroit, Minnesota, New Orleans, Indianapolis, Las
+  Vegas, Houston, Arizona, Dallas, Los Angeles, Hollywood) never get rain or snow, the cold cities (Green Bay, Buffalo,
+  Chicago, Cleveland, Pittsburgh, Denver, Kansas City, New England, New Jersey, New York, Philadelphia, Cincinnati,
+  Baltimore, Seattle) get snow late in the season, the warm ones (Miami, Tampa Bay, Jacksonville, Carolina) almost
+  never; `envFor` takes the home team. A dome could be drawn as a roof over the stands.
+- Home and away: a career and season schedule has road games. On the road the field is the other team's (end zones,
+  midfield, the stadium's banners and the announcer's welcome are theirs), you wear white, the crowd cheers their side
+  and makes its noise on your third downs (your hard count is drowned out: it never draws a jump there), and the
+  booth says so. Today team 0 is always at home: `G.home` and every place that reads team 0 as the home side.
+- Kick and punt returns for a receiver's career: the coach makes you the returner (a role with its own trust line);
+  on their kickoffs and punts you field it and run it back live (today their kickoffs go straight to your offense).
+- Pre-snap motion: jet and orbit motion, a shift from one formation to another; the computer uses it on a third of its
+  snaps; routes are built from where the man is at the snap; a defender follows a man in motion in man coverage (a
+  read for the quarterback: man or zone).
+- The coin toss call: as a captain you call heads or tails and choose to receive or defer (then you get the ball to
+  start the second half).
+- More penalties with real enforcement: defensive pass interference at the spot, roughing the passer (15 yards and a
+  first down), unnecessary roughness, intentional grounding (loss of down), illegal formation; the user accepts or
+  declines when it matters.
+- Injuries: a player shaken up for a play or a series, the trainer's cart for the worst; a rare short absence for you
+  in a career ("questionable" on the next-game card); an injury report for the opponent.
+- An all-star game after the season for the best players of each conference (you, when you are one): a playable
+  exhibition with its own presentation.
+- A record book: league single-game and season records; the booth and a card when one falls.
+- Optimization: the voice pack is 7.4 MB now; load it in pieces (the calls of the two teams playing first), measure the
+  first load and the frame rate on a phone-sized view, and trim draw calls.
+Animations and models, the owner's priority (the Round 21 plan above), one piece a run:
+- Next the quarterback's three,
   five and seven step drops (today he jogs back to a spot), then the toe tap at the sideline, a stiff arm that reaches,
   the form tackle as a paired animation, facemask bars and helmet numbers; the skinned body last, as its own project.
   Each piece is checked with a staged test hook and a strip, like `catchTest` and `catchStrip`.

@@ -485,7 +485,7 @@
    <div><label class="lbl" for="cj">Number</label><input id="cj" inputmode="numeric" maxlength="2" placeholder="1–99" value="${esc(st.num)}"></div></div>
    <h2>Position</h2><div class="seg" id="cp">${PLAYABLE.map(k=>`<button data-p="${k}" class="${k===st.pos?'on':''}">${POS[k].label}</button>`).join('')}</div>
    <h2>${P.label} build</h2><div class="arch" id="ca">${P.arch.map(([n,a],i)=>`<button data-a="${i}" class="${i===st.arch?'on':''}"><b>${n} · ${ovrOf(st.pos,a)} OVR</b><span>${P.attrs.map(([k,l])=>`${l} ${a[k]}`).join(' · ')}</span></button>`).join('')}</div>
-   <h2>Into the league</h2><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Enter the draft</b><span>Work out at the combine first</span><u>›</u></button>
+   <h2>Into the league</h2><button class="btn2" id="cedt" style="margin:0 0 8px">Edit team names and colors</button><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Enter the draft</b><span>Work out at the combine first</span><u>›</u></button>
    <p class="note" style="grid-column:1/3;margin:2px 0">Or walk on with a team: no draft, no signing bonus, and you start in the rotation.</p>
    ${PG.teamGrid(st.team)}</div>
    <button class="go" id="cgo">Start career</button></div>`;
@@ -512,6 +512,10 @@
         st.team = +b.dataset.i;
         keepScroll(draw);
       });
+      $('#cedt').onclick = () => {
+        keep();
+        PG.showTeams(Math.max(0, st.team), draw);  // rename teams first, then back here with what you had picked
+      };
       $('#cgo').onclick = () => {
         keep();
         const [an, aa] = POS[st.pos].arch[st.arch], num = clamp(parseInt(st.num, 10) || Math.floor(rnd(1, 99)), 0, 99);
@@ -655,8 +659,8 @@
   ${deal().left>0?`<button class="go sm" id="nxs">Start season ${C.season+1}</button><p class="note" style="margin:8px 0 0">Under contract for ${deal().left} more season${deal().left>1?'s':''} at ${money(deal().pay)}.</p>`
     :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
-    const o = nextOpp(), lab = LG.label(C);
-    return `<div class="nx"><small>${lab}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
+    const o = nextOpp(), lab = LG.label(C), pt = LG.prime(C);
+    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
   ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
   ${C.rival&&C.rival.team===o&&C.phase!=='done'&&!(C.social&&C.social.mday===pracKey())?`<button class="btn2" id="mday" style="margin:0 0 8px">Media day \u00b7 one question about ${esc(C.rival.name)}</button>`:''}
   ${C.social&&C.social.offer?'<p class="note" style="margin:0 0 8px">An endorsement offer is waiting in the Social tab.</p>':''}
@@ -747,7 +751,7 @@
       : '<p class="note">Your answers at the podium and at media day are kept here.</p>';
     else body = (deals.length ? deals.map(x => `<div class="xp deal"><span><i class="dot" style="--c:${x.col}"></i>${esc(x.name)} · ${esc(x.kind)}</span><b>+${fmt(x.pay)} XP a game</b></div>`).join('') : '<p class="note">No partners yet.</p>')
       + '<p class="note">Two games in a row with hype at 55 or more bring an offer. A deal pays every game until your hype falls under 25. Two at most.</p>';
-    return `<div class="sprof" style="--c:${t.c1}"><span class="av" style="--c:${t.c1}">${esc(L.slice(0, 2).toUpperCase())}</span><div><b>${esc(C.name)}${ver ? '<i class="ver" aria-label="verified"></i>' : ''}</b><span>@${esc(L.toLowerCase())}${C.num} · ${esc(t.name)} ${C.pos} #${C.num}</span></div></div>
+    return `<div class="sprof" style="--c:${t.c1}"><span class="av" style="--c:${t.c1};color:${PG.inkOn(t.c1)}${PG.inkOn(t.c1) === '#fff' ? '' : ';text-shadow:none'}">${esc(L.slice(0, 2).toUpperCase())}</span><div><b>${esc(C.name)}${ver ? '<i class="ver" aria-label="verified"></i>' : ''}</b><span>@${esc(L.toLowerCase())}${C.num} · ${esc(t.name)} ${C.pos} #${C.num}</span></div></div>
   <div class="sstats"><div><b>${short(so.fol)}</b><span>Followers</span></div><div><b>${so.hype}</b><span>Hype</span></div><div><b>${so.backed}–${so.ate}</b><span>Callouts</span></div><div><b>${deals.length}</b><span>Partners</span></div></div>
   <div class="hypebar"><i style="width:${so.hype}%"></i></div>
   ${calloutHtml()}${offerHtml()}
@@ -1209,7 +1213,7 @@
   <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
   <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>
-  <div class="stack">${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
+  <div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
   ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}</div>`;
       $('#bk').onclick = PG.showMenu;
       scr.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
@@ -1299,6 +1303,7 @@
         PG.banner('Traded', `${esc(C.name)} goes to the ${full(to)}`, 2600);
       };
       $('#ret').onclick = showRetire;
+      $('#edt').onclick = () => PG.showTeams(C.team, () => showHub(tab));
     };
     draw();
   }
@@ -1312,8 +1317,11 @@
     const call = C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.kind : null;
     /* a rival game opens with the two of you face to face at midfield: his words, and yours if you called him out */
     const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
+    const pt = LG.prime(C), env = PG.envFor(C.season, LG.weekNo(C), C.phase !== 'reg' || C.week >= C.sched.length - 4);
+    if (pt) env.time = 'night';  // primetime is a night game
     PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
-      mustWin: C.phase !== 'reg', env: PG.envFor(C.season, LG.weekNo(C), C.phase !== 'reg' || C.week >= C.sched.length - 4), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
+      prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
+      mustWin: C.phase !== 'reg', env, line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
   /* weekly practice: six reps with the first team, no clock, XP for what you do with them */
@@ -1353,6 +1361,20 @@
     const beatRival = won && !!C.rival && C.rival.team === opp;
     const base = xpFor(m, won), hard = (C.diff ?? 1) === 2 ? [['All-Pro bonus', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.2)]] : [];
     const items = base.concat(hard, star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, [pts, grade] = gradeOf(m, won, met);
+    const prime = LG.prime(C), playoff0 = C.phase !== 'reg';
+    if (prime) items.push(['Primetime game', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.25)]);
+    /* Player of the Week in your conference: a win, and an A+ or (one time in three, other men had big weeks too) an A */
+    const potw = !playoff0 && won && (grade === 'A+' || (grade === 'A' && rnd() < 0.35)), confName = PG.data.CONF[TEAMS[C.team].conf];
+    if (potw) {
+      items.push([`${confName} ${C.pos === 'QB' || C.pos === 'WR' ? 'Offensive' : 'Defensive'} Player of the Week`, 400]);
+      C.potw = (C.potw || 0) + 1;
+    }
+    /* career highs: a single game's best, stat by stat */
+    const hi = C.highs || (C.highs = {}), HL = { pyd: 'passing yards', ptd: 'touchdown passes', comp: 'completions', recyd: 'receiving yards', rec: 'catches', rectd: 'touchdown catches', ryd: 'rushing yards' }, newHighs = [];
+    for (const k in HL) if ((m[k] || 0) > (hi[k] || 0)) {
+      if ((hi[k] || 0) > 0) newHighs.push(`${m[k]} ${HL[k]}`);
+      hi[k] = m[k];
+    }
     /* last week's callout: settled now if this was the team you called out (and dropped if it was not) */
     const so = social(), call = so.callout, callRes = call && call.team === opp ? { ...call, backed: call.kind === 'guarantee' ? won : won && pts >= 5 } : null;
     so.callout = null;
@@ -1384,6 +1406,7 @@
     const wk = LG.short(C), playoff = C.phase !== 'reg';
     C.log.push({ wk, opp, us, them, res, line: line(m), grade, pts, met });
     C.news = headline(m, won, us, them, opp);
+    if (potw) C.news += `. Named the ${confName} Player of the Week`;
     if (C.rival && C.rival.team === opp && us !== them) C.news += won ? `. ${C.rival.name} left without talking to reporters.` : `. ${C.rival.name}, afterward: \u201cTold you.\u201d`;
     const fin = LG.advance(C, opp, us, them);
     if (C.phase === 'qf' || C.phase === 'semi' || C.phase === 'final' || (fin && fin !== 'Missed the playoffs')) C.madePO = 1;
@@ -1411,7 +1434,9 @@
     ctx.fol = so.fol;
     ctx.buzz = bz.b;
     ctx.trending = bz.b >= 7.5 || (!!callRes && callRes.backed);
+    if (prime) so.hype = clamp(so.hype + 6, 0, 100);  // the nation saw it
     const posts = PG.media.reaction(ctx).concat(endorseWeek()), dFol = so.fol - fol0;
+    if (potw) posts.unshift({ who: 'The League', at: 'theleague', bio: 'Official account', kind: 'press', col: '#334155', ver: true, text: `${C.name} is the ${confName} Player of the Week. ${line(m)} against the ${TEAMS[opp].name}.`, rep: 120 + Math.round(so.fol / 400), rt: 300 + Math.round(so.fol / 150), likes: 1800 + Math.round(so.fol / 20) });
     const trophies = checkTrophies();
     persist();
     const show = () => {
@@ -1422,6 +1447,7 @@
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
+  ${newHighs.length?`<p class="note hi">New career high${newHighs.length>1?'s':''}: ${newHighs.join(', ')}.</p>`:''}
   ${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">To the podium</button></div>`;
       $('#rc').onclick = () => {

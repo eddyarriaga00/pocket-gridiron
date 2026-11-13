@@ -936,6 +936,20 @@ what is next. Update it after every item.
   (the voice -20, the fanfare -20 over it), the polite round -32. Checked: the ceremony stepped through five awards in
   order in a real end of season; fingerprint unchanged; exhibition, careers, a WR and a QB season, drills clean;
   audit empty at 320x568 (sealed, mid-ceremony and opened, and with the 34 px strip) and 390x844; no console errors.
+- 00:33 Cutscenes, 1 of 7: the walkout (Round 19). A cutscene system in game.js: `playScene(kind, o, then)` puts the game
+  in state 'scene', stages actors as P (ordinary player objects, from the roster), a stub play state so render3d can
+  pose them, a caption with Tap to skip; SCENES[kind] has dur, setup, update and timed cues; actors run to `go` by
+  way of `via` points and take an `act` when they arrive. render3d.js: SCENECAM[kind] for the camera, `actPose` for
+  staged poses (in front of every other branch of poseFor, only in a scene), props built once (`buildProps`) and
+  shown per scene, officials and the chain crew left out, an actor with `ref` in stripes. Settings: Cutscenes on/off.
+  The walkout: the tunnel 10 yd left of the posts (centered, it stood on the goal post's base); the first try had the
+  team start wider than the tunnel and run diagonally through its wall (now two abreast inside, straight out of the
+  mouth, then fanning out), and a tunnel washed out by the team's light second color (now its first). 7 s: into the
+  tunnel, the team pouring out of the mouth, then up in front of them. The caption first failed contrast over the
+  smoke (1.2:1; now on a dark panel). Checked: skipping goes to the matchup card, the whole scene hands over to it on
+  its own, careers play through it with no errors (the harness steps through it), fingerprint unchanged (never in
+  simulations); audit empty at 320x568 and 390x844, at three moments of the scene, with and without the 34 px strip.
+  (The roadmap went up in a second commit; the first one's log script missed its anchor.)
 
 ## Morning hand-off
 
@@ -1189,6 +1203,16 @@ what is next. Update it after every item.
   replies, trending and a viral post scale with the game.
 - [x] The Social tab in the hub; the callout on the next-game card; the coach's word on your podium answers.
 - [x] Media day before a rival game; endorsements as hype pays off; the booth bringing up a callout (automatic run 16).
+
+### Round 19 (the owner at 00:20 on 2026-11-13, after asking where cutscenes could go and being given seven places:
+### "everything u gave work one at a time in order")
+- [x] Game-day walkout (career).
+- [ ] Rival face-off before rival games.
+- [ ] Championship trophy.
+- [ ] Coin toss at midfield.
+- [ ] Draft day stage.
+- [ ] Press conference podium opener.
+- [ ] Hall of fame induction.
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:

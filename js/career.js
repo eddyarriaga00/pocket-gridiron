@@ -163,7 +163,8 @@
   function setRival() {
     if (C.rival && C.rival.team !== C.team) return;
     const team = TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => TEAMS[b].ovr - TEAMS[a].ovr)[0];
-    C.rival = { team, name: PG.NAMES[Math.floor(Math.random() * PG.NAMES.length)] };
+    const mine = PG.media ? PG.media.lastOf(C.name) : '', names = PG.NAMES.filter(n => n !== mine);
+    C.rival = { team, name: names[Math.floor(Math.random() * names.length)] };
   }
 
   const recTxt = i => LG.recTxt(C, i), nextOpp = () => LG.nextOpp(C);
@@ -614,15 +615,39 @@
   function social() {
     if (!C.social) C.social = { fol: Math.round(1500 + Math.max(0, ovr() - 60) * 220), hype: 10, feed: [], quotes: [], callout: null, backed: 0, ate: 0,
       coachName: 'Coach ' + PG.NAMES[Math.floor(Math.random() * PG.NAMES.length)] };
-    return C.social;
+    const so = C.social, mine = PG.media.lastOf(C.name);
+    if (C.rival && C.rival.name === mine) {
+      // a rival sharing your surname (careers begun before this check) takes another
+      const names = PG.NAMES.filter(n => n !== mine && !(so.mates || []).some(m => m.last === n));
+      C.rival.name = names[Math.floor(Math.random() * names.length)];
+    }
+    if (!so.mates || so.matesTeam !== C.team) {
+      /* the teammates who post: the same men all career on one team (new ones after a trade), none sharing your
+         surname or the coach's */
+      const taken = new Set([mine, so.coachName.replace('Coach ', ''), C.rival ? C.rival.name : '']), pick = a => a[Math.floor(Math.random() * a.length)];
+      const name = () => {
+        let l = pick(PG.NAMES), k = 0;
+        while (taken.has(l) && k++ < 50) l = pick(PG.NAMES);
+        taken.add(l);
+        return l;
+      };
+      const roles = C.pos === 'QB' ? ['WR', 'TE', 'RB', 'LT', 'C'] : ['QB', 'WR', 'RB', 'LT', 'C'];
+      so.mates = roles.map(role => ({ role, first: pick(PG.media.FIRST), last: name(), num: { QB: 7, WR: 81, TE: 88, RB: 23, LT: 71, C: 62 }[role] + Math.floor(Math.random() * 5) }));
+      so.matesTeam = C.team;
+    }
+    return so;
   }
 
   const short = n => PG.media.short(n), signed = n => (n >= 0 ? '+' : '\u2212') + Math.abs(n);
 
   /* the week's posts go on top of the feed, under a heading for the week */
-  function pushFeed(wk, posts) {
-    const so = social();
-    so.feed = [{ kind: 'wk', text: wk }, ...posts].concat(so.feed).slice(0, 40);
+  function pushFeed(head, posts) {
+    const so = social(), weeks = [];
+    for (const p of so.feed) {
+      if (p.kind === 'wk') weeks.push([p]);
+      else if (weeks.length) weeks[weeks.length - 1].push(p);
+    }
+    so.feed = [{ kind: 'wk', text: head }, ...posts.slice(0, 32)].concat(...weeks.slice(0, 2));  // this week and the two before it, whole
   }
 
   function feedHtml(list) {
@@ -663,21 +688,21 @@
       so.quotes.unshift({ wk: ctx.wk, q: a.t, tone: a.tone });
       so.quotes = so.quotes.slice(0, 20);
       picks.push(a);
-      said = said.concat(PG.media.quoteReaction(ctx, a, q.about));
+      said = said.concat(PG.media.quoteReaction(ctx, a, q.about, q.topic));
       persist();
     };
     const summary = walked => {
       const net = C.trust - trust0, tones = picks.map(p => p.tone);
       C.coachPress = walked ? 'You walked past the podium. Next time you face them. That is part of the job.' : PG.media.coachOnPress(net, tones, ctx.pts >= 7);
       persist();
-      const lead = posts.filter(p => p.kind === 'trend' || p === posts[0]), all = lead.concat(said, posts.filter(p => !lead.includes(p))), dFol = so.fol - fol0 + dFol0;  // the game first, then what you said, then everyone else
+      const lead = posts.filter(p => p.kind === 'trend' || p === posts[0]), all = PG.media.stamp(lead.concat(said, posts.filter(p => !lead.includes(p)))), dFol = so.fol - fol0 + dFol0;  // the game first, then what you said, then everyone else
       scr.innerHTML = `<div class="menu solid press"><div class="prh"><small>Press conference \u00b7 ${esc(ctx.wk)}</small><h3>${walked ? 'No comment' : 'On the record'}</h3></div>
   ${picks.length ? `<ul class="quotes">${picks.map(p => `<li><span class="tone t-${p.tone}">${PG.media.TONE[p.tone]}</span>\u201c${esc(p.t)}\u201d</li>`).join('')}</ul>` : '<p class="note">You walked out without answering a question. The reporters wrote about that instead.</p>'}
   <div class="fxs"><span>Coach trust <b>${signed(net)}</b> (now ${C.trust})</span><span>Hype <b>${signed(so.hype - hype0)}</b></span><span>Followers <b>${dFol >= 0 ? '+' : '\u2212'}${short(Math.abs(dFol))}</b></span></div>
   <p class="coach"><small>${esc(so.coachName)}</small>${esc(C.coachPress)}</p>${calloutHtml()}
   <button class="go" id="prgo">See the reaction</button></div>`;
       $('#prgo').onclick = () => {
-        pushFeed(ctx.wk, all);
+        pushFeed(ctx.head, all);
         persist();
         showFeed(all, dFol, ctx, done);
       };
@@ -708,7 +733,7 @@
 
   function showFeed(posts, dFol, ctx, done) {
     const fire = ctx.buzz >= 7;
-    scr.innerHTML = `<div class="menu solid feed"><div class="prh"><small>The reaction \u00b7 ${esc(ctx.wk)}</small><h3>${fire ? 'Your mentions are on fire' : ctx.buzz >= 4 ? 'People are talking' : 'A quiet week online'}</h3></div>
+    scr.innerHTML = `<div class="menu solid feed"><div class="prh"><small>The reaction \u00b7 ${esc(ctx.wk)}</small><h3>${fire ? 'Your mentions are on fire' : ctx.buzz >= 4 || ctx.star || ctx.callRes ? 'People are talking' : 'A quiet week online'}</h3></div>
   ${socHead(dFol)}${feedHtml(posts)}<button class="go" id="fdgo">Continue</button></div>`;
     $('#fdgo').onclick = done;
   }
@@ -1109,9 +1134,10 @@
     /* the media: how loud the reaction is, what it does to your following, and what the reporters will ask */
     let weak = '';
     if (C.pos === 'QB') weak = m.pint > 1 ? `${m.pint} interceptions` : m.pint === 1 ? 'an interception' : m.att >= 6 && m.comp / m.att < 0.5 ? `${m.comp} of ${m.att} passing` : '';
-    if (C.pos === 'WR') weak = m.tgt >= 3 && m.rec / m.tgt < 0.5 ? `${m.rec} catches on ${m.tgt} targets` : m.tgt <= 1 ? 'one target all day' : '';
+    if (C.pos === 'WR') weak = m.tgt >= 3 && m.rec / m.tgt < 0.5 ? `${m.rec} catches on ${m.tgt} targets` : m.tgt === 0 ? 'not one target all day' : m.tgt === 1 ? 'one target all day' : '';
+    // coachLine: his first sentence, or the first two when the first is only a word or two ("Solid.")
     const ctx = { name: C.name, pos: C.pos, team: C.team, opp, won, us, them, m, pts, star, rival: C.rival, rivalGame: !!C.rival && C.rival.team === opp, playoff, callRes, coachName: so.coachName,
-      coachLine: (C.coach.match(/^[^.!?]+[.!?]/) || [C.coach])[0], next: C.phase === 'done' ? null : nextOpp(), week: C.log.length, wk, weak, role0, role1,
+      coachLine: (C.coach.match(/^[^.!?]{12,}[.!?]|^[^.!?]+[.!?][^.!?]+[.!?]/) || [C.coach])[0].trim(), next: C.phase === 'done' ? null : nextOpp(), week: C.log.length, wk, head: `${wk} \u00b7 ${res} ${us}\u2013${them} vs ${TEAMS[opp].name}`, weak, role0, role1, mates: so.mates,
       roleUp: ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) };
     const bz = PG.media.buzzOf(ctx), fol0 = so.fol;
     so.hype = clamp(Math.round(so.hype * 0.8 + bz.b * 3 + (callRes ? (callRes.backed ? 12 : -20) : 0)), 0, 100);

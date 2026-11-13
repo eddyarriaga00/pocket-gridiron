@@ -854,6 +854,24 @@ what is next. Update it after every item.
   with the play buttons' `.pb` class first drew the posts in capitals with rings; renamed. Cosmetic choices use
   Math.random, so `H.fingerprint()` is unchanged; the harness and the audit now answer the podium; exhibition, careers
   (QB and WR, three games each, one QB season), drills clean; audit empty at 320x568 and 390x844; no console errors.
+- 23:30 The feed audited after test games (the owner: "audit the feed after a test game and bug fix / improve"). Two
+  careers (WR and QB, six games each) dumped post by post. Fixed: lines repeated up to five times a week (lines and
+  fan accounts are now dealt like cards: an exhausted pool means one post fewer); reply authors and lines were drawn
+  apart, so opposing fans posted home fans' lines; neutral accounts spoke as partisans (they have their own lines);
+  a new random teammate per post (three different starting QBs in a week, one with your surname; teammates are now
+  five fixed men per team in `C.social.mates`, never sharing a surname with you, the coach or the rival, and a rival
+  who shares yours is renamed); opposing fans ignored the result (separate lines for their win and their loss);
+  win-flavoured analyst and teammate lines after losses; "wasted day" lines for an ordinary loss (now only a great
+  game in a loss; a good game in a loss and a bad game in a win have their own lines); a blowout loss of 17+ takes
+  a notch off how the media sees the game; the final listed the loser first; quotes had no context ("No regrets"
+  about what?): every question now carries a topic ("on last week's guarantee"); the coach quoted as "Solid." (now
+  his first two sentences when the first is a word); times were random (now the final is oldest, the feed newest
+  first, replies in order); the feed's 40-post cap cut weeks in half (now the last three weeks, whole, each headed
+  with its result); "one target all day" for none; a player-of-the-game day headed "A quiet week online"; a long
+  hyphenated name pushed posts 17 px off a 320 px screen (the feed's grid columns are now pinned to the screen). A
+  comment swallowing half a line during the work broke the podium for one test run and was caught by the harness.
+  After: 0 repeated lines in 11 weeks, no broken text, no name clashes; fingerprint unchanged; careers, a WR season,
+  drills clean; audit empty at 320x568 and 390x844.
 
 ## Morning hand-off
 

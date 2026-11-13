@@ -71,7 +71,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   his own press conference. A quiet game draws a handful of posts; a monster game floods the feed, trends, sends a fan's
   post viral and fills the replies. Followers and hype grow with big games and big words. The Social tab in the career
   hub keeps your mentions, your quotes, the follower count, the hype meter and your record of callouts backed up or
-  eaten. Every person, handle and outlet is invented.
+  eaten. Your teammates who post are the same players all career, and nobody in a feed says the same thing twice in a
+  week. Every person, handle and outlet is invented.
 - Career awards night after every season: MVP, Offensive Player of the Year, Rookie of the Year, All-League at your
   position and your position's statistical title, each with its nominees from around the league. Retire a career
   and it goes to a hall of fame vote; every retired career is kept in the Hall of fame, on the main menu.

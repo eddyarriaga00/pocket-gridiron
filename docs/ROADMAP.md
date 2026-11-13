@@ -821,7 +821,7 @@ what is next. Update it after every item.
   a picture strip and staged in an end zone; ends turning in a bot game at Q2, Q3, Q4. `H.fingerprint()` unchanged;
   exhibition, both careers and the drills clean; audit empty at 320x568 and 390x844 (the celebration picker first
   overlapped its own touch areas; rows are now 14 px apart), and the sheet with the challenge button checked at both.
-- 22:55 Teammates run to the scorer (automatic run 14, from "Motion, the rest"). After a touchdown, coast() in game.js
+- 22:45 Teammates run to the scorer (automatic run 14, from "Motion, the rest"). After a touchdown, coast() in game.js
   steers every teammate within 40 yards of the scorer to his own place in a loose ring round him (golden-angle
   spacing, 1.6 to 3 yards out) at up to 6.2 yd/s, and keeps them about an arm's length (1.1 yd) apart; render3d.js
   draws a man still running with his running stride and starts his celebration when he gets there, facing the

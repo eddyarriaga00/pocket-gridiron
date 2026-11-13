@@ -880,7 +880,7 @@
     carrierAI(p);
   }
 
-  const userOnD = () => !AUTO && G.state === 'live' && (!G.lock || !!G.me) && (ps.fum ? true : ps.carrier ? ps.carrier.team === 1 : !!(ps.air && ps.offTeam === 1));  // a loose ball is anyone's
+  const userOnD = () => !AUTO && G.state === 'live' && (!G.lock || !!G.me) && (ps.fum && !ps.fum.scoop ? true : ps.carrier ? ps.carrier.team === 1 : !!(ps.air && ps.offTeam === 1));  // a loose ball is anyone's
   const canPass = () => !AUTO && G.state === 'live' && (ps.mode === 'pass' || (ps.rpo && !ps.handoff)) && !ps.thrown && !ps.turnover && ps.carrier === ps.qb && userP(ps.qb) && (ps.qb.y - ps.los) * G.dir < 0.3;
 
   function resolvePass() {
@@ -1083,12 +1083,13 @@
         continue;
       }
       if (p.eng || p.block) continue;
-      if (ps.fum) {
+      if (ps.fum && !ps.fum.scoop) {
         // a loose ball: everyone close goes for it, and dives when he is near enough
         const b = ps.loose, d = hyp(p.x - b.x, p.y - b.y);
         if (d < 15) {
           seek(p, b.x, b.y, 1, true);
-          if (d < 2.3 && ps.fum.t > 0.3 && (AUTO || p !== G.sel)) {
+          if (d < 2.3 && ps.fum.t > 0.3 && (AUTO || p !== G.sel) && p.team !== ps.fum.by.team && p.goScoop === undefined) p.goScoop = rnd() < 0.4;  // a defender may stay on his feet and try to pick it up
+          if (d < 2.3 && ps.fum.t > 0.3 && (AUTO || p !== G.sel) && !p.goScoop) {
             p.vx = (b.x - p.x) / (d || 1) * p.spd * 1.5;
             p.vy = (b.y - p.y) / (d || 1) * p.spd * 1.5;
             p.dive = 0.26;
@@ -1175,7 +1176,7 @@
       a.z = 1.8 * (1 - s) + 1.2 * s + a.h * 4 * s * (1 - s);
       if (s >= 1) resolvePass();
     }
-    if (ps.fum && G.state === 'live' && scramble(dt)) return;
+    if (ps.fum && !ps.fum.scoop && G.state === 'live' && scramble(dt)) return;
     // tackles
     const c2 = ps.carrier;
     if (c2 && G.state === 'live') {
@@ -1206,7 +1207,9 @@
           if (o.hit > 0) fum += 0.085;
           if (o.strip > 0) fum += 0.13;
           if (c2.hurdle > 0) fum *= 2.5;
-          if (rnd() < fum) {
+          let out = false;  // this tackle knocks the ball loose (ps.fum may already be set: a scooped fumble being returned)
+          if (rnd() < fum && !(ps.fum && ps.fum.scoop)) {
+            out = true;
             ps.fum = { t: 0, by: c2, forced: o };
             ps.loose = { x: c2.x, y: c2.y, z: 1.1, vx: c2.vx * 0.4 + rnd(-3, 3), vy: c2.vy * 0.4 + rnd(-3, 3), vz: 3.2 };
             if (!AUTO && G.me && o === G.me) G.my.ff = (G.my.ff || 0) + 1;
@@ -1226,7 +1229,7 @@
           if (userP(c2) || o === G.sel || pw > 1.05) buzz(Math.round(14 + pw * 22));  // you feel the ones you are in, and the big ones
           if (pw > 1.05 && !QUIET && !AUTO && PG.audio) PG.audio.crowd.ooh(0.6);
           hitFx(c2.x, c2.y);
-          if (ps.fum) {
+          if (out) {
             // the whistle waits: the ball is live until somebody falls on it
             ps.carrier = null;
             G.sel = G.lock ? G.me : null;
@@ -1329,7 +1332,8 @@
     }
   }
 
-  /* The ball is loose. Anyone who reaches it can fall on it; a miss sends it squirting away again. Out of bounds, or
+  /* The ball is loose. Anyone who reaches it can fall on it; a miss sends it squirting away again. A defender who gets
+     to it while it is still bouncing can scoop it up instead and run with it, the scoop-and-score. Out of bounds, or
      three seconds with nobody on it, and it stays with the team that lost it. Returns true when the play is over. */
   function scramble(dt) {
     const b = ps.loose, f = ps.fum;
@@ -1339,7 +1343,10 @@
     if (f.t > 0.35 && b.z < 1.3) for (const p of P) {
       if (p.down || p.fell || p.stun > 0 || p.flat > 0 || (p === f.by && !f.muff) || hyp(p.x - b.x, p.y - b.y) > 1.15) continue;  // a returner may fall on his own muff; a tackled runner cannot
       const mine = !AUTO && p === G.sel && p.team === 0;  // the player you are steering is surer of it
-      if (rnd() < (mine ? 0.8 : 0.5)) return recover(p);
+      if (rnd() < (mine ? 0.8 : 0.5)) {
+        if (p.team !== f.by.team && !(p.dive > 0) && rnd() < (b.z > 0.35 ? 0.7 : 0.55)) return scoop(p);  // on his feet when he gets to it, cleanly: he is away
+        return recover(p);
+      }
       b.vx = rnd(-4.5, 4.5);
       b.vy = rnd(-4.5, 4.5);
       b.vz = 2.6;
@@ -1357,6 +1364,33 @@
         }
       }
       return recover(best);
+    }
+    return false;
+  }
+
+  /* a defender picks the ball up on the run: the play goes on as a return, like an interception's */
+  function scoop(p) {
+    const f = ps.fum, b = ps.loose;
+    f.scoop = true;
+    f.own = false;
+    ps.loose = null;
+    ps.carrier = p;
+    ps.turnover = true;
+    ps.open = true;
+    p.dive = 0;
+    b.z = 1;
+    for (const q of P) {
+      q.eng = null;
+      q.block = null;
+      if (q.team !== p.team && hyp(q.x - p.x, q.y - p.y) < 3) q.tcd = Math.max(q.tcd || 0, 0.45);  // the men round the ball have just dived or been knocked off it: a half-second start
+    }
+    credit(p, 'fr', 1);
+    if (!AUTO && G.me && p === G.me) G.my.fr = (G.my.fr || 0) + 1;
+    if (!AUTO && !QUIET) {
+      toast('Scooped up!');
+      vo('scoop', { pri: 2 });
+      if (PG.audio) PG.audio.crowd.ooh(1);
+      buzz(40);
     }
     return false;
   }
@@ -1675,6 +1709,15 @@
         sub = ez ? tname(t) + ' ball' : `${c.name} · ${ry} yard${ry===1?'':'s'}`;
         setBall(t, ez ? (t === 0 ? 25 : 75) : y, x);
         if (ry >= 30) react(t, 0.8, 2.5);
+      } else if (t !== off && ps.fum && ps.fum.scoop) {
+        stop = true;
+        big = 'Fumble!';
+        sub = `${c.name} scoops it up · ${tname(t)} ball`;
+        G.stats[off].to++;
+        react(t, 1.2, 3);
+        snd('whoop', { x, delay: 0.4 });
+        const ez = t === 0 ? y <= 0 : y >= 100;
+        setBall(t, ez ? (t === 0 ? 20 : 80) : y, x);
       } else if (t !== off) {
         stop = true;
         big = 'Interception!';
@@ -1767,7 +1810,7 @@
       stop = true;
       react(1 - off, 0.9, 2.5);
     }
-    if ((kind === 'tackle' || kind === 'oob') && ps.fum) sub += ps.fum.muff ? ' · muffed, recovered' : ' · fumble, recovered';
+    if ((kind === 'tackle' || kind === 'oob') && ps.fum && !ps.fum.scoop) sub += ps.fum.muff ? ' · muffed, recovered' : ' · fumble, recovered';
     G.runoff = !stop && !score && !G.drill ? Math.min(hurry(off) && G.poss === off ? 8 : 13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle (there is no clock in practice); a hurry-up offense gets back to the line sooner
     G.clock -= G.runoff;
     twoMinute();
@@ -2872,7 +2915,7 @@
     if (G.state === 'kicka') return ps.mode === 'kick' && ps.ret && ps.ret.team === 0 && !ps.fair && ps.air && !ps.kick.arg.tb ? 'fair' : 'none';  // your returner is under a punt
     if (G.state === 'live') {
       const c = ps.carrier;
-      if (ps.fum) return userOnD() ? 'loose' : 'none';
+      if (ps.fum && !ps.fum.scoop) return userOnD() ? 'loose' : 'none';
       if (c && userP(c)) return canPass() ? 'pass' : 'carry';
       if (userOnD()) return lk ? 'deflock' : 'def';
       if (lk && me && ps.offTeam === 0 && !ps.turnover && !me.down && me !== ps.qb) return me.route && (ps.mode === 'pass' || (ps.rpo && !ps.handoff)) && !ps.thrown ? 'route' : 'offball';
@@ -3201,6 +3244,9 @@
     } else if (kind === 'fumble') {
       vo(ps.fum && ps.fum.muff ? 'ball.team.' + tab(t) : 'fumble.def', { pri: 2 });
       if (!(ps.fum && ps.fum.muff) && chance(0.5)) vo('ball.team.' + tab(t), { ttl: 6 });
+      analyst('a.fumble', 0.6, { big: true });
+    } else if (ps.fum && ps.fum.scoop && down) {
+      if (chance(0.6)) vo('ball.team.' + tab(t), { ttl: 5 });  // "Scooped up!" was called as it happened
       analyst('a.fumble', 0.6, { big: true });
     } else if (ps.fum && down) vo('fumble.off');
     else if (big === 'Interception!') {

@@ -63,6 +63,7 @@
     "fumble": { "v": "p", "e": 0.95, "t": ["Fumble!", "The ball is out!", "Loose ball!"] },
     "fumble.def": { "v": "p", "e": 0.8, "t": ["And the defense comes up with it!", "Recovered by the defense!"] },
     "fumble.off": { "v": "p", "e": 0.45, "t": ["The offense gets it back.", "They fall on it, and keep the ball."] },
+    "scoop": { "v": "p", "e": 1.0, "t": ["Scooped up! And he's got room!", "He picks it up on the bounce! He's off and running!", "Scoop and score? He's got it!"] },
     "td": { "v": "p", "e": 1.0, "t": ["Touchdown!", "He's in! Touchdown!", "Into the end zone! Touchdown!", "Touchdown! What a play!"] },
     "td.team": { "v": "p", "e": 1.0, "t": ["Touchdown, {team}!"] },
     "td.return": { "v": "p", "e": 1.0, "t": ["He takes it all the way back! Touchdown!"] },

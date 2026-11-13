@@ -31,7 +31,7 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
-- Punt returns you play, with fair catches and muffs. Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
+- Punt returns you play, with fair catches and muffs. Fumbles you can dive on, or scoop up and run back, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
 - Instant replays of big plays, at half speed from the sideline and then again from the reverse angle (a camera ahead
   of the play looking back at the ball carrier), a flyover before kickoff, three officials who signal, a player of the game.

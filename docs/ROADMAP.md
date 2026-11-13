@@ -778,6 +778,20 @@ what is next. Update it after every item.
   `H.fingerprint()` unchanged; exhibition, both careers, the drills and a drawn game clean; audit empty at 320x568
   and 390x844.
 
+- 22:16 The scoop-and-score (automatic run 13; the owner said "keep improving"). The scramble was already there (the
+  ball bounces, everyone near chases it, a man who gets there falls on it half the time or knocks it loose again);
+  what it lacked was the pickup. Now about four in ten defenders who close on a loose ball stay on their feet instead
+  of diving, and one who gets there upright scoops it (55%, 70% off a bounce) and the play goes on as a return. The men
+  round the ball cannot tackle him for 0.45 s (they have just dived or been knocked off it). A scooped fumble is
+  scored and called as a fumble, not an interception; the booth has three new lines for it. A bug found on the way:
+  the tackle code took "a fumble exists" to mean "this tackle knocked the ball out", which after a scoop would have
+  turned every tackle of the scooper into a new fumble with no ball; it now asks about this tackle only, with the dice
+  rolled in the same order. Measured over 80 simulated games: 59 fumbles, 8 scoops, returns of 52 (a touchdown), 11,
+  9, 4, 2, 1, 1 and 0 yards. Balance: 33.6 points a game with three-minute quarters (32.9 before; the seeds vary by
+  more than that), 23.8 with two-minute; completions, yards a carry and interceptions in range. The seeded
+  fingerprint did not change (its games have no loose ball a defender reaches). Exhibition, both careers, the drills
+  and a drawn game clean; audit empty at 320x568 and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -1008,6 +1022,8 @@ what is next. Update it after every item.
 - [x] Run 12, celebrations: three more for the scorer (a knee, then both arms to the sky; a flexed roar; a bow to the
       crowd, again and again), a clap for teammates, hands on helmets for some of the side that was scored on.
       `PG.r3d.celebStrip()` draws them all. Still to be judged in motion
+- [x] Run 13, the scoop-and-score: a defender who gets to a loose ball on his feet can pick it up and run it back.
+      Still to be judged in play
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
@@ -1022,7 +1038,6 @@ Major improvements, biggest first:
   someone (`PG.r3d.beside()` at 0.8 s); and the top man lies a little stiff and flat.
 - Motion, the rest: reserves on the bench who walk about; a ball carrier who looks at the man about to hit him;
   teammates who run to the scorer.
-- A real loose-ball scramble instead of an instant recovery.
 - Career: the awards night could have a booth or
   stadium voice reading the winners (one clip per award and per name is too many; per award is not).
 - More NFL details: a play clock with delay of game, teams changing ends between quarters, a challenge flag.

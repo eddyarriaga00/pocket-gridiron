@@ -941,6 +941,7 @@
      reaction online. Each answer takes effect as you give it. */
   function showPress(ctx, posts, dFol0, done) {
     const so = social(), qs = PG.media.press(ctx), picks = [], fol0 = so.fol, trust0 = C.trust, hype0 = so.hype;
+    if (ctx.asked) C.pressSeen = (C.pressSeen || []).concat(ctx.asked).slice(-7);  // the topics of the last two or three weeks are not asked again while others fit
     let i = 0, said = [];
     const give = (a, q) => {
       C.trust = clamp(C.trust + a.trust, 5, 100);
@@ -1461,6 +1462,12 @@
     const base = xpFor(m, won), hard = (C.diff ?? 1) === 2 ? [['All-Pro bonus', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.2)]] : [];
     const items = base.concat(hard, star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, [pts, grade] = gradeOf(m, won, met);
     const prime = LG.prime(C), playoff0 = C.phase !== 'reg', away = !LG.home(C);
+    const inj0 = C.inj;  // what you played through, for the room to ask about
+    const streak = k => {
+      let n = 0;
+      for (let i = C.log.length - 1; i >= 0 && C.log[i].res === k; i--) n++;
+      return n;
+    };
     if (away && won) items.push(['Won on the road', 100]);  // a win in their building is worth a little more
     if (prime) items.push(['Primetime game', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.25)]);
     /* Player of the Week in your conference: a win, and an A+ or (one time in three, other men had big weeks too) an A */
@@ -1524,7 +1531,8 @@
     if (C.pos === 'QB') weak = m.pint > 1 ? `${m.pint} interceptions` : m.pint === 1 ? 'an interception' : m.att >= 6 && m.comp / m.att < 0.5 ? `${m.comp} of ${m.att} passing` : '';
     if (C.pos === 'WR') weak = m.tgt >= 3 && m.rec / m.tgt < 0.5 ? `${m.rec} catches on ${m.tgt} targets` : m.tgt === 0 ? 'not one target all day' : m.tgt === 1 ? 'one target all day' : '';
     // coachLine: his first sentence, or the first two when the first is only a word or two ("Solid.")
-    const ctx = { name: C.name, pos: C.pos, team: C.team, opp, won, us, them, m, pts, star, rival: C.rival, rivalGame: !!C.rival && C.rival.team === opp, playoff, callRes, coachName: so.coachName,
+    const ctx = { name: C.name, pos: C.pos, team: C.team, opp, won, us, them, m, pts, star, rival: C.rival, rivalGame: !!C.rival && C.rival.team === opp, playoff, callRes, coachName: so.coachName, away, prime, inj: inj0, season: C.season, left: deal().left, seen: C.pressSeen || [],
+      streakW: won ? streak('W') : 0, streakL: !won && us !== them ? streak('L') : 0,
       coachLine: (C.coach.match(/^[^.!?]{12,}[.!?]|^[^.!?]+[.!?][^.!?]+[.!?]/) || [C.coach])[0].trim(), next: C.phase === 'done' ? null : nextOpp(), week: C.log.length, wk, head: `${wk} \u00b7 ${res} ${us}\u2013${them} vs ${TEAMS[opp].name}`, weak, role0, role1, mates: so.mates,
       roleUp: ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) };
     const bz = PG.media.buzzOf(ctx), fol0 = so.fol;

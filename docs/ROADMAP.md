@@ -1334,6 +1334,23 @@ what is next. Update it after every item.
   edge on the 14 and 10 yards off centre; a banner up at the whistle was down by the next snap, with a card forced on
   too. Checked: fingerprint unchanged, careers, exhibition, drills, audit empty at 320x568 and 390x844 and on the
   kickoff bar, no console errors.
+- 17:39 By hand (the owner: the press conference "is the same 3 questions and answers every time", and "improve
+  character models and field"). Press conference (media.js `press`): each of the three slots now draws from the
+  topics that fit the game, each with two or three wordings and one or two answer sets: your day (great, player of
+  the game, bad, a grade, two touchdown catches, drops, return yards, interceptions, three touchdown passes, your
+  running, accuracy), the game (a loss, a skid, a close one, a blowout, a win, a streak, a road win, primetime, the
+  playoffs, playing hurt, a tie; the rival and a role change still come first), and what is next (the next opponent
+  six times in ten, where the callouts live, else the fans, the coach, what you are working on, being a rookie, the
+  contract, the race). The career passes the facts (`away`, `prime`, `inj`, `streakW`/`streakL`, `season`, `left`)
+  and remembers the last seven topics (`C.pressSeen`) so they are passed over while others fit. Five test games
+  asked fifteen different questions. Field (render3d `paintField`): the texture is 1792 wide (was 1280), bands mown
+  both ways with a light across each, mower lines and more grain, arrows beside the yard numbers, end zones with a
+  diagonal weave and edged lettering, the midfield disc inside a second-color ring with edged letters. Figures: the
+  number texture is twice the size with a stitched edge, and the shoulder pads carry small numbers (`f.tv`, which
+  wear whatever the big number wears). Measured: 60.7 frames a second in the pane, a drawn game with every pose
+  finite, gait slide 1 cm and sink 0.2 cm as before. Checked: fingerprint unchanged, careers, exhibition, drills,
+  audit empty at 320x568 and 390x844, no console errors. Not done: the body shapes themselves (the skinned body is
+  still its own project).
 
 ## Morning hand-off
 

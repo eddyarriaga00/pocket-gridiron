@@ -375,16 +375,22 @@
     let m = numCache.get(key);
     if (m) return m;
     const c = document.createElement('canvas');
-    c.width = c.height = 64;
+    c.width = c.height = 128;  // twice the old size: the digits stay crisp in the close cameras
     const x = c.getContext('2d');
-    x.fillStyle = color;
     x.textAlign = 'center';
     x.textBaseline = 'middle';
-    x.font = '800 44px Archivo, Arial, sans-serif';
-    x.fillText(String(num), 32, 35);
+    x.font = '800 88px Archivo, Arial, sans-serif';
+    x.lineJoin = 'round';
+    x.lineWidth = 7;
+    x.strokeStyle = 'rgba(8,12,20,0.5)';  // the stitched edge of a sewn-on number
+    x.strokeText(String(num), 64, 70);
+    x.fillStyle = color;
+    x.fillText(String(num), 64, 70);
     const tex = new T.CanvasTexture(c);
     tex.colorSpace = T.SRGBColorSpace;
+    tex.anisotropy = 4;
     m = new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: T.DoubleSide });
+    m.isNum = true;
     numCache.set(key, m);
     return m;
   }
@@ -428,6 +434,8 @@
     return m;
   }
 
+  const TV_GEO = new T.PlaneGeometry(0.105, 0.105);
+
   /* ---------- figures ---------- */
   function makeFigure() {
     const g = () => new T.Group();
@@ -455,6 +463,14 @@
     f.num = new T.Mesh(numberGeometry(), numberMaterial(0, '#ffffff'));
     f.nameplate = new T.Mesh(nameGeometry(), NO_NAME);
     f.chest.add(f.num, f.nameplate);
+    /* the small numbers on top of the shoulder pads (the ones the high cameras read): they wear whatever the big number wears */
+    f.tv = [-1, 1].map(side => {
+      const q = new T.Mesh(TV_GEO, NO_NAME);
+      q.position.set(side * 0.285, 0.652, 0.005);
+      q.rotation.set(-Math.PI / 2, side * 0.42, 0, 'YXZ');
+      f.chest.add(q);
+      return q;
+    });
     f.cur = new Float32Array(NPOSE);
     f.cur[PELY] = HIP;
     f.bodyS = new T.Vector3(1, 1, 1);
@@ -509,6 +525,13 @@
   const ZERO4 = new T.Matrix4().makeScale(0, 0, 0), fit4 = new T.Matrix4();
 
   function writeFigure(f, i) {
+    if (f.tv) {
+      const nm = f.num.material, on = !!nm.isNum && f.num.visible !== false && !(f.hide && f.hide.has('pads'));
+      for (const q of f.tv) {
+        if (q.material !== nm) q.material = nm;
+        q.visible = on;
+      }
+    }
     f.root.updateMatrixWorld(true);
     for (const p of parts) {
       const n = p.joints.length, sc = p.fit === 'body' ? f.bodyS : p.fit === 'limb' ? f.limbS : null, gone = (f.hide && f.hide.has(p.name)) || (p.opt && !(f.extra && f.extra.has(p.name)));
@@ -2650,7 +2673,7 @@
   }
 
   /* ---------- textures ---------- */
-  const PAD_X = 6, Y0 = -16, Y1 = 116, TEXW = 1280, TEXS = TEXW / (FW + 2 * PAD_X), TEXH = Math.round((Y1 - Y0) * TEXS);
+  const PAD_X = 6, Y0 = -16, Y1 = 116, TEXW = 1792, TEXS = TEXW / (FW + 2 * PAD_X), TEXH = Math.round((Y1 - Y0) * TEXS);
 
   function paintField(t0, t1, host, both) {
     lastTeams = [t0, t1, host, both];
@@ -2662,14 +2685,42 @@
     c.fillRect(0, 0, TEXW, TEXH);
     c.fillStyle = '#e6ece6';
     c.fillRect(X(-2), Y(112), (FW + 4) * S, 124 * S);  // the white border
+    /* the turf: five-yard bands mown one way and then the other, each with a little light across it, and the end zones
+       in the team's color with a diagonal weave */
     for (let y = -10; y < 110; y += 5) {
-      c.fillStyle = y < 0 ? t0.c1 : y >= 100 ? t1.c1 : (Math.floor(y / 5) & 1 ? '#2f8f46' : '#2a8440');
+      const ez = y < 0 || y >= 100, base = y < 0 ? t0.c1 : y >= 100 ? t1.c1 : (Math.floor(y / 5) & 1 ? '#2f8f46' : '#277c3c');
+      c.fillStyle = base;
       c.fillRect(X(0), Y(y + 5), FW * S, 5 * S + 1);
+      if (!ez) {
+        const g = c.createLinearGradient(0, Y(y + 5), 0, Y(y));
+        g.addColorStop(0, 'rgba(255,255,255,0.05)');
+        g.addColorStop(0.5, 'rgba(255,255,255,0)');
+        g.addColorStop(1, 'rgba(0,0,0,0.06)');
+        c.fillStyle = g;
+        c.fillRect(X(0), Y(y + 5), FW * S, 5 * S + 1);
+      }
     }
-    for (let i = 0; i < 16000; i++) {
-      // grass grain
+    for (const [ya, yb] of [[-10, 0], [100, 110]]) {
+      c.save();
+      c.beginPath();
+      c.rect(X(0), Y(yb), FW * S, 10 * S);
+      c.clip();
+      c.strokeStyle = 'rgba(255,255,255,0.07)';
+      c.lineWidth = 0.55 * S;
+      for (let d = -12; d < FW + 12; d += 2.2) {
+        c.beginPath();
+        c.moveTo(X(d), Y(ya));
+        c.lineTo(X(d + 10), Y(yb));
+        c.stroke();
+      }
+      c.restore();
+    }
+    /* mower lines across each band, and the grain of the grass */
+    c.fillStyle = 'rgba(0,0,0,0.035)';
+    for (let x = 0; x < FW; x += 1.6) c.fillRect(X(x), Y(100), 0.1 * S, 100 * S);
+    for (let i = 0; i < 30000; i++) {
       c.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.05)';
-      c.fillRect(Math.random() * TEXW, Math.random() * TEXH, 2, 5 + Math.random() * 6);
+      c.fillRect(Math.random() * TEXW, Math.random() * TEXH, 2, 6 + Math.random() * 9);
     }
     if (envSnow) {
       // a dusting of snow, thicker in patches
@@ -2696,28 +2747,59 @@
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.font = `800 ${3.3 * S}px Archivo, Arial, sans-serif`;
-    c.fillStyle = 'rgba(255,255,255,0.86)';
+    c.fillStyle = 'rgba(255,255,255,0.9)';
     for (let y = 10; y <= 90; y += 10) {
       const n = String(y <= 50 ? y : 100 - y);
-      c.fillText(n, X(9), Y(y));
-      c.fillText(n, X(FW - 9), Y(y));
+      for (const nx of [9, FW - 9]) {
+        c.fillText(n, X(nx), Y(y));
+        if (y !== 50) {
+          // the small arrow beside each number, pointing at the nearer goal line
+          const up = y > 50 ? 1 : -1, ax = X(nx + (nx < FW / 2 ? -3 : 3)), ay = Y(y + up * 0.9);
+          c.beginPath();
+          c.moveTo(ax, ay - up * 0.75 * S);
+          c.lineTo(ax - 0.42 * S, ay + up * 0.25 * S);
+          c.lineTo(ax + 0.42 * S, ay + up * 0.25 * S);
+          c.fill();
+        }
+      }
     }
+    /* the names in the end zones: white letters with a dark edge, so they read on any team color */
     c.font = `800 ${5 * S}px Archivo, Arial, sans-serif`;
-    c.fillStyle = 'rgba(255,255,255,0.88)';
-    c.fillText(t0.name.toUpperCase(), X(FW / 2), Y(-5), (FW - 4) * S);
-    c.fillText(t1.name.toUpperCase(), X(FW / 2), Y(105), (FW - 4) * S);
-    c.globalAlpha = 0.55;
+    c.lineJoin = 'round';
+    c.lineWidth = 0.34 * S;
+    for (const [t, y] of [[t0, -5], [t1, 105]]) {
+      c.strokeStyle = 'rgba(6,10,18,0.45)';
+      c.strokeText(t.name.toUpperCase(), X(FW / 2), Y(y), (FW - 4) * S);
+      c.fillStyle = 'rgba(255,255,255,0.93)';
+      c.fillText(t.name.toUpperCase(), X(FW / 2), Y(y), (FW - 4) * S);
+    }
+    /* midfield: the home team's disc inside a second-color ring and a white one, the letters edged like the names */
+    const mx = X(FW / 2), my = Y(50);
+    c.fillStyle = home.c2 || '#ffffff';
+    c.globalAlpha = 0.9;
+    c.beginPath();
+    c.arc(mx, my, 6.1 * S, 0, 7);
+    c.fill();
+    c.globalAlpha = 0.92;
     c.fillStyle = home.c1;
     c.beginPath();
-    c.arc(X(FW / 2), Y(50), 5.5 * S, 0, 7);
+    c.arc(mx, my, 5.4 * S, 0, 7);
     c.fill();
     c.globalAlpha = 1;
-    c.strokeStyle = '#ffffff';
-    c.lineWidth = 0.18 * S;
+    c.strokeStyle = 'rgba(255,255,255,0.95)';
+    c.lineWidth = 0.2 * S;
+    c.beginPath();
+    c.arc(mx, my, 6.1 * S, 0, 7);
     c.stroke();
-    c.font = `800 ${3.6 * S}px Archivo, Arial, sans-serif`;
-    c.fillStyle = 'rgba(255,255,255,0.92)';
-    c.fillText(home.ab, X(FW / 2), Y(50) + 0.15 * S);
+    c.font = `800 ${3.9 * S}px Archivo, Arial, sans-serif`;
+    c.lineWidth = 0.3 * S;
+    c.strokeStyle = 'rgba(6,10,18,0.5)';
+    c.strokeText(home.ab, mx, my + 0.15 * S);
+    c.fillStyle = '#ffffff';
+    c.fillText(home.ab, mx, my + 0.15 * S);
+    /* the fifty runs through the logo again, faintly, as the real paint does */
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillRect(mx - 6.1 * S, my - 0.1 * S, 12.2 * S, 0.2 * S);
     c.strokeStyle = 'rgba(255,255,255,0.7)';
     c.lineWidth = 0.14 * S;  // team areas
     c.strokeRect(X(-5.2), Y(70), 2.6 * S, 40 * S);

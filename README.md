@@ -77,8 +77,12 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   Shotgun, I-Form, Gun Trips, Gun Empty, Pistol, Gun Bunch, Jumbo, Gun Slot) and thirteen defensive calls, several of
   which show their own look before the snap (a safety rolled down, a blitzer walked up). A tag under the field names the
   kind of play on every snap. Before the snap you can tap a receiver's letter to change his route, call an audible (the
-  other plays from the same formation), flip the play, or try a hard count (a fake snap count that now and then draws
-  the defense offside, and once in a while makes your own lineman flinch); on defense you can change the coverage.
+  other plays from the same formation), flip the play, try a hard count (a fake snap count that now and then draws
+  the defense offside, and once in a while makes your own lineman flinch), or send a receiver in motion: he steps off
+  the line and runs across behind it (a jet on a run play, full speed past the ball), his route starts from wherever
+  he is at the snap, and if a defender runs with him it is man coverage (the game tells you: man or zone). The
+  computer's offense and a career receiver's coach put a man in motion on about a third of snaps (a short zip inside,
+  across the formation, or a jet), and the snap comes when he gets there. On defense you can change the coverage.
 - The play-call sheet shows three plays at a time. On the Coach tab the first three are the coach's picks for this down,
   distance and score, shared out between the kinds of play by how likely each is (third and one: two runs and a pass),
   then everything else he would call, in order; swipe, scroll or page with the arrows for more. The Run, RPO, Short,
@@ -225,7 +229,7 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 | Sprint | Hold Sprint | Space | RT (R2) |
 | Juke / Spin / Power / Hurdle | The buttons | J / K / L / H | B / X / A / Y |
 | Switch / Dive / Hit / Strip (defense) | The buttons | Q / E / F / R | B / A / X / Y |
-| Audible / Flip / Hard count (before the snap) | The buttons | V / X / G | LB / RB / Y |
+| Audible / Flip / Hard count / Motion (before the snap) | The buttons | V / X / G / M | LB / RB / Y / X |
 | Time out | Time out, right after the whistle or on the play-call sheet | T | View (Select) |
 | Fair catch | Fair catch, while a punt to you is in the air | Space | A |
 | Pause | The pause button under the scoreboard | P or Esc | Start |

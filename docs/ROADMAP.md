@@ -1190,6 +1190,24 @@ what is next. Update it after every item.
   receiver games asked for 131 lines, a.ret.me twice, none missing. Forced test: a return fumble in game 1 took trust
   60 to 36 and sat the receiver for games 2 and 3 (no returns), back in game 4 at 40 and up to 54. Checked:
   fingerprint unchanged, careers (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844, no console errors.
+- 06:23 Automatic run: pre-snap motion, the first part. `planMotion(kind)` picks a receiver (X, Z or a slot, six yards or
+  more outside the ball, never the ball carrier) and a kind: 'zip' (in toward the formation, sets 1.6 yd off the
+  line), 'across' (behind the line to the other side, at the spot with the most room) or 'jet' (85% of his speed, at
+  most 8.5 yd/s). He steps back off the line first and passes behind a quarterback under center (3.2 yd deep) or in
+  front of one in the shotgun (2.2). `motionStep` moves him in the 'pre' state like `jogIn` does (speed, stride),
+  rebuilds his route every frame from where he is (`mkRoute` picks the side from his x, so a man who crossed runs it
+  to his new side) and moves the defender who has him in man coverage along with him at his own depth; in a zone
+  nobody follows, and a quarterback the user controls gets the read as a toast ("Man coverage · #24 went with him" /
+  "Zone · nobody went with him"). At the snap his route is built once more, he keeps his speed, and his alignment
+  and his defender's become where they are. The computer's offense and a career receiver's coach use it on 33% of
+  snaps (`Math.random`, only when !AUTO, so the fingerprint is identical); the automatic snap waits for him (set, or
+  a jet 1.5 yd past the ball; 7 s at most). The user's quarterback has a Motion button (M, controller X), across on a
+  pass and a jet on a run, once a play; a career receiver sent in motion reads "You go in motion first" in the brief.
+  Measured: in an exhibition the computer moved a man on 5 of 16 snaps (3 zip, 1 across, 1 jet), the man defender
+  ended 0.0 yd from him, the jet was snapped 1.5 yd past the ball, snaps came 2.2-4.6 s after the break; a receiver
+  career's coach used it on 4 of 10 snaps, twice on the user; every route point finite; a drawn game posed the moving
+  man in a stride with every pose finite. Checked: fingerprint unchanged, careers (QB and WR), exhibition, drills,
+  audit empty at 320x568 and 390x844 (the snap pad holds five buttons in two rows), no console errors.
 
 ## Morning hand-off
 
@@ -1505,9 +1523,10 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Pre-snap motion: jet and orbit motion, a shift from one formation to another; the computer uses it on a third of its
-  snaps; routes are built from where the man is at the snap; a defender follows a man in motion in man coverage (a
-  read for the quarterback: man or zone).
+- Pre-snap motion, the rest (zip, across and jet are done, 06:17): orbit motion (a slot loops behind the quarterback
+  and back), a shift from one formation to another (everybody moves, then sets for a second), the jet sweep handed to
+  the man in motion as he passes (today a jet is a decoy or runs his route), and a zone defense that bumps (the
+  safeties rotate toward the motion) instead of standing still.
 - The coin toss call: as a captain you call heads or tails and choose to receive or defer (then you get the ball to
   start the second half).
 - More penalties with real enforcement: defensive pass interference at the spot, roughing the passer (15 yards and a

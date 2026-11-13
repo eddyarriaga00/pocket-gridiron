@@ -768,6 +768,87 @@
     camUpd(0, true);
   }
 
+  /* ---------- pre-snap motion ----------
+     One man goes in motion before the snap: 'zip' (in toward the formation, then set), 'across' (behind the line to
+     the other side, then set) or 'jet' (full speed across, the ball snapped as he passes it). He steps off the line
+     first, so he is a back while he moves, and passes behind a quarterback under center or in front of one in the
+     shotgun. His route is built again from where he is at the snap, so a man who has crossed runs it to his new side.
+     A defender in man coverage runs with him; in a zone nobody does: that is the quarterback's read. Only in games
+     someone is watching (simulations never use it, so seeded runs are unchanged). */
+  function planMotion(kind) {
+    if (AUTO || QUIET || G.drill || !ps || ps.mot || (ps.mode !== 'pass' && ps.mode !== 'run')) return null;
+    const off = ps.offTeam, bx = ps.bx, los = ps.los, dir = G.dir;
+    const cand = P.filter(p => p.team === off && p !== ps.runner && /^(X|Z|S|S2)$/.test(p.role) && Math.abs(p.sx - bx) >= 6);
+    if (!cand.length) return null;
+    const p = cand[Math.floor(Math.random() * cand.length)], side = Math.sign(p.sx - bx) || 1;
+    kind = kind || (Math.random() < 0.3 ? 'zip' : Math.random() < 0.65 ? 'across' : 'jet');
+    if (kind === 'jet' && ps.mode === 'pass' && !p.route) kind = 'across';
+    const dm = kind === 'zip' ? 1.6 : Math.abs(ps.qb.sy - los) > 3 ? 2.2 : 3.2, ty = los - dir * dm;
+    let tx;
+    if (kind === 'jet') tx = clamp(bx - side * 12, 3, FW - 3);
+    else {
+      /* where he sets: the spot on that side farthest from everybody else in the backfield and the slots */
+      const others = P.filter(q => q.team === off && q !== p && !q.isOL), at = Math.abs(p.sx - bx);
+      let best = -1;
+      for (const a of [5.5, 7, 8.5, 10, 11.5]) {
+        const x = bx + (kind === 'zip' ? side : -side) * a;
+        if (x < 2.5 || x > FW - 2.5 || (kind === 'zip' && a > at - 2)) continue;
+        const room = Math.min(...others.map(q => hyp(x - q.sx, ty - q.sy)));
+        if (room > best) {
+          best = room;
+          tx = x;
+        }
+      }
+      if (tx === undefined) return null;
+    }
+    const d = P.find(q => q.team !== off && q.asg === 'man' && q.man === p) || null;
+    ps.mot = { p, kind, side, tx, ty, v: kind === 'jet' ? Math.min(p.spd * 0.85, 8.5) : kind === 'zip' ? 4.2 : 5.4, d, go: false, done: false, ready: false, setT: 0, said: false };
+    return ps.mot;
+  }
+
+  function motionStep(dt) {
+    const m = ps && ps.mot;
+    if (!m || !m.go || m.done) return;
+    const p = m.p, dx = m.tx - p.x, dy = m.ty - p.y, dd = hyp(dx, dy), st = m.v * dt;
+    if (dd <= st) {
+      p.x = m.tx;
+      p.y = m.ty;
+      p.vx = p.vy = 0;
+      m.done = true;
+    } else {
+      p.vx = dx / dd * m.v;
+      p.vy = dy / dd * m.v;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.anim += m.v * dt;
+    }
+    if (p.rn && p.route) p.route = mkRoute(p, p.rn, G.dir);  // his route moves with him
+    const q = m.d;
+    if (q && !q.down) {
+      // his man runs with him, staying at his own depth
+      const ex = p.x - q.x, mv = Math.min(Math.abs(ex), m.v * 1.1 * dt);
+      q.vx = Math.abs(ex) < 0.05 ? 0 : Math.sign(ex) * m.v * 1.1;
+      q.vy = 0;
+      q.x += Math.sign(ex) * mv;
+      q.anim += mv;
+    }
+    const crossed = (p.x - ps.bx) * -m.side;
+    if (!m.ready) m.ready = m.kind === 'jet' ? crossed >= 1.5 || m.done : m.done;
+    if (!m.said && (m.done || crossed > 0.5)) {
+      m.said = true;
+      if (userP(ps.qb)) toast(m.d ? `Man coverage · #${m.d.num} went with him` : 'Zone · nobody went with him');  // the read
+    }
+  }
+
+  /* the user's quarterback sends a receiver in motion: across on a pass, a jet on a run */
+  function userMotion() {
+    if (G.state !== 'pre' || !ps || ps.mot || (ps.mode !== 'pass' && ps.mode !== 'run') || P.some(p => p.jog) || !userP(ps.qb)) return;
+    const m = planMotion(ps.mode === 'run' ? 'jet' : 'across');
+    if (!m) return toast('Nobody to send in motion from this formation');
+    m.go = true;
+    G.pad = null;  // the button goes: one man in motion a play
+  }
+
   function jogIn(dt) {
     for (const p of P) {
       if (!p.jog) continue;
@@ -3020,6 +3101,7 @@
     G.audI = -1;
     G.audList = audibleList(G.op);
     setupPlay();
+    if (!AUTO && !QUIET && !G.drill && (G.poss === 1 || (G.lock && G.me !== ps.qb)) && Math.random() < 0.33) planMotion();  // the computer's offense, and a career receiver's coach, use motion on about a third of snaps
     if (G.aroundDue && !AUTO && !QUIET) {
       const q = G.aroundDue;
       G.aroundDue = 0;
@@ -3075,6 +3157,17 @@
       p.y = p.sy;
       p.vx = p.vy = 0;
       p.jog = 0;
+    }
+    const mo = ps.mot;
+    if (mo && mo.go) {
+      // the man in motion keeps his speed; his route starts where he is, and so does the defender who came with him
+      for (const q of [mo.p, mo.d]) if (q) {
+        q.sx = q.x;
+        q.sy = q.y;
+      }
+      if (mo.p.rn && mo.p.route) mo.p.route = mkRoute(mo.p, mo.p.rn, G.dir);
+      if (mo.d) mo.d.vx = 0;
+      mo.done = true;
     }
     if (ps.mode === 'kick') return doKick(rnd(0.55, 1));
     if (flagsOn()) {
@@ -3389,6 +3482,7 @@
       if (ps.rpo) t = me.route && ps.recs.includes(me) ? `Run your ${RNAME[me.rn]} route. The quarterback throws it or hands off: tap Call if you are open.` : 'It may be a run: block your man.';
       else if (ps.mode === 'run') t = me === ps.runner ? 'You get the ball. Follow your blocks.' : me.route ? 'Sell the route, then block downfield.' : 'Lead the way and block.';
       else t = me.route ? `Run your ${RNAME[me.rn]} route. Tap Call when you are open.` : 'Stay in and pass block.';
+      if (ps.mot && ps.mot.p === me) t = 'You go in motion first. ' + t;  // the coach's call has you moving before the snap
       return `<b>${G.op.n}</b><span>${t}</span>`;
     }
     t = me.asg === 'rush' ? 'Blitz. Get to the quarterback.' : me.asg === 'man' && me.man ? `Man coverage on #${me.man.num} ${me.man.name}.` : me.deep ? 'Deep zone. Keep everything in front of you.' : 'Underneath zone. Break on short throws.';
@@ -3582,6 +3676,7 @@
     }
     if (k === 'audible' || k === 'flip') return audible(k === 'flip');
     if (k === 'hard') return hardCount();
+    if (k === 'motion') return userMotion();
     if (k === 'timeout') {
       if ((G.state === 'dead' || G.state === 'call') && !G.lock) {
         timeout(0);
@@ -3647,7 +3742,7 @@
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
     offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
@@ -3696,6 +3791,7 @@
         B('Audible', '', () => act('audible'));
         B('Flip', '', () => act('flip'));
         if (!ps.hard) B('Hard count', 'hc', () => act('hard'));
+        if (!ps.mot) B('Motion', '', () => act('motion'));
       }
     } else if (kind === 'ready') B('READY', 'big', () => act('main'));
     else if (kind === 'kick') B('KICK', 'big', () => act('main'));
@@ -3766,6 +3862,7 @@
     if (e.code === 'KeyX') act('flip');
     if (e.code === 'KeyC') act('call');
     if (e.code === 'KeyG') act('hard');
+    if (e.code === 'KeyM') act('motion');
     if (e.code === 'Minus' || e.code === 'BracketLeft') zoomBy(-1);
     if (e.code === 'Equal' || e.code === 'BracketRight') zoomBy(1);
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
@@ -3912,7 +4009,7 @@
   const GP = { on: false, prev: [], x: 0, y: 0, sprint: false, nav: { dir: '', t: 0 }, zoomT: 0, foc: null, last: null };
   const GB = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   const GLET = ['A', 'B', 'X', 'Y', 'RB'];  // the throw buttons, in the order of the receivers across the field
-  const GMAP = { snap: { A: 'main', Y: 'hard', LB: 'audible', RB: 'flip' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' },
+  const GMAP = { snap: { A: 'main', X: 'motion', Y: 'hard', LB: 'audible', RB: 'flip' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' },
     def: { A: 'dive', B: 'switch', X: 'hit', Y: 'strip' }, deflock: { A: 'dive', X: 'hit', Y: 'strip' }, route: { A: 'call' }, defpre: { B: 'switch', LB: 'audible' }, loose: { A: 'dive' }, timeout: { A: 'timeout' } };
   addEventListener('gamepadconnected', e => toast('Controller connected' + (e.gamepad && e.gamepad.mapping === 'standard' ? '' : ' · buttons may differ')));
   addEventListener('gamepaddisconnected', () => toast('Controller disconnected'));
@@ -5660,6 +5757,8 @@
     } else if (st === 'pre') {
       G.preT += dt;
       jogIn(dt);
+      if (ps.mot && !ps.mot.go && G.cadence && G.preT > 0.9 && !P.some(p => p.jog)) ps.mot.go = true;
+      motionStep(dt);
       if (!G.dcall && ps.mode !== 'ko' && G.preT > 0.08 && !P.some(p => p.jog)) {
         // the defense has seen the formation: most snaps, somebody calls it out before the quarterback starts
         G.dcall = true;
@@ -5676,8 +5775,9 @@
         } else if (G.preT > 1.5) kickNow();
       } else {
         /* the computer snaps for itself, and for the user when their player is not the quarterback */
-        const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1);
-        if (auto && G.preT > (AUTO ? 0.3 : G.drill && G.drill.script ? 5 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2)) snap();
+        const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1), wait = AUTO ? 0.3 : G.drill && G.drill.script ? 5 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2;
+        const set = !ps.mot || ps.mot.ready || G.preT > wait + 7;  // a man in motion: the snap comes when he gets there (a jet, as he passes the ball)
+        if (auto && G.preT > wait && set) snap();
       }
     } else if (st === 'replay') replayStep(dt);
     else if (st === 'live') {

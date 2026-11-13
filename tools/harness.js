@@ -34,7 +34,7 @@ window.H = (() => {
       if (r) r.click();
     }  // the game pauses itself when the page is hidden, which the test pane often is
     {
-      const t = q('#tsH') || q('#tsR');  // the coin toss call, then the choice: heads, and receive
+      const t = q('#tsH') || q('#tsR') || q('#fpA');  // the coin toss call, then the choice: heads, and receive; a free play's flag: accept
       if (t) return t.click();
     }
     if (G.state === 'call') {

@@ -113,7 +113,12 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, or scoop up and run back, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
-  four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
+  flags that Settings can switch off: false start, offside, illegal formation and holding; pass interference at the
+  spot; roughing the passer and unnecessary roughness (fifteen yards from where the play ended, and an automatic
+  first down); intentional grounding when the ball is thrown away from inside the pocket (loss of down); and the free
+  play, when a defender jumps at the snap and the play goes on: afterwards you choose, take five yards and the down
+  again, or keep what the play gained (the game only asks when it is a real choice). Rain and snow make the ball
+  harder to catch and hold.
 - Instant replays of big plays, at half speed from the sideline and then again from the reverse angle (a camera ahead
   of the play looking back at the ball carrier), a flyover before kickoff, three officials who signal, a player of the game.
 - A broadcast booth: a play-by-play man and an analyst call the game ("Third and six." ... "He goes deep!" ...

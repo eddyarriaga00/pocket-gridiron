@@ -1385,6 +1385,8 @@
       T = d / 20;
     }
     ps.air = { x0: q.x, y0: q.y, x1: tx, y1: ty, t: 0, T, h: (1.2 + d * 0.11) * hf, target: r, x: q.x, y: q.y, z: 1.8, dist: d };
+    ps.rel = { q, t: ps.t };  // the release: a rusher who arrives in the next half second may hit him late (see tick)
+    if (!r && watched() && Math.abs(q.x - ps.bx) < 4 && (q.y - ps.los) * G.dir < 0 && Math.random() < 0.35) ps.ground = q.y;  // thrown away from inside the pocket, nobody near it: grounding, when the officials see it  // he arrives as the ball leaves, and drives him into the turf
     if (!AUTO && !QUIET && PG.audio && d >= 24 && T >= 0.95) PG.audio.crowd.swell(T, q.team === 0 ? 0.6 : 0.42);  // a long ball: the stadium draws breath until it comes down
     if (d >= 26 && T >= 1.05) vo('deep', { every: 25 });
     if (option && r) {
@@ -1669,6 +1671,14 @@
 
   function tick(dt) {
     ps.t += dt;
+    if (ps.rel && !ps.rel.done && ps.t - ps.rel.t < 0.5) {
+      /* roughing the passer: a rusher who gets there just after the ball is gone, now and then hits him late and hard */
+      const q = ps.rel.q;
+      if (P.some(o => o.team !== q.team && !o.down && hyp(o.x - q.x, o.y - q.y) < 1.0)) {
+        ps.rel.done = true;
+        if (watched() && !ps.lateFlag && Math.random() < 0.06) ps.lateFlag = 'Roughing the passer';
+      }
+    }
     if (!G.drill && G.try2 == null) G.clock = Math.max(0, G.clock - dt);  // no clock in practice or on a two-point try
     const off = ps.offTeam;
     if (ps.mode === 'run' && !ps.handoff) {
@@ -2281,8 +2291,103 @@
 
   let goalLine = 0;  // test hook: plays ruled a touchdown because the man was brought down already in the end zone
 
+
+  /* ---------- fouls after the snap (watched games only: simulations keep the old flags) ----------
+     A late, hard hit on the quarterback as the ball leaves (roughing the passer) or on a runner already out of bounds
+     (unnecessary roughness) costs the defense fifteen yards from where the play ended, and an automatic first down.
+     A defender who jumps at the snap does not stop the play: it is a free play, and afterwards the offense chooses to
+     take five yards and the down again, or to keep what the play gained. You choose when you call your own offense;
+     the computer, or a career receiver's coach, takes the better one. */
+  const watched = () => !AUTO && !QUIET && flagsOn();
+
+  function lateFoul(p0, s0) {
+    const f = p0.lateFlag, off = p0.offTeam, dir = off === 0 ? 1 : -1;
+    if (G.poss !== off || G.score[0] !== s0[0] || G.score[1] !== s0[1] || G.pendKO != null || G.pat != null) return;  // after a score or a turnover it is let go
+    const room = off === 0 ? 100 - G.los : G.los, yd = Math.min(15, Math.max(1, Math.floor(room / 2)));
+    setBall(off, G.los + dir * yd, G.bx);  // from where the play ended, and a first down
+    G.sig = 'fd';
+    G.last = f;
+    G.deadT = Math.max(G.deadT, 2.4);
+    banner('Flag', `${f}, ${tname(1 - off)} · ${yd} yards, automatic first down`, 2100);
+    snd('whistle');
+    refCall(`${f}, defense. ${yd} yard penalty. Automatic first down.`, 1 - off, 0.75, [REF[f], yd === 15 ? 'ref.fifteen' : yd <= 10 ? 'ref.yd.' + yd : null, 'ref.auto'].filter(Boolean));
+    hudKey = '';
+    updHud();
+  }
+
+  /* the state of the game at a free play's snap, to go back to if the flag is taken */
+  function freeSnap() {
+    return { los: G.los, bx: G.bx, down: G.down, togo: G.togo, fd: G.fd, poss: G.poss, score: G.score.slice(), stats: JSON.stringify(G.stats), my: JSON.stringify(G.my), box: JSON.stringify(G.box), nScores: (G.scores || []).length, pendKO: G.pendKO, pat: G.pat };
+  }
+
+  function freePlay(p0, s0) {
+    const S = p0.free, off = p0.offTeam, dir = off === 0 ? 1 : -1;
+    const kept = G.poss === off && G.score[1 - off] === s0[1 - off] && G.pendKO == null, td = G.score[off] > s0[off];
+    const gain = kept ? Math.round((G.los - S.los) * dir) : -99, first = kept && !td && G.down === 1;
+    const yd5 = Math.min(5, Math.max(1, Math.floor((off === 0 ? 100 - S.los : S.los) / 2))), left = S.togo - yd5;
+    const acc = left <= 0 ? '5 yards, first down' : `5 yards, ${ORD[S.down - 1]} & ${left}`, g2 = Math.floor((G.los - S.los) * dir), dec = first ? `keep +${gain}, first down` : `keep ${g2 >= 0 ? '+' : ''}${g2}, ${ORD[Math.min(3, G.down - 1)]} & ${Math.max(1, Math.round(G.togo))}`;  // short of the marker: the yards it really gained
+    const accept = () => {
+      // the play is wiped out: back to the snap, then five yards and the down again
+      Object.assign(G, { los: S.los, bx: S.bx, down: S.down, togo: S.togo, fd: S.fd, poss: S.poss, score: S.score, stats: JSON.parse(S.stats), my: JSON.parse(S.my), box: JSON.parse(S.box), pendKO: S.pendKO, pat: S.pat, sig: null });
+      if (G.scores) G.scores.length = S.nScores;
+      flag('Offside', 1 - off);
+      G.last = 'Offside · free play';
+    };
+    const decline = () => {
+      G.state = 'dead';
+      G.deadT = 1.8;
+      banner('Flag declined', `Offside, ${tname(1 - off)} · the play stands`, 1700);
+      if (!AUTO && !QUIET && PG.audio) PG.audio.pa('Offside, defense. The penalty is declined.', { wait: 0.6, clips: ['ref.offside', 'ref.decl'] });
+    };
+    /* only a real choice is asked: more yards on the next down, or five and the down again */
+    if (td) return decline();  // keep the touchdown
+    if (!kept || gain <= yd5) return accept();  // a turnover, an incompletion, a loss, a short gain: the flag is better
+    if (first) return decline();  // a first down past the five yards: the play is better
+    if (off === 0 && (!G.lock || G.me === p0.qb)) {
+      // your offense: your call
+      G.state = 'decide';
+      scr.innerHTML = `<div class="sheet"><div class="shd"><b>Flag · offside, defense</b><span>Free play</span></div><div class="cols"><button class="go sm" id="fpA">Accept<br><small>${acc}</small></button><button class="go sm" id="fpD">Decline<br><small>${dec}</small></button></div></div>`;
+      $('#fpA').onclick = () => {
+        scr.innerHTML = '';
+        accept();
+      };
+      $('#fpD').onclick = () => {
+        scr.innerHTML = '';
+        decline();
+      };
+      return;
+    }
+    if (gain >= 8) decline();
+    else accept();
+  }
+
   function finish(kind, arg) {
     if (G.state !== 'live' && G.state !== 'kicka') return;
+    const p0 = ps, s0 = G.score.slice();
+    finish0(kind, arg);
+    if (!p0 || p0.flagged || G.state !== 'dead' || (p0.mode !== 'pass' && p0.mode !== 'run')) return;  // a flag during the play already decided it (holding, interference)
+    if (p0.free) freePlay(p0, s0);
+    else if (p0.ground !== undefined) grounding(p0, s0);
+    else if (p0.lateFlag) lateFoul(p0, s0);
+  }
+
+  /* intentional grounding: the down is lost, and the ball goes back to where he threw it, or ten yards, the farther */
+  function grounding(p0, s0) {
+    const off = p0.offTeam, dir = off === 0 ? 1 : -1;
+    if (G.poss !== off || G.score[0] !== s0[0] || G.score[1] !== s0[1]) return;  // on fourth down the ball went over anyway
+    G.los = clamp(off === 0 ? Math.min(p0.los - 10, p0.ground) : Math.max(p0.los + 10, p0.ground), 1, 99);
+    G.togo = Math.max(1, Math.round((G.fd - G.los) * dir));
+    const yd = Math.round((p0.los - G.los) * dir);
+    G.last = 'Intentional grounding';
+    G.deadT = Math.max(G.deadT, 2.4);
+    banner('Flag', `Intentional grounding, ${tname(off)} · loss of down, ${yd} yards`, 2100);
+    snd('whistle');
+    refCall('Intentional grounding, offense. Loss of down.', off, 0.6, ['ref.ground', 'ref.lod']);
+    hudKey = '';
+    updHud();
+  }
+
+  function finish0(kind, arg) {
     if (kind === 'fg' && G.patKick != null) return finishPat(!!arg);  // an extra point, not a field goal
     /* Brought down, or out of bounds, already in the end zone he is attacking: that is a touchdown. The tackle check
        runs before the goal-line check in each step, so a catch in the end zone with a defender on the receiver, or a
@@ -2302,6 +2407,7 @@
       }
     }
     const off = ps.offTeam, dir = G.dir, c = ps.carrier, los = ps.los, me = QUIET ? null : G.me;
+    if (kind === 'oob' && c && c.team === off && !ps.turnover && !ps.lateFlag && watched() && P.some(o => o.team !== off && !o.down && hyp(o.x - c.x, o.y - c.y) < 1.4) && Math.random() < 0.1) ps.lateFlag = 'Unnecessary roughness';  // a shove after he is out
     G.chg = null;  // a throw still being wound up dies with the play
     let big = '', sub = '', stop = false, score = false, rpGain = 0, tryRes = '';
     const s0 = G.score.slice();  // the score before this play, for the booth
@@ -2638,7 +2744,7 @@
      ("ten yard penalty"), because the speakers' voice works from spelling. */
   const NUMS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 
-  const REF = { 'False start': 'ref.false', Offside: 'ref.offside', Holding: 'ref.hold', 'Pass interference': 'ref.pi' };
+  const REF = { 'False start': 'ref.false', Offside: 'ref.offside', Holding: 'ref.hold', 'Pass interference': 'ref.pi', 'Roughing the passer': 'ref.rough', 'Unnecessary roughness': 'ref.unr', 'Illegal formation': 'ref.illf' };
 
   function refCall(text, team, size, clips) {
     if (AUTO || QUIET || !PG.audio) return;
@@ -2660,6 +2766,7 @@
      replayed, or it is a first down when the foul gives one. */
   function flagAfter(name, team, y, x, first, text) {
     const off = ps.offTeam, dir = off === 0 ? 1 : -1;
+    ps.flagged = true;
     for (const p of P) {
       p.eng = null;
       p.block = null;
@@ -3375,6 +3482,15 @@
       const r = rnd(), loud = G.home === 1 && ps.offTeam === 0 ? 0.008 : 0;  // on the road the crowd is at full voice when you snap it
       if (r < 0.011 + loud) return flag('False start', ps.offTeam);
       if (r < 0.02 + loud) return flag('Offside', 1 - ps.offTeam);
+      if (watched() && (ps.mode === 'pass' || ps.mode === 'run')) {
+        const w = Math.random();
+        if (w < 0.004) return flag('Illegal formation', ps.offTeam);  // not enough men on the line
+        if (w < 0.016) {
+          ps.free = freeSnap();  // he jumped, but the play goes on
+          toast('Flag at the snap · free play!');
+          vo('flag', { pri: 1 });
+        }
+      }
     }
     G.state = 'live';
     ps.t = 0;

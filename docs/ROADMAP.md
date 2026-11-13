@@ -1251,6 +1251,32 @@ what is next. Update it after every item.
   WR), exhibition, drills, audit empty at 320x568 and 390x844 including both questions; the console showed only the
   test pane's "AudioContext encountered an error from the audio device" after long runs, as two earlier runs in this
   log noted.
+- 08:34 Automatic run: more penalties, the first part. Watched games only (`watched()`: not in simulations, so seeded runs
+  are unchanged; `Math.random`, never the game's generator). `finish` is now a wrapper round the old one (`finish0`):
+  after the play is settled it enforces a foul the play carried, unless a flag during the play already decided it
+  (`ps.flagged`, set by `flagAfter`). Roughing the passer: a rusher within a yard of the quarterback in the half second
+  after the release (`ps.rel`, checked in `tick`), 6% of those. Unnecessary roughness: a defender within 1.4 yd of a
+  runner who went out of bounds, 10%. Both: fifteen yards (or half the distance) from where the play ended and an
+  automatic first down, let go after a score or a turnover (`lateFoul`). Intentional grounding: the computer's
+  throw-away from inside the tackle box, 35% (the officials do not always see it): loss of down, back to where he
+  threw it or ten yards, the farther (`grounding`). Illegal formation at the snap: 0.4%, five yards on the offense.
+  The free play: 1.2% of snaps a defender jumps and the play goes on ("Flag at the snap · free play!"); the state at
+  the snap is kept (`freeSnap`: spot, down, score, team stats, your line, the box score, the score log) and afterwards
+  the offense chooses: keep a touchdown, take the flag after a turnover or a short gain, keep a first down past the
+  five yards; only the real trade-off (more yards and the next down, or five and the down again) is asked, of you
+  when you call your offense (a 'decide' state with Accept and Decline, each saying what it gives), and the computer
+  keeps a gain of eight or more. Accepting wipes the play from every stat. Seven new referee lines recorded on the
+  local Kokoro model (roughing, unnecessary roughness, illegal formation, intentional grounding, "Fifteen yard
+  penalty.", "The penalty is declined.", "Loss of down."), none flagged; the pack is 8.3 MB. Measured: ref.rough peaks
+  -2.9 dB at -20.0 RMS, ref.fifteen -3.3/-20.3, ref.decl -3.7/-20.1, ref.ground -2.7/-19.6, ref.hold beside them
+  -3.0/-21.6. In a game of 15-minute quarters (336 snaps) at the first settings: 4 roughing calls (too many, so 15% became
+  6%), 2 free plays, 1 illegal formation; each roughing call moved the ball fifteen past where the play ended with a
+  first down. The first version of the roughing check (a defender within 1.3 yd at the release) never fired in 162
+  throws, so it moved to the half second after. A staged free play: a 10-yard completion on second down, accepted,
+  left first and five, five yards up, with the completion gone from the team stats. Checked: fingerprint unchanged,
+  careers (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844 and on the staged question, no console
+  errors. A test that forced Math.random to a constant hung the page (a booth take picker loops until it draws a
+  different take): never stub Math.random to a constant in this game.
 
 ## Morning hand-off
 
@@ -1566,9 +1592,11 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- More penalties with real enforcement: defensive pass interference at the spot, roughing the passer (15 yards and a
-  first down), unnecessary roughness, intentional grounding (loss of down), illegal formation; the user accepts or
-  declines when it matters.
+- More penalties, the rest (roughing, unnecessary roughness, grounding, illegal formation and the free play with
+  accept or decline are done, 08:34): defensive holding (five yards and a first down, which the offense declines after a
+  long gain: a second accept-or-decline), a facemask on a tackle, roughing the kicker, and a throw-away control for
+  the user's quarterback (grounding is called on the computer's throw-aways only, since yours always go to a
+  receiver).
 - Injuries: a player shaken up for a play or a series, the trainer's cart for the worst; a rare short absence for you
   in a career ("questionable" on the next-game card); an injury report for the opponent.
 - An all-star game after the season for the best players of each conference (you, when you are one): a playable

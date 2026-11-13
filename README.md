@@ -80,9 +80,11 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   other plays from the same formation), flip the play, try a hard count (a fake snap count that now and then draws
   the defense offside, and once in a while makes your own lineman flinch), or send a receiver in motion: he steps off
   the line and runs across behind it (a jet on a run play, full speed past the ball), his route starts from wherever
-  he is at the snap, and if a defender runs with him it is man coverage (the game tells you: man or zone). The
-  computer's offense and a career receiver's coach put a man in motion on about a third of snaps (a short zip inside,
-  across the formation, or a jet), and the snap comes when he gets there. On defense you can change the coverage.
+  he is at the snap, and if a defender runs with him it is man coverage; in a zone the safeties and linebackers slide
+  over instead (the game tells you which). The computer's offense and a career receiver's coach put a man in motion on
+  about a third of snaps (a short zip inside, across the formation, a jet, or an orbit that loops behind a shotgun
+  quarterback), and the snap comes when he gets there. The Jet Sweep is run from jet motion: the receiver is already
+  flying across when the ball is snapped and takes the handoff on the run. On defense you can change the coverage.
 - The play-call sheet shows three plays at a time. On the Coach tab the first three are the coach's picks for this down,
   distance and score, shared out between the kinds of play by how likely each is (third and one: two runs and a pass),
   then everything else he would call, in order; swipe, scroll or page with the arrows for more. The Run, RPO, Short,

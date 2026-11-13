@@ -770,26 +770,33 @@
 
   /* ---------- pre-snap motion ----------
      One man goes in motion before the snap: 'zip' (in toward the formation, then set), 'across' (behind the line to
-     the other side, then set) or 'jet' (full speed across, the ball snapped as he passes it). He steps off the line
-     first, so he is a back while he moves, and passes behind a quarterback under center or in front of one in the
-     shotgun. His route is built again from where he is at the snap, so a man who has crossed runs it to his new side.
-     A defender in man coverage runs with him; in a zone nobody does: that is the quarterback's read. Only in games
-     someone is watching (simulations never use it, so seeded runs are unchanged). */
-  function planMotion(kind) {
+     the other side, then set), 'jet' (full speed across, the ball snapped as he passes it) or 'orbit' (from the slot in
+     front of a shotgun quarterback, round behind him and back toward his own side, snapped as he comes round). He steps
+     off the line first, so he is a back while he moves. His route is built again from where he is at the snap, so a man
+     who has crossed runs it to his new side. A defender in man coverage runs with him; a zone shifts instead, the
+     safeties and linebackers sliding toward where he is going: that is the quarterback's read. On a jet sweep the man
+     in motion is the ball carrier: the snap comes as he reaches the quarterback, and he takes it on the run. Only in
+     games someone is watching (simulations never use it, so seeded runs are unchanged). */
+  function planMotion(kind, who) {
     if (AUTO || QUIET || G.drill || !ps || ps.mot || (ps.mode !== 'pass' && ps.mode !== 'run')) return null;
-    const off = ps.offTeam, bx = ps.bx, los = ps.los, dir = G.dir;
-    const cand = P.filter(p => p.team === off && p !== ps.runner && /^(X|Z|S|S2)$/.test(p.role) && Math.abs(p.sx - bx) >= 6);
+    const off = ps.offTeam, bx = ps.bx, los = ps.los, dir = G.dir, gun = Math.abs(ps.qb.sy - los) > 3;
+    const cand = who ? [who] : P.filter(p => p.team === off && p !== ps.runner && /^(X|Z|S|S2)$/.test(p.role) && Math.abs(p.sx - bx) >= 6);
     if (!cand.length) return null;
     const p = cand[Math.floor(Math.random() * cand.length)], side = Math.sign(p.sx - bx) || 1;
-    kind = kind || (Math.random() < 0.3 ? 'zip' : Math.random() < 0.65 ? 'across' : 'jet');
+    if (!kind) {
+      const r = Math.random();
+      kind = r < 0.25 ? 'zip' : r < 0.55 ? 'across' : r < 0.8 ? 'jet' : 'orbit';
+    }
+    if (kind === 'orbit' && !(gun && /^S/.test(p.role) && Math.abs(p.sx - bx) < 11 && !P.some(q => q.team === off && q.role === 'RB' && Math.abs(q.sx - bx) < 1))) kind = 'across';  // a slot, a shotgun, nobody straight behind
     if (kind === 'jet' && ps.mode === 'pass' && !p.route) kind = 'across';
-    const dm = kind === 'zip' ? 1.6 : Math.abs(ps.qb.sy - los) > 3 ? 2.2 : 3.2, ty = los - dir * dm;
-    let tx;
-    if (kind === 'jet') tx = clamp(bx - side * 12, 3, FW - 3);
+    const dm = kind === 'zip' ? 1.6 : gun ? 2.2 : 3.2, ty = los - dir * dm, Y = d => los - dir * d;
+    let pts;
+    if (kind === 'jet') pts = [[clamp(bx - side * 12, 3, FW - 3), ty]];
+    else if (kind === 'orbit') pts = [[bx + side * 2.5, Y(2.2)], [bx - side * 2.6, Y(3)], [bx - side * 3.6, Y(6.2)], [bx - side * 1.5, Y(7.8)], [bx + side * 2, Y(7.6)], [bx + side * 6, Y(6.4)]];
     else {
       /* where he sets: the spot on that side farthest from everybody else in the backfield and the slots */
       const others = P.filter(q => q.team === off && q !== p && !q.isOL), at = Math.abs(p.sx - bx);
-      let best = -1;
+      let best = -1, tx;
       for (const a of [5.5, 7, 8.5, 10, 11.5]) {
         const x = bx + (kind === 'zip' ? side : -side) * a;
         if (x < 2.5 || x > FW - 2.5 || (kind === 'zip' && a > at - 2)) continue;
@@ -800,27 +807,42 @@
         }
       }
       if (tx === undefined) return null;
+      pts = [[tx, ty]];
     }
+    for (const w of pts) w[0] = clamp(w[0], 2, FW - 2);
     const d = P.find(q => q.team !== off && q.asg === 'man' && q.man === p) || null;
-    ps.mot = { p, kind, side, tx, ty, v: kind === 'jet' ? Math.min(p.spd * 0.85, 8.5) : kind === 'zip' ? 4.2 : 5.4, d, go: false, done: false, ready: false, setT: 0, said: false };
+    /* a zone slides toward where he is going: the deep men most, the linebackers some, the corners hold */
+    const to = -side * (kind === 'zip' ? 0.4 : kind === 'orbit' ? 0.3 : 1);
+    const zs = d ? [] : P.filter(q => q.team !== off && q.asg === 'zone').map(q => ({ q, x0: q.x, zx0: q.zx, k: to * (q.deep ? 2.6 : /LB/.test(q.role) ? 1.3 : /^SS|FS$/.test(q.role) ? 1.8 : 0) })).filter(z => z.k);
+    ps.mot = { p, kind, side, pts, i: 0, x0: p.sx, v: kind === 'jet' ? Math.min(p.spd * 0.85, 8.5) : kind === 'zip' ? 4.2 : kind === 'orbit' ? 5.8 : 5.4, d, zs, go: false, done: false, ready: false, said: false,
+      sweep: ps.mode === 'run' && p === ps.runner };
     return ps.mot;
   }
 
   function motionStep(dt) {
     const m = ps && ps.mot;
     if (!m || !m.go || m.done) return;
-    const p = m.p, dx = m.tx - p.x, dy = m.ty - p.y, dd = hyp(dx, dy), st = m.v * dt;
-    if (dd <= st) {
-      p.x = m.tx;
-      p.y = m.ty;
+    const p = m.p;
+    let st = m.v * dt;
+    while (st > 0 && m.i < m.pts.length) {
+      const [tx, ty] = m.pts[m.i], dx = tx - p.x, dy = ty - p.y, dd = hyp(dx, dy);
+      if (dd <= st) {
+        p.x = tx;
+        p.y = ty;
+        st -= dd;
+        m.i++;
+      } else {
+        p.vx = dx / dd * m.v;
+        p.vy = dy / dd * m.v;
+        p.x += dx / dd * st;
+        p.y += dy / dd * st;
+        st = 0;
+      }
+    }
+    p.anim += m.v * dt;
+    if (m.i >= m.pts.length) {
       p.vx = p.vy = 0;
       m.done = true;
-    } else {
-      p.vx = dx / dd * m.v;
-      p.vy = dy / dd * m.v;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.anim += m.v * dt;
     }
     if (p.rn && p.route) p.route = mkRoute(p, p.rn, G.dir);  // his route moves with him
     const q = m.d;
@@ -832,11 +854,25 @@
       q.x += Math.sign(ex) * mv;
       q.anim += mv;
     }
+    /* the zone's slide follows how far he has gone */
+    const last = m.pts[m.pts.length - 1][0], f = clamp(Math.abs(p.x - m.x0) / Math.max(1, Math.abs(last - m.x0)), 0, 1);
+    for (const z of m.zs) {
+      const nx = clamp(z.x0 + z.k * f, 1, FW - 1), mv = nx - z.q.x;
+      z.q.vx = Math.abs(mv) > 0.002 ? mv / dt : 0;
+      z.q.x = nx;
+      z.q.anim += Math.abs(mv);
+      if (z.zx0 !== undefined) z.q.zx = clamp(z.zx0 + z.k * f, 3, FW - 3);
+    }
     const crossed = (p.x - ps.bx) * -m.side;
-    if (!m.ready) m.ready = m.kind === 'jet' ? crossed >= 1.5 || m.done : m.done;
-    if (!m.said && (m.done || crossed > 0.5)) {
+    if (!m.ready) {
+      if (m.sweep) m.ready = crossed >= -3.2 || m.done;  // a jet sweep: snapped a few yards before he reaches the quarterback
+      else if (m.kind === 'jet') m.ready = crossed >= 1.5 || m.done;
+      else if (m.kind === 'orbit') m.ready = m.i >= 4 || m.done;  // coming back round behind the quarterback
+      else m.ready = m.done;
+    }
+    if (!m.said && (m.done || (m.kind !== 'orbit' && crossed > 0.5) || (m.kind === 'orbit' && m.i >= 3))) {
       m.said = true;
-      if (userP(ps.qb)) toast(m.d ? `Man coverage · #${m.d.num} went with him` : 'Zone · nobody went with him');  // the read
+      if (userP(ps.qb) && !m.sweep) toast(m.d ? `Man coverage · #${m.d.num} went with him` : m.zs.length ? 'Zone · the safeties slid over' : 'Zone · nobody went with him');  // the read
     }
   }
 
@@ -1488,7 +1524,8 @@
       const rn = ps.runner, dl = G.op.run.delay || 0;
       /* a run-pass option is handed off a second in, unless a throw is being wound up at that moment (then a little longer) */
       const give = ps.rpo ? ps.t > RPO_T && !(G.chg && ps.t < RPO_T + 0.6)
-        : rn === ps.qb ? ps.t > (G.op.run.fast ? 0.1 : 0.45) : ps.t > dl + 0.3 && (G.op.run.toss || dist(rn, ps.qb) < 1.3 || ps.t > dl + 0.9);
+        : rn === ps.qb ? ps.t > (G.op.run.fast ? 0.1 : 0.45) : ps.mot && ps.mot.sweep ? dist(rn, ps.qb) < 1.8 || ps.t > 0.5  // from jet motion: handed off as he flies past
+        : ps.t > dl + 0.3 && (G.op.run.toss || dist(rn, ps.qb) < 1.3 || ps.t > dl + 0.9);
       if (give) {
         // a toss is pitched at once, so the defense sees it sooner
         ps.handoff = true;
@@ -3101,6 +3138,7 @@
     G.audI = -1;
     G.audList = audibleList(G.op);
     setupPlay();
+    if (!AUTO && !QUIET && !G.drill && G.op.run && /^Jet/.test(G.op.n)) planMotion('jet', ps.runner);  // a jet sweep is run from jet motion, for everybody
     if (!AUTO && !QUIET && !G.drill && (G.poss === 1 || (G.lock && G.me !== ps.qb)) && Math.random() < 0.33) planMotion();  // the computer's offense, and a career receiver's coach, use motion on about a third of snaps
     if (G.aroundDue && !AUTO && !QUIET) {
       const q = G.aroundDue;
@@ -3166,7 +3204,14 @@
         q.sy = q.y;
       }
       if (mo.p.rn && mo.p.route) mo.p.route = mkRoute(mo.p, mo.p.rn, G.dir);
+      if (mo.sweep && mo.p.path) {
+        // the sweep's path picks up ahead of him: the points he has already run past are dropped
+        let i = 0;
+        while (i < mo.p.path.length - 1 && (mo.p.path[i][0] - mo.p.x) * -mo.side < 0.5) i++;
+        mo.p.pi = i;
+      }
       if (mo.d) mo.d.vx = 0;
+      for (const z of mo.zs) z.q.vx = 0;
       mo.done = true;
     }
     if (ps.mode === 'kick') return doKick(rnd(0.55, 1));
@@ -5777,7 +5822,7 @@
         /* the computer snaps for itself, and for the user when their player is not the quarterback */
         const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1), wait = AUTO ? 0.3 : G.drill && G.drill.script ? 5 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2;
         const set = !ps.mot || ps.mot.ready || G.preT > wait + 7;  // a man in motion: the snap comes when he gets there (a jet, as he passes the ball)
-        if (auto && G.preT > wait && set) snap();
+        if ((auto && G.preT > wait && set) || (ps.mot && ps.mot.sweep && ps.mot.ready)) snap();  // a jet sweep is snapped on his timing, whoever is the quarterback
       }
     } else if (st === 'replay') replayStep(dt);
     else if (st === 'live') {

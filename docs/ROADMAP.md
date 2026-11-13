@@ -1208,6 +1208,20 @@ what is next. Update it after every item.
   career's coach used it on 4 of 10 snaps, twice on the user; every route point finite; a drawn game posed the moving
   man in a stride with every pose finite. Checked: fingerprint unchanged, careers (QB and WR), exhibition, drills,
   audit empty at 320x568 and 390x844 (the snap pad holds five buttons in two rows), no console errors.
+- 06:51 Automatic run: pre-snap motion, the second part. Motion is now a path of points (`pts`, `i`), so 'orbit' fits:
+  a slot in a shotgun formation with nobody straight behind the quarterback runs in front of him, round behind him at
+  about eight yards and back toward his own side; the snap comes as he comes round (point 4 of 6). A zone now slides
+  instead of standing still: with no man defender on him, the deep zone players move 2.6 yd toward where he is going,
+  the safeties 1.8, the linebackers 1.3, the corners hold (less for a zip or an orbit), zone centres included, in step
+  with how far he has gone; the quarterback's read says "Zone · the safeties slid over". The Jet Sweep is run from jet
+  motion in every watched game, the user's included: the runner is in motion when the play starts, the snap comes 3.2
+  yd before he reaches the quarterback (automatic, whoever is the quarterback), the sweep path drops the points he has
+  run past, and the handoff comes as he flies by (within 1.8 yd, or 0.5 s). Measured: 24 user jet sweeps by the test
+  bot (no steering) gained 9.9 a carry, the same play simulated without motion about the same (`lab`); in a 10-minute
+  exhibition the computer moved a man on 39 of 134 snaps (16 across, 9 zip, 11 jet, 3 orbit), every orbit snapped at
+  7.8 yd deep behind the quarterback, the zone slid on every motion without a man defender, the man defender followed
+  on 6, every position finite. Checked: fingerprint unchanged, careers (QB and WR), exhibition, drills, audit empty at
+  320x568 and 390x844, no console errors.
 
 ## Morning hand-off
 
@@ -1523,10 +1537,9 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Pre-snap motion, the rest (zip, across and jet are done, 06:17): orbit motion (a slot loops behind the quarterback
-  and back), a shift from one formation to another (everybody moves, then sets for a second), the jet sweep handed to
-  the man in motion as he passes (today a jet is a decoy or runs his route), and a zone defense that bumps (the
-  safeties rotate toward the motion) instead of standing still.
+- Pre-snap motion, the rest (zip, across, jet, orbit, the zone slide and the jet sweep are done, 06:23 and 06:51): a
+  shift from one formation to another (line up in one, everybody moves, then sets for a second; the corners realign
+  to the new outside men), and the End Around from motion too.
 - The coin toss call: as a captain you call heads or tails and choose to receive or defer (then you get the ball to
   start the second half).
 - More penalties with real enforcement: defensive pass interference at the spot, roughing the passer (15 yards and a

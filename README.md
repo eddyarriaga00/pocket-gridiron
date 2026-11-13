@@ -37,7 +37,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - A broadcast booth: a play-by-play man and an analyst call the game ("Third and six." ... "He goes deep!" ...
   "Touchdown, Outlaws!" ... "You can't draw it up any better than that."), and sum up scoring drives ("Twelve plays on
   the drive."). The referee announces penalties over the stadium speakers ("Holding, offense. Ten yard penalty.
-  Repeat third down.") and the stadium announcer leads the crowd's "FIRST DOWN!". 346 recorded lines, every one
+  Repeat third down."), the stadium announcer welcomes everybody before the opening kick and leads the crowd's
+  "FIRST DOWN!", and the calls know who has the ball ("The quarterback keeps it himself!"). 365 recorded lines, every one
   written for this game and spoken by an open speech model; the big calls cut in over the small talk, and the crowd
   sits under them. Settings can turn the commentary off; the referee and the announcer are part of the stadium.
 - After every scoring drive, its plays, yards and time. Halftime and the final screen (in every mode) show the

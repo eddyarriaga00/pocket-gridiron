@@ -671,6 +671,15 @@ what is next. Update it after every item.
   and 390x844. The console again showed "The AudioContext encountered an error from the audio device" during long
   frozen loops in the hidden pane; the context was still running afterwards.
 
+- 19:39 The booth knows who has the ball (automatic run 7). 19 new clips (365 in all, 3.1 MB), recorded with the
+  same voices, none flagged: three quarterback-run calls, three tight-end catches, three to a running back, two
+  analyst lines, and the stadium announcer's welcome for each team (-18.2 dB RMS through the speakers' route, like
+  the referee). Three exhibitions and five career games asked for 495 lines, every one recorded; quarterback runs
+  and catches by the backs were called, a tight-end catch never came up (the test player rarely throws to him).
+  The welcome plays as the intro hands over to the opening kick, and the intro card waits for the booth's welcome
+  as before (7 s in all). Commentary only: `H.fingerprint()` unchanged; exhibition, both careers, the drills and a
+  drawn game clean; audit empty at 320x568 and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -854,14 +863,21 @@ what is next. Update it after every item.
       in exhibition, season and career.
       Still to be judged by ear and on a phone
 
+### Automatic runs, continued
+- [x] Run 7, the booth knows who has the ball: "The quarterback keeps it himself!" on a quarterback run, calls for a
+      catch by the tight end or a running back, an analyst line after a quarterback run; and the stadium announcer's
+      "Ladies and gentlemen... welcome... to Outlaws football!" as the teams line up for the opening kick, the crowd
+      roaring back. Still to be judged by ear
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
 - The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
   sound now is still unjudged). If they are still too calm, the next step is a more expressive open speech model with
   an excitement control: a multi-gigabyte download, which needs his say-so first. Voices are lines in
   `tools/commentary.json`; the whole booth re-records in about six minutes.
-- More booth lines: player positions ("the quarterback keeps it himself"), the score read out at the half and the end
-  (numbers recorded and joined), the stadium announcer's welcome before kickoff.
+- More booth lines: the score read out at the half and the end. Not done in run 7 on purpose: the natural way, "The
+  Outlaws fourteen, the Aviators seven", is a clip for every team and score (about 370 more clips, 3 MB), and
+  joining single numbers sounds like a machine. Worth it only if the owner wants it.
 - Presentation: replays from a second angle.
 - A pile. Run 5 tried a second man reaching in on a tackle and measured it: the first tackler finishes bent over the
   runner with his hips most of a yard up and his helmet over the runner's chest, so from every side a second man's

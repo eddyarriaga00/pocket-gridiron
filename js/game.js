@@ -203,7 +203,17 @@
     G.state = 'dead';
     banner('Kickoff', tname(G.first) + ' ball', 1500);
     cam.snap = true;
+    welcome();
     startCall();
+  }
+
+  /* the stadium announcer welcomes everybody as the teams line up for the opening kick, and the crowd roars back */
+  function welcome() {
+    if (AUTO || QUIET || G.drill || !PG.audio || !PG.audio.pa) return;
+    const a = PG.audio, home = TEAMS[G.tm[0]], len = a.pa('Ladies and gentlemen, welcome to ' + home.name + ' football!', { announcer: true, wait: 0.3, clips: ['pa.welcome.' + home.ab] });
+    if (len) setTimeout(() => {
+      if (G.ros && G.state !== 'menu' && G.state !== 'over') a.crowd.cheer(0.7, 2.5);
+    }, Math.max(400, len * 1000 - 350));
   }
 
   /* ---------- play setup ---------- */
@@ -3144,11 +3154,16 @@
     } else if (down) {
       const first = big === 'First down', pass = ps.caught, short = { pri: first ? 1 : 0 };
       let said = false;
-      if (pass) said = gain >= 20 ? vo('pass.big', { pri: 2 }) : gain >= 8 ? chance(0.8) && vo('pass.good') : gain >= 0 && chance(0.35) && vo('pass.short', short);
+      /* who has it changes the call: the quarterback running, a tight end or a back catching it */
+      const role = c ? c.role : '', qbRun = !pass && c === ps.qb && gain >= 2 && gain < 15, catcher = pass && gain >= 2 && gain < 20 ? (role === 'TE' ? 'pass.te' : /^(RB|FB)$/.test(role) ? 'pass.rb' : '') : '';
+      if (qbRun && chance(0.75)) said = vo('run.qb', { pri: 1 });
+      else if (catcher && chance(catcher === 'pass.rb' ? 0.4 : 0.55)) said = vo(catcher, short);  // backs catch a lot of short balls: not every one is worth naming
+      else if (pass) said = gain >= 20 ? vo('pass.big', { pri: 2 }) : gain >= 8 ? chance(0.8) && vo('pass.good') : gain >= 0 && chance(0.35) && vo('pass.short', short);
       else said = gain >= 15 ? vo('run.big', { pri: 2 }) : gain >= 6 ? chance(0.8) && vo('run.good') : gain >= 1 ? chance(0.3) && vo('run.short', short) : chance(gain ? 0.75 : 0.6) && vo(gain ? 'run.loss' : 'run.none');
       if (first && chance(said ? 0.7 : 0.55)) vo('first', { ttl: 5 });
       if (pass && gain >= 20) analyst('a.bigpass', 0.6, { big: true });
       else if (!pass && gain >= 15) analyst('a.bigrun', 0.6, { big: true });
+      else if (qbRun && said) analyst('a.qbrun', 0.3);
       else if (first) analyst('a.first', 0.15, { every: 40 });
       else if (G.down === 4) analyst('a.stop', 0.4);  // third down, and they did not get there
       else if (!pass && gain >= 6) analyst('a.run', 0.15);

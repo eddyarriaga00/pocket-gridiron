@@ -43,9 +43,12 @@
     "run.short": { "v": "p", "e": 0.25, "t": ["A short gain on the ground.", "Picks up a couple.", "He gets what he can.", "Up the middle, for a few.", "He churns ahead for a short gain.", "A couple of tough yards."] },
     "run.good": { "v": "p", "e": 0.45, "t": ["Finds a crease, for a good gain.", "Nice run. He picks up a solid chunk.", "Around the end, and he picks up good yardage.", "Good vision. That's a nice pickup on the ground."] },
     "run.big": { "v": "p", "e": 0.9, "t": ["He breaks through the line! Into the open field!", "He's loose! Big run!", "Look at him go! What a run!"] },
+    "run.qb": { "v": "p", "e": 0.55, "t": ["The quarterback keeps it himself!", "He tucks it and runs!", "Nobody open, so he takes off!"] },
     "pass.short": { "v": "p", "e": 0.25, "t": ["Caught, for a short gain.", "Complete, underneath.", "Quick throw, and it's complete.", "Dumps it off, and it's caught.", "Out to the flat. Complete.", "Short completion."] },
     "pass.good": { "v": "p", "e": 0.5, "t": ["Caught! A nice gain on the play.", "Complete over the middle. Good pickup.", "Hits his man in stride. Nice gain.", "On target, and that's a good gain.", "Over the middle, and he holds on. Nice gain.", "Right on the numbers. Good pickup."] },
     "pass.big": { "v": "p", "e": 0.9, "t": ["Caught! Deep down the field! What a throw!", "He hauls it in! A huge gain!", "Got him! Big play through the air!"] },
+    "pass.te": { "v": "p", "e": 0.45, "t": ["Caught by the tight end.", "The tight end hauls it in.", "Over the middle to the big tight end."] },
+    "pass.rb": { "v": "p", "e": 0.4, "t": ["Out of the backfield to the running back.", "Dumped off to the back.", "A check-down to the running back."] },
     "pass.inc": { "v": "p", "e": 0.25, "t": ["Incomplete.", "Falls incomplete.", "And it falls to the turf, incomplete."] },
     "pass.over": { "v": "p", "e": 0.3, "t": ["Overthrown.", "Just off his fingertips.", "No good. Out of reach."] },
     "pass.away": { "v": "p", "e": 0.2, "t": ["Thrown away.", "He throws it away."] },
@@ -136,6 +139,8 @@
     "ref.rep2": { "v": "r", "e": 0.2, "t": ["Repeat second down."] },
     "ref.rep3": { "v": "r", "e": 0.2, "t": ["Repeat third down."] },
     "ref.rep4": { "v": "r", "e": 0.2, "t": ["Repeat fourth down."] },
-    "pa.first": { "v": "s", "e": 0.5, "t": ["And that is another... {team}..."] }
+    "pa.first": { "v": "s", "e": 0.5, "t": ["And that is another... {team}..."] },
+    "a.qbrun": { "v": "a", "e": 0.35, "t": ["He's a weapon with his legs, too.", "When the coverage is that good, you just take what's there."] },
+    "pa.welcome": { "v": "s", "e": 0.6, "t": ["Ladies and gentlemen... welcome... to {team} football!"] }
   }
 }

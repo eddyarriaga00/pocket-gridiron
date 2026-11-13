@@ -354,7 +354,7 @@
   /* officials: white shirt with a striped panel, black trousers and cap; no pads or facemask */
   const REF_COLORS = { jersey: '#f4f4f4', pants: '#15171c', helmet: '#15171c', stripe: '#15171c', trim: '#15171c', sock: '#15171c', number: '#15171c',
     skin: '#d7a078', glove: '#d7a078', shoe: '#0c0c10', mask: '#15171c', visor: '#d7a078' };
-  const REF_HIDE = new Set(['pads', 'mask', 'stripe', 'logo', 'sleeve', 'pantStripe', 'wrist']);
+  const REF_HIDE = new Set(['pads', 'mask', 'stripe', 'logo', 'sleeve', 'pantStripe', 'wrist', 'ear']);
   const SKIN = ['#f0c8a4', '#d7a078', '#b3764c', '#8a583a', '#66402e'];
 
   /* the number, front and back, wrapped over the chest */
@@ -531,6 +531,31 @@
   function actPose(f, p, tg, s) {
     const a = p.act;
     if (a === 'cheer') return celebrate(f, !!p.lead, tg, p.lead ? 4 : -1, 0);  // the leader roars, the rest jump, clap, wave
+    if (a === 'coin' || a === 'flip' || a === 'signalL' || a === 'signalR') {
+      // the referee: the coin shown on an open hand at chest height, then a flick of the thumb (the arm comes up),
+      // then an arm straight out to the side that won
+      tg[CHRX] = 0.04;
+      tg[SRX] = 0.9;
+      tg[ER] = 1.1;
+      tg[SLX] = 0.1;
+      tg[EL] = 0.3;
+      if (a === 'flip') {
+        const u = Math.min(1, (time - (f.flipAt || (f.flipAt = time))) / 0.25);
+        tg[SRX] = lerp(0.9, 1.9, u);
+        tg[ER] = lerp(1.1, 0.4, u);
+      } else f.flipAt = 0;
+      if (a === 'signalL' || a === 'signalR') {
+        // he faces the camera (heading pi): his left hand is toward +x on screen... so the winning side's arm goes up and out
+        const left = a === 'signalR';
+        tg[left ? SLX : SRX] = 1.45;
+        tg[left ? SLZ : SRZ] = left ? -1.35 : 1.35;
+        tg[left ? EL : ER] = 0.05;
+        tg[left ? SRX : SLX] = 0.1;
+        tg[left ? ER : EL] = 0.3;
+        tg[left ? SRZ : SLZ] = 0;
+      }
+      return false;
+    }
     if (a === 'trophy') {
       // the trophy over his head in both hands, pumping it up a little, chest out, looking up at it
       const k = Math.abs(Math.sin(time * 2.6));
@@ -648,7 +673,9 @@
       g.add(pts);
       return pts;
     });
-    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, teamKey: '' };
+    const coin = new T.Mesh(new T.CylinderGeometry(0.17, 0.17, 0.03, 24), new T.MeshPhongMaterial({ color: 0xd4d9e2, specular: 0xffffff, shininess: 110 }));
+    g.add(coin);
+    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, coin, teamKey: '' };
   }
 
   function updateProps(sc, t0, P) {
@@ -663,6 +690,15 @@
     for (const sp of W.smoke) sp.visible = on;
     for (const sp of W.flames) sp.visible = on;
     Ch.stage.visible = Ch.cup.visible = champ;
+    const toss = sc.kind === 'toss', ref = toss && sc.ref;
+    props.coin.visible = !!ref;
+    if (ref) {
+      // in his hand, then up, spinning, and down onto the turf in front of him, where it lies flat
+      const u = clamp((t - 1.4) / 1.6, 0, 1), x0 = ref.x + 0.25, z0 = -(ref.y - 0.45), x1 = ref.x + 0.35, z1 = -(ref.y - 1.2);
+      const h = t < 1.4 ? 2.35 : lerp(2.6, 0.03, u) + 9 * u * (1 - u) * 1.35;
+      props.coin.position.set(lerp(x0, x1, u), h, lerp(z0, z1, u));
+      props.coin.rotation.set(u < 1 && t >= 1.4 ? t * 26 : t < 1.4 ? 0 : 0, 0, 0);
+    }
     for (const b of Ch.bursts) b.visible = champ;
     if (champ) {
       Ch.skirt.color.set(t0.c1);
@@ -723,6 +759,20 @@
 
   /* the camera for each scene: where it stands (v3) and what it looks at (v3b), from the scene's clock */
   const SCENECAM = {
+    toss(sc, P, v3, v3b) {
+      const t = sc.t, ref = sc.ref || P[P.length - 1];
+      if (t < 1.4) {
+        v3.set(ref.x - 1, 3.4, -(ref.y - 10));  // in front of the referee, the two lines of captains either side
+        v3b.set(ref.x, 2.2, -ref.y);
+      } else if (t < 3.1) {
+        v3.set(ref.x - 2.5, 2, -(ref.y - 6.5));  // low, looking up after the coin
+        v3b.set(ref.x, lerp(2.6, 4.6, Math.sin(Math.min(1, (t - 1.4) / 1.6) * Math.PI)), -(ref.y - 0.8));
+      } else {
+        const w = sc.win === 0 ? -1 : 1;
+        v3.set(ref.x + w * 0.8, 2.8, -(ref.y - 5.5));  // on the referee's call and the winners
+        v3b.set(ref.x + w * 1.6, 2.3, -ref.y);
+      }
+    },
     trophy(sc, P, v3, v3b) {
       const t = sc.t, me = sc.me || P[0], a = -0.7 + t * 0.16;
       if (t < 3) {
@@ -2976,11 +3026,12 @@
         continue;
       }
       if (fresh) {
-        setBuild(f, buildOf(p.role));
+        f.hide = p.ref ? REF_HIDE : null;  // a cutscene's referee is dressed like the officials
+        setBuild(f, p.ref ? BUILD.ref : buildOf(p.role));
         const home = p.team === 0, c = p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
         colorFigure(SIDELINE + i, c);
-        f.num.material = numberMaterial(p.num, c.number);
-        f.nameplate.material = nameMaterial(p.name, c.number);
+        f.num.material = p.ref ? stripeMaterial() : numberMaterial(p.num, c.number);
+        f.nameplate.material = p.ref ? NO_NAME : nameMaterial(p.name, c.number);
         f.fall = 0;
         f.fallDir = Math.random() < 0.75 ? 1 : -1;
         f.snap = true;

@@ -89,6 +89,9 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   one) on the caption; he points at you, you answer with a fist to your chest.
   Winning the title puts you on a stage at midfield with a silver cup over your head, your teammates round the stage,
   confetti and fireworks, before the results.
+  Every game (exhibition, season and career) opens with the coin toss at midfield: three captains a side and the
+  referee, the coin up in the air and down on the turf, his arm out to the winners, the announcer's call. In a career
+  you are one of the captains once you are the starter.
 - Media day, the week of a rival game: one question about him from the hub, answered like the podium's, and a callout
   made there is settled in that game. The booth knows about your callout: it opens the game talking about it, cheers
   when your side scores to back it up, calls it shaky when you trail late, and settles it at the final whistle.

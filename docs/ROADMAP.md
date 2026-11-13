@@ -971,6 +971,17 @@ what is next. Update it after every item.
   season won game by game to the title, the trophy scene seen in it and the results and awards after it; a scene
   from the 'over' state returns to it with the scorebug hidden; seasons, careers, drills clean; fingerprint unchanged;
   audit empty at 320x568 and 390x844 at three moments, with and without the 34 px strip.
+- 00:46 Cutscenes, 4 of 7: the coin toss, in every game that is not a simulation (after the walkout and face-off in a
+  career): three captains a side facing each other, the referee between them facing the camera; he shows the coin,
+  flips it (a silver coin flies up about 3 yd spinning and lands flat in front of him), the microphone clicks, his
+  arm goes out to the side that won (G.first, who receive), the announcer reads the toss (`ref.toss.{team}`, and the
+  intro then does not say it again), the winners pump their fists and the caption turns to the result. In a career
+  you are a captain once you are the starter (`G.share` 1). Fixed on the way: a duplicate else left by the edit
+  broke the page until removed (caught by the parse check, before anything shipped); the staged referee first wore a
+  helmet and a number (now dressed as the officials: `REF_HIDE`, the striped shirt, a cap; ear holes added to the
+  list); the captains were cut off at the edges (now closer in, the camera further back); the camera looked up at the
+  coin into empty sky (now less). Checked: exhibition, careers, drills clean; fingerprint unchanged; audit empty at
+  320x568 and 390x844 at three moments of the toss, with and without the 34 px strip.
 
 ## Morning hand-off
 
@@ -1230,7 +1241,7 @@ what is next. Update it after every item.
 - [x] Game-day walkout (career).
 - [x] Rival face-off before rival games.
 - [x] Championship trophy.
-- [ ] Coin toss at midfield.
+- [x] Coin toss at midfield.
 - [ ] Draft day stage.
 - [ ] Press conference podium opener.
 - [ ] Hall of fame induction.

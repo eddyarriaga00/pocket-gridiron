@@ -184,8 +184,9 @@
     } else if (!AUTO) {
       const intro = () => startIntro(o, first);
       G.rivalry = o.rivalry || null;
-      if (G.mode === 'career') playScene('walkout', {}, () => (G.rivalry ? playScene('faceoff', {}, intro) : intro()));  // a career game opens in the tunnel; a rival game then at midfield
-      else intro();
+      const toss = () => playScene('toss', {}, intro);  // every game: the captains and the coin at midfield
+      if (G.mode === 'career') playScene('walkout', {}, () => (G.rivalry ? playScene('faceoff', {}, toss) : toss()));  // a career game opens in the tunnel; a rival game then at midfield
+      else toss();
       return;
     } else banner('Kickoff', tname(first) + ' ball', 1500);
     if (PG.audio && !AUTO) PG.audio.weather(G.env.weather);
@@ -202,7 +203,7 @@
       $('#intro').onclick = endIntro;
       /* the coin toss was won by the side that receives: the referee says so over the speakers, then the broadcast opens
          with a welcome, who is playing, and a word from the analyst if there is time before the ball is kicked */
-      const toss = PG.audio && PG.audio.pa ? PG.audio.pa(`The ${t1 === TEAMS[G.tm[G.first]] ? t1.name : t0.name} have won the toss, and will receive.`, { wait: 0.2, clips: ['ref.toss.' + TEAMS[G.tm[G.first]].ab] }) : 0;
+      const toss = G.tossSaid ? 0 : PG.audio && PG.audio.pa ? PG.audio.pa(`The ${t1 === TEAMS[G.tm[G.first]] ? t1.name : t0.name} have won the toss, and will receive.`, { wait: 0.2, clips: ['ref.toss.' + TEAMS[G.tm[G.first]].ab] }) : 0;
       G.introT = -Math.min(2.5, toss);  // the matchup card stays up a little longer for it
       setTimeout(() => {
         vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
@@ -398,6 +399,53 @@
         confetti(0);
       }],
       [6.6, () => confetti(0)],
+    ],
+  };
+
+  /* The coin toss: three captains a side face each other across the referee at midfield. He shows the coin, flips it
+     (render3d.js flies it up and down), it lands, he points to the side that won (they receive: G.first), the
+     announcer says so and the winners celebrate. In a career you are a captain once you are the starter. */
+  SCENES.toss = {
+    dur: 5.8,
+    setup(sc) {
+      const t0 = TEAMS[G.tm[0]], t1 = TEAMS[G.tm[1]], mine = G.lock && G.share >= 0.99 ? G.lock : null;
+      const roles0 = mine ? [mine, ...['QB', 'C', 'RB'].filter(r => r !== mine)].slice(0, 3) : ['QB', 'C', 'RB'], roles1 = ['QB', 'C', 'RB'];
+      const A = [];
+      roles0.forEach((role, k) => {
+        const p = rosterMan(0, role, k);
+        p.x = FW / 2 - 1.9;
+        p.y = 50 + (k - 1) * 1.05;
+        p.face = -Math.PI / 2;  // toward the referee
+        p.act = 'stand';
+        A.push(p);
+      });
+      roles1.forEach((role, k) => {
+        const p = rosterMan(1, role, k + 3);
+        p.x = FW / 2 + 1.9;
+        p.y = 50 + (k - 1) * 1.05;
+        p.face = Math.PI / 2;
+        p.act = 'stand';
+        A.push(p);
+      });
+      const ref = { x: FW / 2, y: 50.6, vx: 0, vy: 0, team: 0, role: 'REF', num: 12 + Math.floor(Math.random() * 60), name: 'Referee', ref: true, face: Math.PI, act: 'coin' };
+      A.push(ref);
+      sc.ref = ref;
+      sc.win = G.first;
+      sc.cap = `<small>Coin toss · midfield</small><b>${esc(t0.name)} vs ${esc(t1.name)}</b><span>${mine ? `#${A[0].num} ${esc(A[0].name)} is a captain` : 'The captains meet the referee'}</span>`;
+      return A;
+    },
+    cues: [
+      [1.35, sc => (sc.ref.act = 'flip')],
+      [3.0, () => snd('mic')],
+      [3.15, sc => {
+        sc.ref.act = sc.win === 0 ? 'signalL' : 'signalR';
+        const w = TEAMS[G.tm[sc.win]];
+        G.tossSaid = !!(PG.audio && PG.audio.pa && PG.audio.pa(`The ${w.name} have won the toss, and will receive.`, { wait: 0.1, clips: ['ref.toss.' + w.ab] }));
+        for (const p of P) if (!p.ref && p.team === sc.win) p.act = 'cheer';
+        const c = $('#scn .cap');
+        if (c) c.innerHTML = `<small>Coin toss · midfield</small><b>${esc(w.name)} win the toss</b><span>They will receive</span>`;
+        if (PG.audio) PG.audio.crowd.cheer(sc.win === 0 ? 0.8 : 0.4, 2);
+      }],
     ],
   };
   const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));

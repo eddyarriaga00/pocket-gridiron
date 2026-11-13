@@ -477,3 +477,13 @@ tr.me td{color:var(--acc);font-weight:700}
 .nx.aw:not(.sealed) .aw-w{animation:awin .45s ease-out}
 @keyframes awin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.nx.aw.calling::after,.nx.aw:not(.sealed) .aw-w{animation:none}}
+/* a cutscene's caption, low on the screen, and the tap anywhere that skips it */
+.scene{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;padding:0 16px calc(22px + var(--sb));pointer-events:auto;background:linear-gradient(transparent 62%,rgba(6,10,19,.72));text-align:left}
+.scene .cap small{display:block;font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.scene .cap b{display:block;margin-top:3px;font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;text-transform:uppercase;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.scene .cap span{display:block;margin-top:4px;font-size:13px;color:var(--ink)}
+.scene>small{display:block;margin-top:14px;text-align:center;font-size:11px;color:var(--mute)}
+.scene .cap{align-self:flex-start;max-width:100%;box-sizing:border-box;padding:9px 13px 10px;border-radius:10px;background:rgba(6,10,19,.86);border-left:3px solid var(--acc)}
+.scene .cap:empty{display:none}
+.scene .cap small{color:#aab6cc}
+.scene>small{color:#c3ccdc;text-shadow:0 1px 3px rgba(0,0,0,.8)}

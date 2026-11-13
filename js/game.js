@@ -182,6 +182,17 @@
       G.pendKO = null;
       banner(G.drill.title, G.drill.n + ' reps', 1500);
     } else if (!AUTO) {
+      const intro = () => startIntro(o, first);
+      if (G.mode === 'career') playScene('walkout', {}, intro);  // a career game opens in the tunnel
+      else intro();
+      return;
+    } else banner('Kickoff', tname(first) + ' ball', 1500);
+    if (PG.audio && !AUTO) PG.audio.weather(G.env.weather);
+    startCall();
+  }
+
+  function startIntro(o, first) {
+    {
       /* a few seconds over the stadium with the matchup on screen; a tap skips it */
       const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
       G.state = 'intro';
@@ -202,11 +213,118 @@
         } else vo('a.intro', { pri: 0, keep: true, ttl: 16 });
       }, toss ? toss * 1000 + 250 : 0);
       if (PG.audio) PG.audio.weather(e.weather);
-      return;
-    } else banner('Kickoff', tname(first) + ' ball', 1500);
-    if (PG.audio && !AUTO) PG.audio.weather(G.env.weather);
-    startCall();
+    }
   }
+
+  /* ---------- cutscenes ----------
+     A cutscene is a short scripted moment in the stadium: a few actors (ordinary players, staged), props render3d.js
+     draws for it, a camera path (render3d.js SCENECAM), a caption, the stadium's sound. playScene() puts the game in
+     state 'scene', stages the actors as P, and hands back to `then` when the time is up or the screen is tapped.
+     Never in simulations or practice, and Settings can turn them off. Every scene is in SCENES: dur, setup(o) for
+     the actors and props, update(sc, dt) to move them, and cues: [time, fn] fired once. */
+  const SCENE_PS = { mode: 'scene', carrier: null, air: null, loose: null, recs: [], los: 50, bx: FW / 2, offTeam: 0, fd: 60, qb: null, thrown: true };
+  const cutsOn = () => !AUTO && !QUIET && !G.drill && SET.cuts !== false;
+
+  function rosterMan(team, role, k) {
+    const r = G.ros[team] && G.ros[team][role];
+    return { x: FW / 2, y: 50, vx: 0, vy: 0, team, role, num: r ? r.num : 10 + k, name: r ? r.name : 'Player', act: null };
+  }
+
+  function playScene(kind, o, then) {
+    const S = SCENES[kind];
+    if (!S || !cutsOn()) return then();
+    const sc = { kind, t: 0, dur: S.dur, then, cues: (S.cues || []).slice(), o: o || {} };
+    G.scene = sc;
+    G.state = 'scene';
+    P = S.setup(sc) || [];
+    ps = Object.assign({}, SCENE_PS);
+    cam.snap = true;
+    $('#hud').hidden = true;
+    scr.innerHTML = `<button class="scene" id="scn"><div class="cap">${sc.cap || ''}</div><small>Tap to skip</small></button>`;
+    $('#scn').onclick = () => endScene();
+  }
+
+  function stepScene(dt) {
+    const sc = G.scene, S = SCENES[sc.kind];
+    sc.t += dt;
+    while (sc.cues.length && sc.cues[0][0] <= sc.t) sc.cues.shift()[1](sc);
+    if (S.update) S.update(sc, dt);
+    for (const p of P) {
+      // an actor with somewhere to go runs there, eases in and stops; an actor with nowhere to go stands
+      if (p.go && sc.t >= (p.at || 0)) {
+        if (p.via && p.via.length && hyp(p.via[0][0] - p.x, p.via[0][1] - p.y) < 0.9) p.via.shift();  // a waypoint passed at a run
+        const to = p.via && p.via.length ? p.via[0] : p.go, last = to === p.go;
+        const dx = to[0] - p.x, dy = to[1] - p.y, d = hyp(dx, dy), sp = !last ? p.spd || 6.5 : d > 0.25 ? Math.min(p.spd || 6.5, d * 2.2) : 0, e = 1 - Math.exp(-dt * 6);
+        p.vx += ((d ? dx / d : 0) * sp - p.vx) * e;
+        p.vy += ((d ? dy / d : 0) * sp - p.vy) * e;
+        if (d <= 0.25 && p.then) {
+          p.act = p.then;
+          p.then = null;
+        }
+      } else {
+        p.vx *= Math.pow(0.02, dt);
+        p.vy *= Math.pow(0.02, dt);
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.anim = (p.anim || 0) + hyp(p.vx, p.vy) * dt;
+    }
+    if (sc.t >= sc.dur) endScene();
+  }
+
+  function endScene() {
+    const sc = G.scene;
+    if (!sc || G.state !== 'scene') return;
+    G.scene = null;
+    P = [];
+    ps = null;
+    G.state = 'dead';
+    scr.innerHTML = '';
+    $('#hud').hidden = false;
+    cam.snap = true;
+    sc.then();
+  }
+
+  const SCENES = {
+    /* Game day: the team runs out of the tunnel behind its starter, you first in a career, through smoke and two
+       jets of flame, the announcer calls them in and the place goes up. Then the camera rises behind them. */
+    walkout: {
+      dur: 7,
+      setup(sc) {
+        const t = TEAMS[G.tm[0]], roles = ['QB', 'RB', 'X', 'Z', 'S', 'TE', 'LT', 'LG', 'C', 'RG', 'RT'], lead = G.lock && roles.includes(G.lock) ? G.lock : 'QB';
+        const order = [lead, ...roles.filter(r => r !== lead)];
+        const A = order.map((role, k) => {
+          const p = rosterMan(0, role, k), side = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2), row = Math.floor((k + 1) / 2);
+          p.x = FW / 2 - 10 + (k ? (k % 2 ? 0.75 : -0.75) : 0);  // two abreast in the tunnel, left of the goal post (render3d.js TUN_X)
+          p.y = -5.6 - Math.ceil(k / 2) * 1.5;
+          p.go = [FW / 2 + side * 2.3 + (k ? (Math.random() - 0.5) : 0), k === 0 ? 15 : 12.5 - row * 0.9 + Math.random() * 0.8];
+          p.via = [[FW / 2 - 10 + side * 0.5, -2.5]];  // straight out of the mouth first, then fan out
+          p.at = k === 0 ? 0.5 : 1.1 + k * 0.17;
+          p.spd = k === 0 ? 7 : 6.3;
+          p.then = 'cheer';
+          p.lead = k === 0;
+          return p;
+        });
+        const me = A[0];
+        sc.cap = `<small>${esc(t.city)} · game day</small><b>${esc(t.name)} take the field</b>${G.lock ? `<span>#${me.num} ${esc(me.name)} leads them out</span>` : ''}`;
+        sc.lead = me;
+        return A;
+      },
+      cues: [
+        [0.3, () => {
+          if (PG.audio && PG.audio.pa) G.welcomed = PG.audio.pa('Ladies and gentlemen, welcome to ' + TEAMS[G.tm[0]].name + ' football!', { announcer: true, wait: 0, clips: ['pa.welcome.' + TEAMS[G.tm[0]].ab] }) > 0;
+        }],
+        [0.95, () => {
+          snd('boom');
+          if (PG.audio) PG.audio.crowd.cheer(1.25, 4.5);
+        }],
+        [2.6, () => {
+          if (PG.audio) PG.audio.crowd.cheer(0.9, 3);
+        }],
+      ],
+    },
+  };
+  const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
   function endIntro() {
     if (G.state !== 'intro') return;
@@ -214,7 +332,7 @@
     G.state = 'dead';
     banner('Kickoff', tname(G.first) + ' ball', 1500);
     cam.snap = true;
-    welcome();
+    if (!G.welcomed) welcome();
     startCall();
   }
 
@@ -2957,6 +3075,10 @@
       return;
     }
     if (k === 'main') {
+      if (G.state === 'scene') {
+        endScene();
+        return;
+      }
       if (G.state === 'intro') {
         endIntro();
         return;
@@ -3909,7 +4031,7 @@
   <h2>Look</h2>
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
   ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
-  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+`<div class="opt"><span>Camera zoom</span><div class="step"><button class="chip" id="szo" aria-label="Zoom out">−</button><b>${zoomTxt()}</b><button class="chip" id="szi" aria-label="Zoom in">+</button></div></div>`+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off')+chip('sdt','Close-up player models',SET.detail!==false?'Detailed':'Simple'):''}
+  ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+`<div class="opt"><span>Camera zoom</span><div class="step"><button class="chip" id="szo" aria-label="Zoom out">−</button><b>${zoomTxt()}</b><button class="chip" id="szi" aria-label="Zoom in">+</button></div></div>`+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('scut','Cutscenes',SET.cuts!==false?'On':'Off')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off')+chip('sdt','Close-up player models',SET.detail!==false?'Detailed':'Simple'):''}
   ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
   ${chip('slh','Buttons',SET.left?'Left side':'Right side')}
   <h2>Sound</h2>
@@ -3953,6 +4075,9 @@
       });
       on('scn', () => {
         SET.cin = SET.cin === false;
+      });
+      on('scut', () => {
+        SET.cuts = SET.cuts === false;
       });
       on('ssh', () => {
         SET.shad = SET.shad === false;
@@ -4482,7 +4607,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (R3) {
       ctx.clearRect(0, 0, W, H);
-      R3.render({ G, P, ps, cam, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, zoom: SET.zoom, detail: SET.detail !== false, charge: G.chg && G.state === 'live' ? clamp(G.chg.t / CHARGE, 0, 1) : -1 }, FDT);
+      R3.render({ G, P, ps, cam, scene: G.state === 'scene' ? G.scene : null, teams: TEAMS, acc: ACC, shake, isCtl, down: G.dnTxt || '', plain: SET.cin === false, env: G.env, shadows: SET.shad !== false, fx: SET.fx !== false, zoom: SET.zoom, detail: SET.detail !== false, charge: G.chg && G.state === 'live' ? clamp(G.chg.t / CHARGE, 0, 1) : -1 }, FDT);
       if (shake > 0) shake -= FDT;
     } else {
       if (shake > 0) {
@@ -4651,6 +4776,10 @@
       if (G.pc <= 0) delayOfGame();
     }
     const st = G.state;
+    if (st === 'scene') {
+      stepScene(dt);
+      return;
+    }
     if (st === 'intro') {
       G.introT += dt;
       /* the matchup stays up while the play-by-play man welcomes everybody in; a tap still skips it */
@@ -4862,7 +4991,7 @@
         SEEDED = !!n;
         SEED = n | 0;
       },
-      step, render, startCall, resolveChallenge,
+      step, render, startCall, resolveChallenge, playScene, endScene,
       get G() {
         return G;
       },

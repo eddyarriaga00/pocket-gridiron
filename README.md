@@ -82,6 +82,9 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   need volume to qualify, the way a real leaderboard does.
 - Broadcast graphics: a player card across the top after a touchdown or a big play (number, name, team, his line in
   this game; yours, in a career), and both teams' numbers when they change ends after the first and third quarters.
+- Cutscenes (Settings turns them off; a tap skips any of them). A career game opens in the tunnel: an inflatable
+  tunnel in team colors at the back of the end zone, smoke and two jets of flame, the starting offense running out
+  behind you, the announcer's welcome and the crowd going up, the camera from inside the mouth out to the field.
 - Media day, the week of a rival game: one question about him from the hub, answered like the podium's, and a callout
   made there is settled in that game. The booth knows about your callout: it opens the game talking about it, cheers
   when your side scores to back it up, calls it shaky when you trail late, and settles it at the final whistle.

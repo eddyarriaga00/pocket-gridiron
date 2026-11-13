@@ -525,6 +525,128 @@
      size, so both ends are lifted to match (out of the hand by the ear, in at the numbers) and the arc is left alone. */
   const passZ = a => a.z + (PSCALE - 1) * lerp(1.8, 1.2, Math.min(1, a.t / a.T));
 
+  /* ---------- cutscenes ----------
+     game.js stages the actors (ordinary players with an `act`) and times the scene; here are their poses, the props
+     each scene needs, and the camera path. */
+  function actPose(f, p, tg, s) {
+    const a = p.act;
+    if (a === 'cheer') return celebrate(f, !!p.lead, tg, p.lead ? 4 : -1, 0);  // the leader roars, the rest jump, clap, wave
+    return false;  // 'stand'
+  }
+
+  let props = null;
+  const TUN_X = FW / 2 - 10;  // the tunnel stands off to the left of the goal post, at the back of the end zone
+
+  function softTex(stops) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    stops.forEach(([at, col]) => g.addColorStop(at, col));
+    x.fillStyle = g;
+    x.fillRect(0, 0, 64, 64);
+    return new T.CanvasTexture(c);
+  }
+
+  function buildProps() {
+    const g = new T.Group();
+    scene.add(g);
+    /* the walkout: an inflatable tunnel at the back of the end zone (a half tube, dark inside, a ring and a sign at
+       the mouth), smoke rolling out of it and two jets of flame either side */
+    const tun = new T.Group(), skin = new T.MeshLambertMaterial({ color: 0xffffff }), rim = new T.MeshLambertMaterial({ color: 0xffffff });
+    const tube = (r, mat) => new T.Mesh(new T.CylinderGeometry(r, r, 11, 28, 1, true, Math.PI / 2, Math.PI).rotateX(Math.PI / 2), mat);
+    const back = new T.Mesh(new T.CircleGeometry(2.45, 24, 0, Math.PI).rotateY(Math.PI).translate(0, 0, 5.5), new T.MeshBasicMaterial({ color: 0x07090f }));
+    const ring = new T.Mesh(new T.TorusGeometry(2.55, 0.24, 8, 30, Math.PI).translate(0, 0, -5.5), rim);
+    const signC = document.createElement('canvas');
+    signC.width = 512;
+    signC.height = 96;
+    const signTex = new T.CanvasTexture(signC);
+    signTex.colorSpace = T.SRGBColorSpace;
+    const sign = new T.Mesh(new T.PlaneGeometry(4.6, 0.86), new T.MeshBasicMaterial({ map: signTex, transparent: true }));
+    sign.rotation.y = Math.PI;
+    sign.position.set(0, 3.25, -5.6);
+    tun.add(tube(2.5, skin), tube(2.42, new T.MeshBasicMaterial({ color: 0x0b0f18, side: T.BackSide })), back, ring, sign);
+    tun.position.set(TUN_X, 0, 9.5);
+    g.add(tun);
+    const smokeTex = softTex([[0, 'rgba(225,230,240,0.85)'], [0.5, 'rgba(200,206,218,0.35)'], [1, 'rgba(190,196,210,0)']]);
+    const smoke = [...Array(26)].map((_, i) => {
+      const sp = new T.Sprite(new T.SpriteMaterial({ map: smokeTex, transparent: true, depthWrite: false, opacity: 0 }));
+      sp.userData = { dx: (Math.random() - 0.5) * 4.4, d: (i / 26) * 1.6, rise: 2 + Math.random() * 2.5, out: 2 + Math.random() * 4, size: 2.2 + Math.random() * 2 };
+      g.add(sp);
+      return sp;
+    });
+    const flameTex = softTex([[0, 'rgba(255,240,225,1)'], [0.25, 'rgba(255,120,40,0.95)'], [0.6, 'rgba(230,60,20,0.45)'], [1, 'rgba(160,30,10,0)']]);
+    const flames = [];
+    for (const side of [-1, 1]) for (let k = 0; k < 7; k++) {
+      const sp = new T.Sprite(new T.SpriteMaterial({ map: flameTex, transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0, fog: false }));
+      sp.userData = { side, k };
+      g.add(sp);
+      flames.push(sp);
+    }
+    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, teamKey: '' };
+  }
+
+  function updateProps(sc, t0) {
+    if (!sc) {
+      if (props) props.g.visible = false;
+      return;
+    }
+    if (!props) buildProps();
+    props.g.visible = true;
+    const W = props.walk, on = sc.kind === 'walkout', t = sc.t;
+    W.tun.visible = on;
+    for (const sp of W.smoke) sp.visible = on;
+    for (const sp of W.flames) sp.visible = on;
+    if (!on) return;
+    if (props.teamKey !== t0.ab) {
+      props.teamKey = t0.ab;
+      W.skin.color.set(t0.c1);
+      W.rim.color.set(t0.c1).multiplyScalar(0.7);  // the ring a shade darker than the tube
+      const x = W.signC.getContext('2d');
+      x.clearRect(0, 0, 512, 96);
+      x.fillStyle = t0.c1;
+      x.fillRect(0, 0, 512, 96);
+      x.fillStyle = t0.c2;
+      x.font = '800 62px Archivo, Arial, sans-serif';
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      x.fillText(t0.name.toUpperCase(), 256, 52, 490);
+      W.signTex.needsUpdate = true;
+    }
+    for (const sp of W.smoke) {
+      const d = sp.userData, u = (t - 0.55 - d.d) / 3.2;
+      if (u <= 0 || u >= 1) {
+        sp.material.opacity = 0;
+        continue;
+      }
+      sp.position.set(TUN_X + d.dx * (0.6 + u), 0.4 + u * d.rise, -(-4 + u * d.out));
+      sp.scale.setScalar(d.size * (0.6 + u * 1.8));
+      sp.material.opacity = 0.55 * Math.min(1, u * 8) * (1 - u);
+    }
+    for (const sp of W.flames) {
+      const d = sp.userData, burst = t > 0.9 && t < 2.5 ? Math.min(1, (t - 0.9) * 6) * Math.min(1, (2.5 - t) * 3) : 0, fl = 0.8 + Math.random() * 0.4;
+      sp.position.set(TUN_X + d.side * 3.4, 0.3 + d.k * 0.62 * fl, -(-3.4));
+      sp.scale.setScalar((1.6 - d.k * 0.12) * fl);
+      sp.material.opacity = burst * (1 - d.k * 0.1);
+    }
+  }
+
+  /* the camera for each scene: where it stands (v3) and what it looks at (v3b), from the scene's clock */
+  const SCENECAM = {
+    walkout(sc, P, v3, v3b) {
+      const t = sc.t, L = sc.lead || P[0] || { x: FW / 2, y: 0 };
+      if (t < 2.3) {
+        v3.set(TUN_X + 1.7, 1.6, -3.2);  // low on the goal line, looking into the tunnel
+        v3b.set(TUN_X, 1.5, 9);
+      } else if (t < 4.5) {
+        v3.set(TUN_X + 6, 1.9, -7);  // out on the field, the team pouring out of the mouth toward it
+        v3b.set(TUN_X + 1, 1.4, 1);
+      } else {
+        v3.set(FW / 2 + 3.5, 6.5, -(L.y + 12));  // up and out in front: the team, the tunnel, the stands behind
+        v3b.set(FW / 2, 1.2, -(L.y - 7));
+      }
+    },
+  };
+
   /* ---------- the stride: feet that stay where they are put ----------
      A run used to be two sine waves on the hips and knees. Measured, the foot was at its lowest for a twentieth of the
      stride, was sliding backward over the turf at about the runner's own speed while it was there, and sank five
@@ -1398,7 +1520,15 @@
     tg[ER] = 0.25;
     tg[CHRX] = -0.05;
 
-    if (p.down || p.fell || flat || pileOn) {
+    if (p.act && s.G.state === 'scene') {
+      // a cutscene's actor doing what the scene asks (actPose); he faces p.face when he is standing still
+      eyes = false;
+      snap = actPose(f, p, tg, s);
+      if (p.face !== undefined && Math.hypot(p.vx, p.vy) < 0.6) {
+        hx = -Math.sin(p.face);
+        hy = Math.cos(p.face);
+      }
+    } else if (p.down || p.fell || flat || pileOn) {
       // on the turf (or on the pile)
       eyes = false;
       if (f.fall === 0) {
@@ -2695,6 +2825,7 @@
       boardKey = '';
       setTeams(t0, t1);
     }
+    updateProps(s.scene || null, t0);
     /* the second and fourth quarters are played the other way round (see ends) */
     endsWant = G.state !== 'menu' && !G.drill && G.q % 2 === 0 ? 1 : 0;
     if (endsWant !== ends) {
@@ -2725,7 +2856,7 @@
       }
       if (fresh) {
         setBuild(f, buildOf(p.role));
-        const home = p.team === 0, c = teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
+        const home = p.team === 0, c = p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
         colorFigure(SIDELINE + i, c);
         f.num.material = numberMaterial(p.num, c.number);
         f.nameplate.material = nameMaterial(p.name, c.number);
@@ -2748,14 +2879,14 @@
       writeFigure(f, i);
       contact.setMatrixAt(i, m4.makeTranslation(f.root.position.x, 0.04, f.root.position.z));
     }
-    if (ps && G.state !== 'menu') updateRefs(G, ps, dt);
+    if (ps && G.state !== 'menu' && G.state !== 'scene') updateRefs(G, ps, dt);
     else for (const r of refs) r.placed = false;
     /* The chain crew: front stick at the line to gain, back stick ten yards behind it, the down box on the ball.
        Once the whistle has gone they set off for the next play's marks, so after a first down you see them move. */
-    const gameOn = G.state !== 'menu' && G.state !== 'over' && G.state !== 'intro', now = !!ps && G.state !== 'dead', way = (now ? ps.offTeam : G.poss) === 0 ? 1 : -1;
+    const gameOn = G.state !== 'menu' && G.state !== 'over' && G.state !== 'intro' && G.state !== 'scene', now = !!ps && G.state !== 'dead', way = (now ? ps.offTeam : G.poss) === 0 ? 1 : -1;
     const toGain = clamp(now ? ps.fd : G.fd, 0, 100), kick = (!!ps && ps.mode === 'ko') || G.pendKO != null;
     updateCrew(gameOn, kick ? null : [toGain, toGain - way * 10, now ? ps.los : G.los], dt);
-    const active = ps && G.state !== 'menu' ? CAP : SIDELINE;
+    const active = ps && G.state !== 'menu' ? (G.state === 'scene' ? SIDELINE + MAXP : CAP) : SIDELINE;
     for (const p of parts) {
       p.mesh.count = active * p.joints.length;
       p.mesh.instanceMatrix.needsUpdate = true;
@@ -2905,7 +3036,9 @@
         v3.set(FW / 2 + Math.sin(a) * lerp(60, 22, u), lerp(46, 9, u), -50 + Math.cos(a) * lerp(60, 22, u));
         v3b.set(FW / 2, 1, -50);
       }
-    } else if (endsT < 2.6 && G.state !== 'live' && G.state !== 'replay' && G.state !== 'intro') {
+    } else if (G.state === 'scene' && s.scene && SCENECAM[s.scene.kind]) {
+      SCENECAM[s.scene.kind](s.scene, P, v3, v3b);
+    } else if (endsT < 2.6 && G.state !== 'live' && G.state !== 'replay' && G.state !== 'intro' && G.state !== 'scene') {
       // the teams change ends: a crane up over midfield and down again, the stadium turning round at the top
       const u = endsT / 2.6, a = -0.4 + u * 1.6, h = Math.sin(Math.PI * u);
       v3.set(FW / 2 + Math.sin(a) * lerp(30, 70, h), lerp(10, 62, h), -50 + Math.cos(a) * lerp(30, 70, h));

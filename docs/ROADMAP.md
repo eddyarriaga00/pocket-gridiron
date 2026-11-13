@@ -97,6 +97,7 @@ what is next. Update it after every item.
   drive simulation. Exposes `window.PG`. `PG.dbg` has `auto(v)`, `seed(n)`, `step(dt)`, `render()`, `G`, `ps`, `P`.
 - `js/league.js` schedule, standings, playoffs. `js/season.js` Season mode.
 - `js/career.js` career mode: save (`localStorage` key `pg.career.v1`), league, XP, hub screens.
+- `js/media.js` the words of the career's media: the reaction feed, the press questions and what answers do (state in `C.social`).
 - `js/camp.js` training camp: drill scripts, star marks, screens (`pg.camp.v1` keeps the best result of each drill).
 - Coordinates are yards. x 0..53.33 across, y 0..100 between goal lines, end zones to -10 and 110.
   Team 0 is the user and attacks +y. `G` is game state, `ps` the current play, `P` the 22 players.
@@ -839,6 +840,20 @@ what is next. Update it after every item.
   closer than 1.85 yd. New test hook `PG.r3d.bench()`. `H.fingerprint()` unchanged (drawing only); exhibition, both
   careers and the drills clean; audit empty at 320x568 and 390x844; no console errors. At phone size the far bench
   is a few pixels tall, so the walk is judged by numbers, not by eye.
+- 23:18 The career's media (Round 15). New `js/media.js` writes the words; `career.js` keeps `C.social` (followers,
+  hype 0 to 100, the last 40 posts, your quotes, an open callout, backed/eaten counts, the coach's name) and draws three
+  screens after every career game: the press conference (three questions chosen from the game: performance or last
+  week's callout; rival, role change, loss or win; next opponent or the season), its summary (your quotes, net trust,
+  hype and followers, the coach's verdict, any new callout), and the reaction feed. Answers have fixed effects (trust
+  -3 to +3, hype -3 to +9; big talk after a poor game earns half the hype). Buzz 0 to 10 from the grade, player of the
+  game, the result, a rival win, the playoffs and a settled callout sets how many posts (about 4 to 25), how far they
+  reach (likes scale with the square of buzz) and whether one goes viral and the game trends. Follower growth goes with
+  the square of buzz and with hype; eating your words costs 4% of followers, 20 hype and 3 (5 for a guarantee) trust;
+  backing them up pays 250 (400) XP and 2 trust. Measured: a staged monster game drew 37 posts with 7 replies on the
+  final, trending and a viral post, followers +31%; a bot season of 7 games kept the feed at 40 and no errors. A clash
+  with the play buttons' `.pb` class first drew the posts in capitals with rings; renamed. Cosmetic choices use
+  Math.random, so `H.fingerprint()` is unchanged; the harness and the audit now answer the podium; exhibition, careers
+  (QB and WR, three games each, one QB season), drills clean; audit empty at 320x568 and 390x844; no console errors.
 
 ## Morning hand-off
 
@@ -1082,8 +1097,21 @@ what is next. Update it after every item.
 - [x] More touchdown celebrations.
 - [x] Teams switch ends between quarters.
 
+### Round 15 (the owner at 23:05 on 2026-11-12: "add a social media aspect to this, so if u have a good game comments go
+### crazy and etc, but a major thing for me is reporters and post media questions and like having good games and trash
+### talking other teams, proving to the coah u are good and good compliments etc, be detailed and such")
+- [x] Postgame press conference: three situational questions, eight answer tones with fixed effects on coach trust,
+  hype and followers, a walk-out option, the coach's verdict on your answers.
+- [x] Callouts and guarantees of the next opponent, settled in that game (XP, trust, hype, followers, receipts).
+- [x] The reaction feed: fans of both teams, analysts, reporters, teammates, rival, the coach quoted; volume, likes,
+  replies, trending and a viral post scale with the game.
+- [x] The Social tab in the hub; the callout on the next-game card; the coach's word on your podium answers.
+- [ ] Next, if wanted: media day before a rival game; endorsements as hype pays off; the booth mentioning a callout.
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
+- The media, more (Round 15 follow-ups): a midweek media day before a rival game, endorsement deals once hype holds
+  high, and the booth bringing up your callout during the game it is about.
 - The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
   sound now is still unjudged). If they are still too calm, the next step is a more expressive open speech model with
   an excitement control: a multi-gigabyte download, which needs his say-so first. Voices are lines in

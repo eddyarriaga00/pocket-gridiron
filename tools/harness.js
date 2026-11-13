@@ -213,6 +213,14 @@ window.H = (() => {
       const my = { ...d().G.my }, score = [...d().G.score];
       if (!q('#rc')) throw new Error('no results screen');
       q('#rc').click();
+      // the press conference: answer each question (a different answer each game, so every tone gets used), then the reaction
+      let k = 0;
+      while (q('.ans') && k++ < 6) {
+        const all = document.querySelectorAll('.ans');
+        all[(this.pressN = (this.pressN || 0) + 1) % all.length].click();
+      }
+      if (q('#prgo')) q('#prgo').click();
+      if (q('#fdgo')) q('#fdgo').click();
       if (q('#awgo')) q('#awgo').click();  // the season is over: awards night comes first
       return { my, score };
     },

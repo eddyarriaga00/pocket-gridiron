@@ -598,12 +598,120 @@
     }
     const o = nextOpp(), lab = LG.label(C);
     return `<div class="nx"><small>${lab}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
+  ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
   <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
   ${C.prac!==pracKey()?'<button class="btn2" id="prac" style="margin-top:8px">Practice first · bonus XP</button>':'<p class="note" style="margin-top:8px">Practice is done for this week.</p>'}</div>
   ${C.news?`<p class="news">${esc(C.news)}</p>`:''}`;
   }
 
   const pracKey = () => C.season + '-' + C.week + '-' + C.phase;
+
+  /* ---------- the media (words in media.js) ----------
+     C.social: followers, hype (0 to 100), the feed (newest first, the last 40 posts), your quotes, an open callout of
+     the next opponent, and how many callouts you have backed up or eaten. Made on first use, so older careers get it. */
+  const CALL_XP = { trash: 250, guarantee: 400 };
+
+  function social() {
+    if (!C.social) C.social = { fol: Math.round(1500 + Math.max(0, ovr() - 60) * 220), hype: 10, feed: [], quotes: [], callout: null, backed: 0, ate: 0,
+      coachName: 'Coach ' + PG.NAMES[Math.floor(Math.random() * PG.NAMES.length)] };
+    return C.social;
+  }
+
+  const short = n => PG.media.short(n), signed = n => (n >= 0 ? '+' : '\u2212') + Math.abs(n);
+
+  /* the week's posts go on top of the feed, under a heading for the week */
+  function pushFeed(wk, posts) {
+    const so = social();
+    so.feed = [{ kind: 'wk', text: wk }, ...posts].concat(so.feed).slice(0, 40);
+  }
+
+  function feedHtml(list) {
+    return `<div class="feedl">${list.map(p => p.kind === 'wk' ? `<h2 class="fwk">${esc(p.text)}</h2>` : PG.media.postHtml(p)).join('')}</div>`;
+  }
+
+  function socHead(dFol) {
+    const so = social();
+    return `<div class="soch"><div><small>Followers</small><h3>${short(so.fol)}</h3>${dFol ? `<span class="${dFol > 0 ? 'up' : 'dn'}">${dFol > 0 ? '+' : '\u2212'}${short(Math.abs(dFol))} this week</span>` : ''}</div>
+  <div class="hype"><span>Hype</span><b>${so.hype}</b><div class="bar"><i style="width:${so.hype}%"></i></div></div></div>`;
+  }
+
+  function calloutHtml() {
+    const so = social(), c = so.callout;
+    if (!c) return '';
+    return `<p class="callout"><small>${c.kind === 'guarantee' ? 'Your guarantee' : 'Your callout'} \u00b7 ${esc(TEAMS[c.team].name)}</small>\u201c${esc(c.quote)}\u201d<br>${c.kind === 'guarantee' ? 'Win that game' : 'Win and play well (a B or better)'}: +${CALL_XP[c.kind]} XP. Lose and it costs you coach trust and hype.</p>`;
+  }
+
+  function tabSocial() {
+    const so = social();
+    return socHead(0) + `<p class="note">Big games, big moments and what you say at the podium move your following. Hype fades a little every week unless you keep giving people something to talk about.</p>`
+      + `<div class="xp"><span>Talk record</span><b>${so.backed} backed up \u00b7 ${so.ate} eaten</b></div>` + calloutHtml()
+      + (so.quotes.length ? `<h2>On the record</h2><ul class="quotes">${so.quotes.slice(0, 4).map(q => `<li><span class="tone t-${q.tone}">${PG.media.TONE[q.tone] || q.tone}</span>\u201c${esc(q.q)}\u201d<small>${esc(q.wk)}</small></li>`).join('')}</ul>` : '')
+      + (so.feed.length ? `<h2>Your mentions</h2>` + feedHtml(so.feed) : '<p class="note">Play a game and the internet will have something to say.</p>');
+  }
+
+  /* After the game: three questions at the podium (or walk out), a summary of what your answers did, then the
+     reaction online. Each answer takes effect as you give it. */
+  function showPress(ctx, posts, dFol0, done) {
+    const so = social(), qs = PG.media.press(ctx), picks = [], fol0 = so.fol, trust0 = C.trust, hype0 = so.hype;
+    let i = 0, said = [];
+    const give = (a, q) => {
+      C.trust = clamp(C.trust + a.trust, 5, 100);
+      const h = a.hype > 0 && ctx.pts < 5 ? Math.round(a.hype / 2) : a.hype;  // big talk after a poor game draws less of a crowd
+      so.hype = clamp(so.hype + h, 0, 100);
+      if (h > 0) so.fol += Math.round(so.fol * 0.004 * h);  // a quote people talk about brings people in
+      if (a.call && ctx.next != null) so.callout = { team: ctx.next, quote: a.t, kind: a.call, wk: ctx.wk };
+      so.quotes.unshift({ wk: ctx.wk, q: a.t, tone: a.tone });
+      so.quotes = so.quotes.slice(0, 20);
+      picks.push(a);
+      said = said.concat(PG.media.quoteReaction(ctx, a, q.about));
+      persist();
+    };
+    const summary = walked => {
+      const net = C.trust - trust0, tones = picks.map(p => p.tone);
+      C.coachPress = walked ? 'You walked past the podium. Next time you face them. That is part of the job.' : PG.media.coachOnPress(net, tones, ctx.pts >= 7);
+      persist();
+      const lead = posts.filter(p => p.kind === 'trend' || p === posts[0]), all = lead.concat(said, posts.filter(p => !lead.includes(p))), dFol = so.fol - fol0 + dFol0;  // the game first, then what you said, then everyone else
+      scr.innerHTML = `<div class="menu solid press"><div class="prh"><small>Press conference \u00b7 ${esc(ctx.wk)}</small><h3>${walked ? 'No comment' : 'On the record'}</h3></div>
+  ${picks.length ? `<ul class="quotes">${picks.map(p => `<li><span class="tone t-${p.tone}">${PG.media.TONE[p.tone]}</span>\u201c${esc(p.t)}\u201d</li>`).join('')}</ul>` : '<p class="note">You walked out without answering a question. The reporters wrote about that instead.</p>'}
+  <div class="fxs"><span>Coach trust <b>${signed(net)}</b> (now ${C.trust})</span><span>Hype <b>${signed(so.hype - hype0)}</b></span><span>Followers <b>${dFol >= 0 ? '+' : '\u2212'}${short(Math.abs(dFol))}</b></span></div>
+  <p class="coach"><small>${esc(so.coachName)}</small>${esc(C.coachPress)}</p>${calloutHtml()}
+  <button class="go" id="prgo">See the reaction</button></div>`;
+      $('#prgo').onclick = () => {
+        pushFeed(ctx.wk, all);
+        persist();
+        showFeed(all, dFol, ctx, done);
+      };
+    };
+    const draw = () => {
+      const q = qs[i], [f, l] = q.by.split(' ');
+      scr.innerHTML = `<div class="menu solid press"><div class="prh"><small>Press conference \u00b7 ${esc(ctx.wk)}</small><h3>Question ${i + 1} of ${qs.length}</h3><div class="dots">${qs.map((_, k) => `<i class="${k < i ? 'd' : k === i ? 'on' : ''}"></i>`).join('')}</div></div>
+  <div class="pq"><div class="rpt"><span class="av" style="--c:#2f6fb5">${esc(f[0] + l[0])}</span><div><b>${esc(q.by)}</b><span>${esc(q.outlet)}</span></div></div><p>\u201c${esc(q.q)}\u201d</p></div>
+  <div class="pa">${q.answers.map((a, k) => `<button class="ans" data-k="${k}"><span class="tone t-${a.tone}">${PG.media.TONE[a.tone]}</span>${esc(a.t)}</button>`).join('')}</div>
+  ${i === 0 ? '<button class="btn2" id="nocom">No comment \u00b7 walk out</button><p class="note">Humble and team-first answers build the coach\u2019s trust. Confidence and trash talk build hype, and cost trust unless you play like it. A callout of your next opponent follows you into that game.</p>' : ''}</div>`;
+      scr.querySelectorAll('.ans').forEach(b => b.onclick = () => {
+        give(q.answers[+b.dataset.k], q);
+        PG.snd('tick');
+        if (++i < qs.length) draw();
+        else summary(false);
+      });
+      const nc = $('#nocom');
+      if (nc) nc.onclick = () => {
+        C.trust = clamp(C.trust - 1, 5, 100);
+        so.hype = clamp(so.hype - 2, 0, 100);
+        said.push({ who: 'Pocket Sports Wire', at: 'PocketSportsWire', kind: 'press', col: '#2f6fb5', ver: true, text: `${C.name} declined to speak to reporters after the game.`, likes: Math.round(so.fol * 0.01), rt: Math.round(so.fol * 0.002), rep: Math.round(so.fol * 0.003), ago: 'now' });
+        persist();
+        summary(true);
+      };
+    };
+    draw();
+  }
+
+  function showFeed(posts, dFol, ctx, done) {
+    const fire = ctx.buzz >= 7;
+    scr.innerHTML = `<div class="menu solid feed"><div class="prh"><small>The reaction \u00b7 ${esc(ctx.wk)}</small><h3>${fire ? 'Your mentions are on fire' : ctx.buzz >= 4 ? 'People are talking' : 'A quiet week online'}</h3></div>
+  ${socHead(dFol)}${feedHtml(posts)}<button class="go" id="fdgo">Continue</button></div>`;
+    $('#fdgo').onclick = done;
+  }
 
   /* What the coach says after a game: one line on the performance, one on what comes next. Cosmetic, so Math.random. */
   function coachSays(m, grade, pts, won, met, role0, role1) {
@@ -633,7 +741,7 @@
 
   function trustHtml() {
     const [, role, sh] = roleOf(), up = ROLES[ROLES.findIndex(r => r[1] === role) - 1];
-    return (C.coach ? `<p class="coach"><small>Coach</small>${esc(C.coach)}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
+    return (C.coach ? `<p class="coach"><small>Coach</small>${esc(C.coach)}</p>` : '') + (C.coachPress ? `<p class="coach"><small>Coach, on your press conference</small>${esc(C.coachPress)}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
       + (up ? `<p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.</p>` : '');
   }
 
@@ -823,8 +931,8 @@
   ${trustHtml()}
   ${C.ageNote && C.week === 0 && C.phase === 'reg' ? `<p class="note">${esc(C.ageNote)}</p>` : ''}
   ${nextCard()}
-  <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
-  ${tab==='up'?tabUp():tab==='season'?tabSeason():tabStats()}
+  <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats'],['social','Social']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
+  ${tab==='up'?tabUp():tab==='season'?tabSeason():tab==='social'?tabSocial():tabStats()}
   <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
   <p class="note">How good the other teams are. All-Pro pays 20% more XP.</p>
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
@@ -957,7 +1065,12 @@
     const star = r.potg && r.potg.team === 0 && r.potg.role === POS[C.pos].role;  // you were the player of the game
     const beatRival = won && !!C.rival && C.rival.team === opp;
     const base = xpFor(m, won), hard = (C.diff ?? 1) === 2 ? [['All-Pro bonus', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.2)]] : [];
-    const items = base.concat(hard, star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP, [pts, grade] = gradeOf(m, won, met);
+    const items = base.concat(hard, star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, [pts, grade] = gradeOf(m, won, met);
+    /* last week's callout: settled now if this was the team you called out (and dropped if it was not) */
+    const so = social(), call = so.callout, callRes = call && call.team === opp ? { ...call, backed: call.kind === 'guarantee' ? won : won && pts >= 5 } : null;
+    so.callout = null;
+    if (callRes && callRes.backed) items.push([callRes.kind === 'guarantee' ? 'Backed up your guarantee' : 'Backed up your words', CALL_XP[callRes.kind]]);
+    const xp = items.reduce((t, [, v]) => t + v, 0) + met * GOAL_XP;
     for (const k in m) {
       C.stats[k] = (C.stats[k] || 0) + m[k];
       C.career[k] = (C.career[k] || 0) + m[k];
@@ -971,9 +1084,15 @@
     /* NEUTRAL is what a computer-level player at each position averages (measured with scripted seasons), plus a little:
        play like the computer and trust holds or slips slowly, play better and it climbs. */
     C.trust = clamp(Math.round(C.trust + (pts - NEUTRAL[C.pos]) * 3 + (won ? 1 : 0)), 5, 100);
+    if (callRes) {
+      // the coach likes a player who backs up his mouth, and hates one who hands the other side a speech
+      C.trust = clamp(C.trust + (callRes.backed ? 2 : callRes.kind === 'guarantee' ? -5 : -3), 5, 100);
+      if (callRes.backed) so.backed++;
+      else so.ate++;
+    }
     const role1 = roleOf()[1], dTrust = C.trust - t0;
     const moved = role1 === role0 ? '' : ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) ? ` The coach moves you up: ${role1.toLowerCase()}.` : ` The coach moves you down: ${role1.toLowerCase()}.`;
-    const wk = LG.short(C);
+    const wk = LG.short(C), playoff = C.phase !== 'reg';
     C.log.push({ wk, opp, us, them, res, line: line(m), grade, pts, met });
     C.news = headline(m, won, us, them, opp);
     if (C.rival && C.rival.team === opp && us !== them) C.news += won ? `. ${C.rival.name} left without talking to reporters.` : `. ${C.rival.name}, afterward: \u201cTold you.\u201d`;
@@ -987,21 +1106,40 @@
       closeSeason(fin);
     } else pickGoals();
     C.coach = coachSays(m, grade, pts, won, met, role0, role1);
+    /* the media: how loud the reaction is, what it does to your following, and what the reporters will ask */
+    let weak = '';
+    if (C.pos === 'QB') weak = m.pint > 1 ? `${m.pint} interceptions` : m.pint === 1 ? 'an interception' : m.att >= 6 && m.comp / m.att < 0.5 ? `${m.comp} of ${m.att} passing` : '';
+    if (C.pos === 'WR') weak = m.tgt >= 3 && m.rec / m.tgt < 0.5 ? `${m.rec} catches on ${m.tgt} targets` : m.tgt <= 1 ? 'one target all day' : '';
+    const ctx = { name: C.name, pos: C.pos, team: C.team, opp, won, us, them, m, pts, star, rival: C.rival, rivalGame: !!C.rival && C.rival.team === opp, playoff, callRes, coachName: so.coachName,
+      coachLine: (C.coach.match(/^[^.!?]+[.!?]/) || [C.coach])[0], next: C.phase === 'done' ? null : nextOpp(), week: C.log.length, wk, weak, role0, role1,
+      roleUp: ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) };
+    const bz = PG.media.buzzOf(ctx), fol0 = so.fol;
+    so.hype = clamp(Math.round(so.hype * 0.8 + bz.b * 3 + (callRes ? (callRes.backed ? 12 : -20) : 0)), 0, 100);
+    /* followers: a big day brings thousands (more when you are already hyped), a quiet one loses a few, and eating
+       your words costs one in twenty-five */
+    so.fol = Math.max(300, Math.round(callRes && !callRes.backed ? so.fol * 0.96 : so.fol + (bz.b >= 3 ? so.fol * (0.002 + bz.b * bz.b * 0.0012) * (1 + so.hype / 100) + bz.b * 40 : -so.fol * 0.003)));
+    ctx.fol = so.fol;
+    ctx.buzz = bz.b;
+    ctx.trending = bz.b >= 7.5 || (!!callRes && callRes.backed);
+    const posts = PG.media.reaction(ctx), dFol = so.fol - fol0;
     const trophies = checkTrophies();
     persist();
     const show = () => {
       // drawn again after watching the play of the game
       scr.innerHTML = `<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>
   <div class="nx" style="margin-top:0"><small>Your game · grade ${grade}</small><h4>${line(m)}</h4><p style="margin:4px 0 0">${esc(C.news)}</p></div>
+  ${callRes?`<p class="callout ${callRes.backed?'ok':'no'}"><small>${callRes.backed?'You backed it up':'You ate your words'}</small>\u201c${esc(callRes.quote)}\u201d</p>`:''}
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
   ${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
-  <button class="go" id="rc">Continue</button></div>`;
+  <button class="go" id="rc">To the podium</button></div>`;
       $('#rc').onclick = () => {
         PG.toMenu();
-        if (C.phase === 'done' && C.po.night && !C.po.nightSeen) showAwards();
-        else showHub(C.phase === 'done' ? 'season' : 'up');
+        showPress(ctx, posts, dFol, () => {
+          if (C.phase === 'done' && C.po.night && !C.po.nightSeen) showAwards();
+          else showHub(C.phase === 'done' ? 'season' : 'up');
+        });
       };
       if ($('#potd')) $('#potd').onclick = () => PG.watchPotd(show);
     };

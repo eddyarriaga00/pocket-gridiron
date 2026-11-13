@@ -383,7 +383,7 @@ window.A = (() => {
       click('#skip');
       scan('draft');
       click('#camp');
-      for (const t of ['up', 'season', 'stats']) {
+      for (const t of ['up', 'season', 'stats', 'social']) {
         click(`.tabs [data-t=${t}]`);
         scan('career hub ' + t);
       }
@@ -468,7 +468,14 @@ window.A = (() => {
         layouts += watch('career game');
         check('career: result');
         click('#rc');
-        for (const t of ['up', 'season', 'stats']) {
+        check('career: press conference');
+        for (let k = 0; k < 3 && q('.ans'); k++) click('.ans');
+        check('career: press summary');
+        click('#prgo');
+        check('career: the reaction');
+        click('#fdgo');
+        if (q('#awgo')) click('#awgo');
+        for (const t of ['up', 'season', 'stats', 'social']) {
           click(`.tabs [data-t=${t}]`);
           scanHub('career hub after a game ' + t);
         }

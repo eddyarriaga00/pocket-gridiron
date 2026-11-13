@@ -59,6 +59,19 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   the sun are on the other side when it comes down.
 - A career ages: you come into the league at 22, grow a little each of your first seasons, hold in your prime, and
   from 30 lose speed and elusiveness first and skill later. Your rival talks before you play his team, and after.
+- The media around a career. After every game you go to the podium: three questions from reporters, picked from how
+  the game went (your stat line, a loss, your rival, a promotion or a demotion, the next opponent, last week's
+  callout). Each answer has a tone (humble, team first, owning it, confident, trash talk, a guarantee, pointing
+  fingers, deflecting) and does something: humble and team-first answers build the coach's trust, confidence and
+  trash talk build hype and followers but cost trust unless you played like it, and blaming teammates costs the most.
+  You can also walk out. The coach tells you what he thought of your answers. Call out the next opponent and it
+  follows you into that game: back it up for +250 XP (+400 for a guarantee), lose and it costs trust, hype and
+  followers, and the opposing fans post your quote back at you.
+- Then the internet reacts: fans of both teams, analysts, reporters, teammates, your rival, and your coach quoted from
+  his own press conference. A quiet game draws a handful of posts; a monster game floods the feed, trends, sends a fan's
+  post viral and fills the replies. Followers and hype grow with big games and big words. The Social tab in the career
+  hub keeps your mentions, your quotes, the follower count, the hype meter and your record of callouts backed up or
+  eaten. Every person, handle and outlet is invented.
 - Career awards night after every season: MVP, Offensive Player of the Year, Rookie of the Year, All-League at your
   position and your position's statistical title, each with its nominees from around the league. Retire a career
   and it goes to a hall of fame vote; every retired career is kept in the Hall of fame, on the main menu.
@@ -132,6 +145,7 @@ js/vo.js                the index of the commentators' clips (written by tools/v
 audio/vo.pack           the clips themselves, end to end in one file (about 3 MB of AAC)
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode
+js/media.js             The press conference and the social feed around a career (career.js draws the screens)
 js/season.js            Season mode
 js/camp.js              Training camp: drill scripts, scoring and screens
 js/milestones.js        Milestones earned across all modes

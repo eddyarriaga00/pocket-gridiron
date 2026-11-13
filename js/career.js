@@ -75,8 +75,32 @@
   }
 
   /* the player as the engine sees them: an overall, a top speed, and the specific ratings the engine reads */
+  /* Injuries. Now and then you come out of a game nursing something: "questionable" for the next one, which you play
+     with one rating a few points down. And most weeks somebody is on the other team's injury report: about one week
+     in four it is a starter, and they are a little weaker for it (the same every time you look: it is drawn from
+     the season, the week and the team). */
+  const INJ = [['a sore ankle', 'spd', 4], ['a tight hamstring', 'spd', 5], ['a bruised shoulder', 'QB:pow WR:hnd', 4], ['a jammed finger', 'QB:thr WR:hnd', 4]];
+  function injRoll() {
+    C.inj = null;  // whatever it was, it has had its week
+    if (Math.random() > 0.07) return '';
+    const [what, k, n] = INJ[Math.floor(Math.random() * INJ.length)], key = k.includes(':') ? (k.split(' ').find(s => s.startsWith(C.pos + ':')) || 'x:spd').split(':')[1] : k;
+    C.inj = { what, key, n };
+    return ` You came out of it with ${what}: questionable for the next game.`;
+  }
+  function oppInj(o) {
+    const r = rng(Math.imul(C.season * 7919 + LG.weekNo(C) * 131 + o * 17 + 5, 2654435761));  // scrambled: the generator's first numbers barely move from one seed to the next
+    r();
+    r();
+    if (r() > 0.25) return null;
+    const [pos, lab, pen] = [['QB', 'quarterback', 4], ['WR', 'top receiver', 2], ['RB', 'running back', 2], ['CB', 'top cornerback', 2], ['LB', 'middle linebacker', 2]][Math.floor(r() * 5)];
+    return { txt: `Injury report: their ${lab}, ${PG.NAMES[Math.floor(r() * PG.NAMES.length)]}, is out`, pen, pos };
+  }
+
+  const attrName = k => (POS[C.pos].attrs.find(x => x[0] === k) || [k, k])[1];
+
   function hero() {
     const a = effAttrs(), x = {};
+    if (C.inj && a[C.inj.key] !== undefined) a[C.inj.key] = Math.max(40, a[C.inj.key] - C.inj.n);  // playing through it
     if (C.pos === 'QB') {
       x.thr = a.thr;
       x.pow = a.pow;
@@ -705,7 +729,7 @@
     :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
     const o = nextOpp(), lab = LG.label(C), pt = LG.prime(C);
-    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>${LG.home(C)?'vs':'at'} ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}<br>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
+    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>${LG.home(C)?'vs':'at'} ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}<br>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${oppInj(o)?`<br>${esc(oppInj(o).txt)}.`:''}${C.inj?`<br>You are questionable with ${C.inj.what}: ${attrName(C.inj.key)} −${C.inj.n} this week.`:''}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
   ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
   ${C.rival&&C.rival.team===o&&C.phase!=='done'&&!(C.social&&C.social.mday===pracKey())?`<button class="btn2" id="mday" style="margin:0 0 8px">Media day \u00b7 one question about ${esc(C.rival.name)}</button>`:''}
   ${C.social&&C.social.offer?'<p class="note" style="margin:0 0 8px">An endorsement offer is waiting in the Social tab.</p>':''}
@@ -1388,7 +1412,7 @@
     /* a rival game opens with the two of you face to face at midfield: his words, and yours if you called him out */
     const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
     const pt = LG.prime(C), env = gameEnv();
-    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
+    PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp] - (oppInj(opp) ? oppInj(opp).pen : 0)], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
       away: !LG.home(C), kr: retNow(), prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
       mustWin: C.phase !== 'reg', env, line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
@@ -1471,7 +1495,7 @@
       if (callRes.backed) so.backed++;
       else so.ate++;
     }
-    const retNote = retAfter(m);
+    const retNote = retAfter(m) + injRoll();
     const role1 = roleOf()[1], dTrust = C.trust - t0;
     const moved = role1 === role0 ? '' : ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) ? ` The coach moves you up: ${role1.toLowerCase()}.` : ` The coach moves you down: ${role1.toLowerCase()}.`;
     const wk = LG.short(C), playoff = C.phase !== 'reg';

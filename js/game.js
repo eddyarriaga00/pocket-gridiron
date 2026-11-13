@@ -2366,11 +2366,39 @@
     if (G.state !== 'live' && G.state !== 'kicka') return;
     const p0 = ps, s0 = G.score.slice();
     finish0(kind, arg);
+    if (p0 && p0.rk && !p0.flagged && G.state === 'dead') return roughKick(p0, s0);
     if (!p0 || p0.flagged || G.state !== 'dead' || (p0.mode !== 'pass' && p0.mode !== 'run')) return;  // a flag during the play already decided it (holding, interference)
     if (p0.free) freePlay(p0, s0);
     else if (p0.ground !== undefined) grounding(p0, s0);
     else if (p0.dhold) defHold(p0, s0);
     else if (p0.lateFlag) lateFoul(p0, s0);
+  }
+
+  /* roughing the kicker: fifteen yards from the old spot and a first down for the kicking team, the kick and any
+     return wiped out; a field goal that was good stands */
+  function roughKick(p0, s0) {
+    const S = p0.rk, off = S.poss, dir = off === 0 ? 1 : -1;
+    if (G.score[off] > s0[off]) {
+      banner('Flag declined', `Roughing the kicker, ${tname(1 - off)} · the kick is good`, 1700);
+      G.deadT = Math.max(G.deadT, 1.8);
+      if (PG.audio) PG.audio.pa('Roughing the kicker, defense. The penalty is declined.', { wait: 0.6, clips: ['ref.rk', 'ref.decl'] });
+      return;
+    }
+    const room = off === 0 ? 100 - S.los : S.los, yd = Math.min(15, Math.max(1, Math.floor(room / 2)));
+    Object.assign(G, { los: S.los, bx: S.bx, down: S.down, togo: S.togo, fd: S.fd, poss: S.poss, score: S.score, stats: JSON.parse(S.stats), my: JSON.parse(S.my), box: JSON.parse(S.box), pendKO: S.pendKO, pat: S.pat });
+    if (G.scores) G.scores.length = S.nScores;
+    setBall(off, S.los + dir * yd, S.bx);
+    G.sig = 'fd';
+    G.last = 'Roughing the kicker';
+    G.rp = false;
+    G.celeb = null;
+    G.state = 'dead';
+    G.deadT = 2.4;
+    banner('Flag', `Roughing the kicker, ${tname(1 - off)} · ${yd} yards, automatic first down`, 2100);
+    snd('whistle');
+    refCall(`Roughing the kicker, defense. ${yd} yard penalty. Automatic first down.`, 1 - off, 0.75, ['ref.rk', yd === 15 ? 'ref.fifteen' : yd <= 10 ? 'ref.yd.' + yd : null, 'ref.auto'].filter(Boolean));
+    hudKey = '';
+    updHud();
   }
 
   /* defensive holding: five yards from the old spot and a first down, unless the play did better (a touchdown, or a
@@ -3531,6 +3559,7 @@
      goal misses, and where a punt goes; without it, as before. The game's generator is drawn the same either way. */
   function doKick(acc, aim) {
     const off = G.poss, dir = G.dir, los = ps.los, k = ps.qb;
+    if (watched() && G.patKick == null && Math.random() < 0.012) ps.rk = freeSnap();  // a rusher runs into the kicker after the ball is away
     let x1, y1, T, h;
     if (G.op.n === 'Field Goal') {
       const d = ((off === 0 ? 100 : 0) - los) * dir + 17, thr = clamp(0.22 + Math.max(0, d - 22) * 0.019, 0.22, 0.96), good = acc >= thr + G.wx.kick && d <= 63, sg0 = rnd() < .5 ? -1 : 1, sg = aim === undefined || Math.abs(aim) < 0.01 ? sg0 : (aim > 0) === (off === 0) ? 1 : -1;  // a swipe to the kicker's right misses right

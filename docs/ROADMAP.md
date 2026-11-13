@@ -1289,6 +1289,18 @@ what is next. Update it after every item.
   390x844 with the pane in front (run in a background tab its timers stall and a fading banner is reported on every
   screen), a drawn game with every pose finite; the console showed one three.js "getUniforms" error during the
   audit's viewport switch (a lost graphics context in the test pane; none in a drawn game after a reload).
+- 08:50 Automatic run: roughing the kicker, and injuries for a career. Roughing the kicker: 1.2% of punts and field goals
+  in watched games (`ps.rk`, the state kept at the kick); the kick and any return are wiped, the kicking team gets
+  fifteen yards from the old spot and a first down (`roughKick`); a field goal that was good stands (declined). One
+  referee line recorded. Staged: a punt from the 58 became first and ten at the 73 for the punting team. Injuries
+  (career.js): after a game 7% of the time you are questionable for the next one (`C.inj`: a sore ankle or tight
+  hamstring takes 4 or 5 off speed, a bruised shoulder or jammed finger 4 off arm power, accuracy or hands; `hero()`
+  applies it, the next-game card says so, and it clears after that game). The opponent's injury report (`oppInj`,
+  drawn from the season, week and team so it reads the same every time): one week in four a starter is out
+  (quarterback 4 overall, anyone else 2), shown on the card and taken off their rating for that game. The first seed
+  never produced one: this generator's first numbers barely move between neighbouring seeds, so the seed is now
+  multiplied through and three numbers are thrown away. Checked: fingerprint unchanged, careers (QB and WR, one game
+  played questionable), exhibition, drills, audit empty at 320x568 and 390x844 and on a hub showing both lines.
 
 ## Morning hand-off
 
@@ -1604,9 +1616,9 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Roughing the kicker (fifteen yards and a first down on a punt or a field goal), the last of the penalties list.
-- Injuries: a player shaken up for a play or a series, the trainer's cart for the worst; a rare short absence for you
-  in a career ("questionable" on the next-game card); an injury report for the opponent.
+- Injuries on the field (the career side is done, 08:50: your questionable week and the opponent's injury report): a
+  player shaken up after a big hit, down on the turf while the trainers come out, replaced for a play or a series
+  (needs a substitute from the roster and a short cutscene); the cart for the worst.
 - An all-star game after the season for the best players of each conference (you, when you are one): a playable
   exhibition with its own presentation.
 - A record book: league single-game and season records; the booth and a card when one falls.

@@ -153,6 +153,7 @@
     "ref.ground": { "v": "r", "e": 0.2, "t": ["Intentional grounding, offense."] },
     "ref.lod": { "v": "r", "e": 0.2, "t": ["Loss of down."] },
     "ref.face": { "v": "r", "e": 0.2, "t": ["Facemask, defense."] },
+    "ref.rk": { "v": "r", "e": 0.2, "t": ["Roughing the kicker, defense."] },
     "ref.dhold": { "v": "r", "e": 0.2, "t": ["Holding, defense."] },
     "ref.yd": { "v": "r", "e": 0.2, "t": ["{n} yard penalty."] },
     "ref.auto": { "v": "r", "e": 0.2, "t": ["Automatic first down."] },

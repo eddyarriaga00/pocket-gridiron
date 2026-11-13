@@ -56,7 +56,10 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   play him twice a season). There are 14 trophies. Three games a season are primetime (at night, the whole league
   watching, XP +25%; the conference final and the championship always are); a big win can make you your conference's
   Player of the Week (+400 XP and a post from the league); every stat keeps your single-game career high, and the
-  broadcast says so the moment you pass one. Edit team names from the hub or the new-career screen too. A receiver is
+  broadcast says so the moment you pass one. Edit team names from the hub or the new-career screen too. Injuries:
+  now and then you come out of a game questionable (a sore ankle, a jammed finger) and play the next one with one
+  rating a few points down, and about one week in four the other team's injury report has a starter out, which makes
+  them a little weaker. A receiver is
   also the kick returner (a switch on the hub): on their kickoffs and punts you are back deep, field it, and run it
   back yourself (or tap Fair catch on a punt). Returns go on your game line and earn XP, and the job has its own trust
   bar: long returns raise it, a fumble sits you down for the rest of that game and the next two, and a slump under 30
@@ -115,7 +118,7 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, or scoop up and run back, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   flags that Settings can switch off: false start, offside, illegal formation and holding; pass interference at the
   spot; roughing the passer, unnecessary roughness and a facemask (fifteen yards from where the play ended, and an
-  automatic first down); defensive holding (five yards and a first down, declined when the play did better);
+  automatic first down); roughing the kicker (the kicking team keeps the ball, fifteen yards on); defensive holding (five yards and a first down, declined when the play did better);
   intentional grounding when the ball is thrown away from inside the pocket (loss of down); and the free
   play, when a defender jumps at the snap and the play goes on: afterwards you choose, take five yards and the down
   again, or keep what the play gained (the game only asks when it is a real choice). Rain and snow make the ball

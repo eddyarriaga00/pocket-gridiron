@@ -45,7 +45,13 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   sinks, forward, backward or in a sideways shuffle, and linemen crouch with their soles flat on the turf. A defender
   with ground to cover turns and runs, looking back at the quarterback. The quarterback winds up as the power bar fills.
 - A tackle is two men, not one after the other: the tackler bends to the hit with his shoulder at the runner's hip and
-  his arms round him, and they go down together.
+  his arms round him, and they go down together. Anyone left standing beside them steps clear instead of standing in
+  the pile.
+- Everybody watches something. Helmets turn to the ball in the air, to the man carrying it, to the quarterback; a
+  receiver looks back for the ball once he is into his route, a quarterback in the pocket goes through his receivers,
+  and the reserves on the bench follow the play up and down the field.
+- A block is two men with their hands on each other: the blocker's inside on the chest plate, the defender's on the
+  shoulder pads, elbows bent, helmets side by side.
 - Every control has a touch area of at least 44 by 44 pixels, however small it is drawn, and the layout is checked from
   320-pixel phones up to a desktop window. A phone held sideways is asked to turn upright.
 
@@ -156,6 +162,12 @@ it sinks, how long it is down); `{ how: 'side' }` makes it a shuffle, `{ who: 'r
 `PG.r3d.strip(8)` returns a picture of one stride from the side (`{ view: 'front' }` from in front).
 `PG.r3d.tackle(0)` stages a tackle (the angle it comes from, in radians) and measures it: how far the tackler's hands
 are from the runner, whether either body is inside the other or under the turf. `PG.r3d.tackleStrip(0)` draws it.
+`PG.r3d.eyes()` puts the ball carrier at a set of angles round a running defender and says how far off his helmet
+points (`PG.r3d.eyesStrip()` draws it). `PG.r3d.block(0.8)` locks a guard and a tackle up at the engine's distance and
+measures where their hands, chests and helmets are (`PG.r3d.blockStrip()` draws it from four sides).
+`PG.r3d.besideSweep()` stages 156 tackles with another man beside them and reports how far he is left standing in the
+two on the ground. None of these draws a real play, so after any change to the renderer also play a whole game with
+`PG.dbg.render()` after every step and watch for errors: the harness alone never draws.
 
 `tools/audit.js` is the interface audit. Load it the same way after the harness, then run
 `await A.menus(); A.play('exh'); A.play('career'); A.play('camp'); A.report()` at a phone size such as 320 by 568.

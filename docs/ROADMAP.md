@@ -67,7 +67,15 @@ what is next. Update it after every item.
    of under half a centimetre; `PG.r3d.tackle(0)` (and 1.57, 3.14) should report hands within 10 cm of the runner,
    nothing inside him and nothing under the turf, and `PG.r3d.tackleStrip(0)` draws that tackle as a row of frames;
    `PG.r3d.poseOf(i)` gives the pose player i is drawn in, for checking that a state reaches the figure; `PG.r3d.strip(8)` returns an image of one stride from the side
-   (put it in an `<img>` and look at it).
+   (put it in an `<img>` and look at it). `PG.r3d.eyes()` should report the helmet within about 5 degrees of the ball
+   carrier out to 90 degrees off his line, short of him beyond that, and not turned at all when he is behind;
+   `PG.r3d.block(0.8)` hands within about 10 cm of the other man's chest, elbows bent, chests and helmets apart (no
+   negative numbers); `PG.r3d.besideSweep()` a man beside a tackle no more than a few centimetres inside the men on
+   the ground in most stagings and moved less than a yard (`eyesStrip()` and `blockStrip()` draw the first two).
+   These hooks pose staged figures and never draw a real play, and the harness does not draw at all. So after any
+   change to `js/render3d.js` also play a whole game drawn: `H.bot(); PG.dbg.step(0.02); PG.dbg.render()` in a loop
+   until the game is over, inside a try, checking `PG.r3d.poseOf(i)` for numbers that are not finite. Run 5 deleted
+   the pre-snap stance helper by accident and every staged hook still passed; only the drawn game caught it.
 8. Commentary, after any change to the script, the voices or the booth. `tools/voice.py` prints, for every clip it
    records, its length and pitch, and flags any whose sound has far fewer syllables than its words (a swallowed
    line). In the page: `PG.audio.deaf(true)` first (the mix runs but the speakers get nothing; the test pane plays
@@ -589,6 +597,40 @@ what is next. Update it after every item.
   generator: `H.fingerprint()` unchanged; exhibition, both careers and the drills clean; audit empty at 320x568 and
   390x844 (the switch is now labelled "Commentary"); no console errors. Nobody has heard any of it in the game.
 
+- 19:00 Eyes, hands and standing room (automatic run 5). The first two ideas wait on the owner (his verdict on the
+  booth; my question about the referee's voice), and the stadium-sound idea is mostly that same voice, so this run
+  took the motion idea.
+  Eyes: `watching()` gives each man a spot to look at and the pose code turns the helmet to it, eased over about a
+  tenth of a second, up to 69 degrees at the neck with the shoulders coming round up to 23 more, and tips it up to
+  31 degrees at a ball in the air. Measured on a defender running at five yards a second (`PG.r3d.eyes()`): the helmet
+  is 0 to 4 degrees off the ball carrier out to 90 degrees from his line, 34 short at 120 (as far as he can turn),
+  and not turned for a man behind him. In two drawn games the helmet was turned more than 11 degrees in 38% of
+  player-frames during live play. The bench turns its helmets to the ball.
+  Blocks: the engine holds a locked-up pair 0.79 yards apart (median over 2,063 samples), and at the size the
+  figures are drawn that is chest inside chest. Each man is now drawn back from the other, about a quarter of a yard
+  for linemen, both hands are solved onto the other man's trunk on the side facing him, and both lean the same way
+  so the helmets pass. `PG.r3d.block(0.8)`: blocker's hands 5 and 7 cm from the chest surface, the defender's 5 and
+  9 from the pads, elbows bent 72 to 113 degrees, chests 11 cm apart, helmets 12 cm apart (before: chests
+  overlapping, arms through the other man). Looked at as a strip from four sides and in a real pass play from
+  beside and behind the line.
+  Standing room: a man still on his feet beside a tackle is moved clear of the lines of the two men on the ground
+  (pelvis to helmet, pelvis to feet), by at most 0.8 yards, and the move is fed to his stride so he steps there.
+  `PG.r3d.besideSweep()`, 156 stagings (a tackler from four sides, another man from thirteen angles at three
+  distances), 0.9 s after the hit: at worst 14 cm inside the runner and 26 inside the tackler where the limit binds,
+  0 to 7 cm in the stagings looked at one by one; before, up to 43 cm inside the tackler's trunk alone, his helmet
+  not counted. A man standing still now stands on the turf (he was a centimetre in it).
+  Tried and taken out: a second defender bending in to put his hands on the runner. Every angle put him in the first
+  tackler; "Next ideas" says what a pile needs instead.
+  A mistake caught late: cutting that code out also cut the pre-snap stance helper, and every staged hook still
+  passed, because none of them reaches a stance. A whole game played with drawing on threw at once. Restored it,
+  checked that every name the three edited files declared before is still declared, and added the drawn game to
+  "How to test". Then: two drawn games, 9,319 frames, no errors and no number that is not finite; the gait and
+  tackle hooks unchanged (slide 1.0 cm at eight yards a second, tackle hands 9 cm, nothing under the turf).
+  Drawing only: `H.fingerprint()` unchanged; `H.sim` in range; exhibition, both careers and the drills clean; audit
+  empty at 320x568 and 390x844. The console showed "The AudioContext encountered an error from the audio device"
+  three times during long test loops in the hidden pane, which freezes the page between tool calls; no game code
+  was in the trace, and it did not happen in the timed runs. Worth a look if a player ever reports sound stopping.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -733,6 +775,13 @@ what is next. Update it after every item.
       or inside the other man. The quarterback's wind-up from run 2 now really shows (it was not reaching the game).
       Still to be judged in motion by a person
 
+- [x] Run 5, eyes, hands and standing room. Helmets turn to what each man is watching (the ball in the air, the man
+      with it, the quarterback; a receiver looks back once he is into his route, the quarterback goes through his
+      receivers, the bench follows the play). A block is drawn with room for arms: hands on the other man's chest
+      and shoulder pads, elbows bent, helmets side by side. A man left standing beside a tackle steps clear of the
+      two on the ground. Not built: a second man joining the tackle (measured, there is no room for him; see the
+      log and "Next ideas"). Still to be judged in motion by a person
+
 ### Round 10 (the owner at 17:48 on 2026-11-12: "the voice over is too ai, it needs to be like the nfl commentators";
 ### then, offered four ways to do it, at about 17:58: "of course option 1", the free speech model on his Mac)
 - [x] A recorded broadcast booth in place of the phone's speech voice: a play-by-play man and an analyst, 273 clips
@@ -759,13 +808,20 @@ Major improvements, biggest first:
 - The referee and the stadium announcer are still the synthesized voice from the speakers. With the booth recorded,
   they are now the most artificial voices in the game: record them the same way (a third voice, played down the
   stadium-speaker route), sentence by sentence so "Holding, offense." + "Ten yard penalty." + "Replay the down."
-  join at the full stops.
-- More stadium sound: the stadium announcer on scores and at the end of each quarter, the defense calling out the play
-  at the line, a goal-post "doink" (the kick model would have to allow one).
-- Motion, the rest: a second and third man joining a tackle (a pile); blockers whose hands are on the man they block
-  (the arm solve is there now); heads that follow the ball (the head can turn, only the tackler uses it); more
-  touchdown celebrations than the three there are; reserves on the bench who walk about.
-- A real loose-ball scramble instead of an instant recovery; a pile.
+  join at the full stops. WAITING: the owner was asked at 18:34 on 2026-11-12 whether to do this now or after he has
+  judged the booth by ear, and has not answered. An automatic run does not take it until he has (it was put to him
+  as his call); it needs no download.
+- More stadium sound: a goal-post "doink" (a miss that hits the upright: the kick's result is already decided, so it
+  would be a change to the ball's flight and a sound, not to play); the defense calling out the play at the line.
+  The stadium announcer on scores and at the end of each quarter belongs with the item above: it is the same voice.
+- A pile. Run 5 tried a second man reaching in on a tackle and measured it: the first tackler finishes bent over the
+  runner with his hips most of a yard up and his helmet over the runner's chest, so from every side a second man's
+  back or legs end up in him (10 to 45 cm in every one of 52 stagings). It needs the first tackler to finish flat
+  across the runner's legs, and then men who land on or beside the two of them; `PG.r3d.beside()` and
+  `PG.r3d.besideSweep()` already measure a third man against both bodies.
+- Motion, the rest: more touchdown celebrations than the three there are; reserves on the bench who walk about; a
+  ball carrier who looks at the man about to hit him.
+- A real loose-ball scramble instead of an instant recovery.
 - A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
 - Career: an awards night at the end of the season, age and decline over a long career, a hall of fame screen that
   keeps retired players, a rival who talks back.

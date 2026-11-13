@@ -426,6 +426,8 @@
     f.turned = false;  // a defender in coverage who has turned to run instead of shuffling
     f.ox = f.oy = 0;
     f.wind = 0;  // how far a quarterback has wound up for the throw (0 to 1)
+    f.look = f.tip = f.twist = 0;  // how far the helmet is turned toward what he is watching and tipped up at it, and how far the shoulders have come round to help
+    f.sx = f.sy = f.svx = f.svy = 0;  // how far he is drawn from the engine's spot to make room (back from the man he is blocking, or clear of a pile), and how fast that is changing
     return f;
   }
 
@@ -732,6 +734,98 @@
 
   const HIPS = new T.Vector3(), REACH = [new T.Vector3(), new T.Vector3()];
 
+  /* ---------- eyes ----------
+     Nobody plays football looking straight ahead. Everyone has something to watch: the ball while it is in the air or
+     loose; the man carrying it (for the defense); the quarterback, for a receiver whose route has had time to develop;
+     before the snap, the quarterback for the defense and the ball for the men split wide. A quarterback in the pocket
+     goes through his receivers. watching() fills EYE with the spot (across the field, up the field, and its height
+     in yards, or -1 when it is a man and not a ball in the sky) and says whether there is one. */
+  const EYE = [0, 0, 0];
+
+  function watching(f, p, s, inPocket) {
+    const ps = s.ps, a = ps.air, c = ps.carrier;
+    if (a) {
+      EYE[0] = a.x;
+      EYE[1] = a.y;
+      EYE[2] = a.kick ? a.z : passZ(a);
+      return true;
+    }
+    EYE[2] = -1;
+    if (ps.loose) {
+      EYE[0] = ps.loose.x;
+      EYE[1] = ps.loose.y;
+      return true;
+    }
+    if (s.pre) {
+      const off = p.team === ps.offTeam;
+      if (p === ps.qb || (off && !ps.qb)) return false;
+      EYE[0] = off ? ps.bx : ps.qb ? ps.qb.x : ps.bx;
+      EYE[1] = off ? ps.los : ps.qb ? ps.qb.y : ps.los;
+      return EYE[0] !== undefined && EYE[1] !== undefined;
+    }
+    if (inPocket && ps.recs && ps.recs.length) {
+      const r = ps.recs[Math.floor(time / 0.75 + f.seed) % ps.recs.length];  // first read, second read, third
+      EYE[0] = r.x;
+      EYE[1] = r.y;
+      return true;
+    }
+    if (!c || c === p) return false;
+    /* the offense looks where it is going, but a receiver looks back for the ball once he is into his route */
+    if (p.team === ps.offTeam && !(c === ps.qb && ps.mode === 'pass' && !ps.thrown && ps.recs && ps.recs.includes(p) && ps.t > 0.9 + (f.seed % 1) * 0.7)) return false;
+    EYE[0] = c.x;
+    EYE[1] = c.y;
+    return true;
+  }
+
+  /* ---------- hands on the other man ----------
+     The pose in tg is tried on the figure standing at (x, z), and each arm is solved to a spot on the other man's
+     trunk, on the side of it that faces him: side by side on the chest plate, or (high) a little wider and higher,
+     toward the shoulder pads. `drive` moves the hands in and out a little, so a block is a shove and not two statues. */
+  const CHEST = new T.Vector3(), MINE = new T.Vector3();
+
+  function handsOn(f, tg, x, z, of, high, drive) {
+    const osc = of.root.scale.y, deep = of.bodyS.z;  // a lineman's chest is a third deeper than a receiver's
+    KEEP.set(f.cur);
+    f.cur.set(tg);
+    applyPose(f);
+    f.root.position.set(x, 0, z);
+    f.root.rotation.y = f.heading;
+    f.root.updateMatrixWorld(true);
+    of.chest.localToWorld(CHEST.set(0, high ? 0.46 : 0.38, 0));
+    f.chest.localToWorld(MINE.set(0, 0.5, 0));
+    let ux = MINE.x - CHEST.x, uz = MINE.z - CHEST.z;
+    const ul = Math.hypot(ux, uz) || 1;
+    ux /= ul;
+    uz /= ul;
+    /* his own right is (cos h, -sin h) on the ground: the spot further that way is the right hand's */
+    const out = (0.18 * deep + 0.024 + drive) * osc, wide = (high ? 0.15 : 0.09) * osc, side = -uz * Math.cos(f.heading) - ux * Math.sin(f.heading) > 0 ? 1 : -1;
+    inv4.copy(f.chest.matrixWorld).invert();
+    for (let k = 0; k < 2; k++) {
+      const w = (k ? 1 : -1) * side * wide, sh = k ? f.shR : f.shL;
+      HAND.set(CHEST.x + ux * out - uz * w, CHEST.y, CHEST.z + uz * out + ux * w).applyMatrix4(inv4);
+      armIK(HAND.x - sh.position.x, HAND.y - sh.position.y, HAND.z - sh.position.z);
+      tg[k ? SRX : SLX] = ARM[0];
+      tg[k ? SRZ : SLZ] = ARM[1];
+      tg[k ? ER : EL] = ARM[2];
+    }
+    f.cur.set(KEEP);
+  }
+
+  /* ---------- room round a tackle ----------
+     The engine lets players coast to a stop wherever they are when the whistle goes, and at the size they are drawn
+     that often left a man standing inside the tackler's back or the runner's legs. clearOf() says how far, and which
+     way, a man standing at (x, z) has to be moved to be `room` yards from the line a-b on the ground, and adds it to
+     PUSH; the pose code moves him that far, over a few frames. */
+  const PUSH = [0, 0];
+
+  function clearOf(x, z, a, b, room) {
+    const abx = b.x - a.x, abz = b.z - a.z, t = clamp(((x - a.x) * abx + (z - a.z) * abz) / (abx * abx + abz * abz || 1), 0, 1);
+    const dx = x - (a.x + abx * t), dz = z - (a.z + abz * t), d = Math.hypot(dx, dz);
+    if (d >= room) return;
+    PUSH[0] += (d > 1e-3 ? dx / d : 1) * (room - d);
+    PUSH[1] += (d > 1e-3 ? dz / d : 0) * (room - d);
+  }
+
   /* ---------- animation: fill TG with the pose this player wants ---------- */
   function stanceOf(p, s) {
     if (s.ps.mode === 'ko') return 'wide';
@@ -899,9 +993,14 @@
   }
 
   /* a reserve on the sideline: stands and breathes, some with hands on hips or arms folded, and jumps when his team scores */
-  function poseBench(f, up, dt) {
+  function poseBench(f, up, dt, bx, by) {
     const tg = TG;
     tg.fill(0);
+    if (bx !== null && bx !== undefined && !up) {
+      /* the reserves watch the play: helmets turn to the ball as it goes up and down the field */
+      const rel = Math.atan2(-(bx - f.root.position.x), by + f.root.position.z) - f.root.rotation.y;
+      tg[HEADRY] = clamp(Math.atan2(Math.sin(rel), Math.cos(rel)), -1.1, 1.1);
+    }
     tg[PELY] = HIP;
     tg[CHRX] = -0.04 + Math.sin(time * 1.7 + f.seed) * 0.014;
     tg[EL] = 0.3;
@@ -944,12 +1043,32 @@
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
     /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
        ground actually covered. That keeps the feet moving at the pace of the turf instead of skating over it. */
-    const gait = stridePhase(f, p.vx, p.vy, dt), sn = Math.sin(f.ph);
+    const gait = stridePhase(f, p.vx + f.svx, p.vy + f.svy, dt), sn = Math.sin(f.ph);  // being moved clear of a pile is ground covered too: he steps there, he does not slide
     let striding = false;
     const carrier = ps.carrier === p && !ps.air, inPocket = carrier && p === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open;
     const winding = s.charge >= 0 && carrier && p === ps.qb && !ps.thrown;  // the user is holding a receiver's letter: the power bar is filling
-    let hx = null, hy = 0, snap = false;
+    let hx = null, hy = 0, snap = false, eyes = true, wantX = 0, wantY = 0;  // eyes: his helmet is free to turn to what he is watching; wantX, wantY: how far from the engine's spot a block, or a pile, wants him drawn
     const flat = p.flat > 0 && !p.down && !p.fell;  // run over: on his back for a moment
+    const cd = ps.carrier;
+    if (cd && cd.down && cd !== p && !p.down && !p.fell && !flat && s.figOf && (s.G.state === 'dead' || s.G.state === 'replay')) {
+      /* a tackle has been made and he is still on his feet beside it: stand him clear of the men on the ground (their
+         backs, pelvis to helmet, and their legs), so nobody is left standing in the pile */
+      PUSH[0] = PUSH[1] = 0;
+      for (let pass = 0; pass < 2; pass++) for (const q of [cd, ps.tackler]) {
+        /* each line is cleared from where the last one left him, so the moves do not pile up; twice round settles it */
+        const of = q && q !== p ? s.figOf(q) : null;
+        if (!of || of === f || !(of.fall > 0.3)) continue;
+        const room = 0.2 * (of.root.scale.y + f.root.scale.y);
+        TRUNK[0].setFromMatrixPosition(of.pelvis.matrixWorld);
+        of.head.localToWorld(TRUNK[1].set(0, 0.1, 0));
+        clearOf(p.x + PUSH[0], -p.y + PUSH[1], TRUNK[0], TRUNK[1], room);
+        TRUNK[1].setFromMatrixPosition(of.ankL.matrixWorld).add(HAND.setFromMatrixPosition(of.ankR.matrixWorld)).multiplyScalar(0.5);
+        clearOf(p.x + PUSH[0], -p.y + PUSH[1], TRUNK[0], TRUNK[1], room * 0.8);
+      }
+      const far = Math.hypot(PUSH[0], PUSH[1]), most = 0.8;  // a step, not a slide: a man in the very middle of it stays nearer than he should
+      wantX = PUSH[0] * (far > most ? most / far : 1);
+      wantY = -PUSH[1] * (far > most ? most / far : 1);
+    }
     if (!(p.down || p.fell || flat)) f.fall = 0;
     f.ox = f.oy = 0;  // how far from the engine's spot he is drawn (a tackler closes up on his man)
     tg[PELY] = HIP;
@@ -959,6 +1078,7 @@
 
     if (p.down || p.fell || flat) {
       // on the turf
+      eyes = false;
       if (f.fall === 0) {
         // decide once which way he goes down
         const tk = ps.tackler;
@@ -1073,6 +1193,7 @@
       snap = true;
     } else if (p.dive > 0 && p.hit > 0) {
       // hit stick: stays on his feet and drives a shoulder through
+      eyes = false;
       tg[PELY] = HIP - 0.22;
       tg[PELRX] = -0.75;
       tg[CHRX] = -0.3;
@@ -1092,6 +1213,7 @@
       hy = p.vy;
       snap = true;
     } else if (p.dive > 0) {
+      eyes = false;
       tg[PELY] = 0.5;
       tg[PELRX] = -1.35;
       tg[SLX] = 2.9;
@@ -1106,6 +1228,7 @@
       hy = p.vy;
     } else if (p.stun > 0) {
       // lost his footing
+      eyes = false;
       const w = Math.sin(time * 13 + f.seed);
       tg[PELY] = HIP - 0.16;
       tg[CHRX] = -0.8;
@@ -1120,6 +1243,7 @@
       tg[HEADRX] = 0.4;
       plant(tg);
     } else if (s.celeb && s.G.state === 'dead') {
+      eyes = false;
       if (p.team === s.celeb.team) snap = celebrate(f, p === s.celeb.who, tg);
       else {
         // heads down
@@ -1134,11 +1258,21 @@
       }
     } else if (p.eng || p.block) {
       // locked up in a block
-      const o = p.eng || p.block, w = Math.sin(time * 15 + f.seed);
+      const o = p.eng || p.block, w = Math.sin(time * 15 + f.seed), of = s.figOf ? s.figOf(o) : null;
+      eyes = false;  // on the man in front of him
       hx = o.x - p.x;
       hy = o.y - p.y;
+      if (of && of !== f) {
+        /* The engine holds the two of them about 0.8 yards apart, and at the size they are drawn that is chest inside
+           chest, with no room for an arm. So each is drawn back from the other until there is room for their arms
+           between them, and the helmets go past each other instead of through. */
+        const dl = Math.hypot(hx, hy) || 1, need = 0.18 * (f.bodyS.z * f.root.scale.y + of.bodyS.z * of.root.scale.y) + 0.58, back = Math.max(0, need - dl) / 2;
+        wantX = -hx / dl * back;
+        wantY = -hy / dl * back;
+        tg[PELRZ] = 0.13;
+      }
       tg[PELY] = HIP - 0.12;
-      tg[CHRX] = -0.4;
+      tg[CHRX] = of ? -0.3 : -0.4;
       tg[HEADRX] = 0.3;
       tg[SLX] = 1.45;
       tg[SRX] = 1.45;
@@ -1149,18 +1283,21 @@
       tg[KL] = -0.75;
       tg[KR] = -0.75;
       plant(tg);
+      /* hands on him: the blocker's inside, on the chest plate; the defender's wider and higher, on the shoulder pads */
+      if (of && of !== f) handsOn(f, tg, p.x + f.sx, -(p.y + f.sy), of, !p.block, w * 0.012);
     } else if (p.fc) {
       // fair catch: one arm straight up, waving, eyes on the ball
       tg[SRX] = 3.05;
       tg[SRZ] = 0.25 + Math.sin(time * 9) * 0.22;
       tg[ER] = 0.1;
-      tg[HEADRX] = 0.4;
+      tg[HEADRX] = 0.1;
       tg[CHRX] = 0.04;
     } else if (p.thrT > 0) {
       /* The throw: cock, then whip through. A quarterback who wound up while the power bar filled is cocked already
          and goes straight to the whip. The finish fits the power: a bullet snaps down across the body with the
          weight over the front foot, a lob is pushed up and out and finishes high. */
       const u = 1 - p.thrT / 0.32, pw = p.thrP === undefined ? 0.5 : p.thrP, cock = 0.45 * (1 - (f.wind || 0));
+      eyes = false;  // on the man he is throwing to, and he faces him
       if (u < cock) {
         const a = u / cock;
         tg[SRX] = lerp(1.3, 3.5, a);
@@ -1185,6 +1322,7 @@
     } else if (ps.mode === 'kick' && p === ps.qb && ps.air && ps.air.t < 0.45) {
       // the kicker swings through the ball
       const u = ps.air.t / 0.45;
+      eyes = false;  // head down through the kick
       tg[HR] = lerp(-0.7, 1.7, Math.min(1, u * 2.2));
       tg[KR] = u < 0.2 ? -0.9 : -0.05;
       tg[HL] = -0.15;
@@ -1200,6 +1338,7 @@
       // set before the snap
       const st = stanceOf(p, s);
       if (st === 'line') {
+        eyes = false;  // a lineman in his stance looks at the man across from him
         tg[PELY] = 0.56;
         tg[CHRX] = -1.2;
         tg[HEADRX] = 0.85;
@@ -1361,6 +1500,7 @@
         /* winding up as the power bar fills: the ball goes back behind the ear, the front arm comes off it and
            points, the shoulders open, and he turns to the man he is throwing to */
         const e = smooth(s.charge), r = s.G.chg && ps.recs ? ps.recs[s.G.chg.i] : null;
+        eyes = false;  // on the man he has picked
         tg[SRX] = lerp(0.9, 3.3, e);
         tg[ER] = lerp(1.75, 1.45, e);
         tg[SRZ] = lerp(-0.25, 0.15, e);
@@ -1401,6 +1541,7 @@
       if (p.juke > 0 && !(p.spinT > 0)) tg[PELRZ] = clamp(-p.vx * Math.cos(f.heading) * 0.06, -0.4, 0.4);
       if (p.truck > 0) {
         // shoulder down, both arms over the ball
+        eyes = false;
         tg[CHRX] = -0.85;
         tg[HEADRX] = 0.55;
         tg[SLX] = 0.9;
@@ -1434,7 +1575,7 @@
         /* last, so the legs reach the turf from wherever the hips have ended up (lower when he drops a shoulder) */
         strideLegs(tg, gait, tg[PELY]);
         striding = true;
-      }
+      } else plant(tg);  // standing still: on the turf, not a centimetre in it
     }
     /* A forward lean comes partly from the hips: the seat goes back and the jersey stays tucked in,
        instead of the chest folding over a level pelvis. The thighs counter-rotate so the feet stay put. */
@@ -1454,6 +1595,34 @@
       f.lean += ((f.snap ? 0 : clamp(d * 0.9 * run, -0.32, 0.32)) - f.lean) * (1 - Math.exp(-dt * 9));
     } else f.lean *= Math.exp(-dt * 9);
     if (p.spinT > 0) f.heading += dt * Math.PI * 2 / 0.5;
+    /* eyes: the helmet turns to what he is watching, as far as a neck goes (over the shoulder), and tips up at a ball
+       high in the air. What is straight behind him he does not try to see. */
+    let yaw = 0, tip = 0, twist = 0;
+    if (eyes && !(p.spinT > 0) && watching(f, p, s, inPocket)) {
+      const dx = EYE[0] - p.x - f.ox, dy = EYE[1] - p.y - f.oy, far = Math.hypot(dx, dy);
+      let rel = Math.atan2(-dx, dy) - f.heading - tg[CHRY];
+      rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+      if (far > 0.7 && Math.abs(rel) < 2.5) {
+        twist = clamp(Math.abs(rel) - 1.0, 0, 0.8) * 0.5 * Math.sign(rel);  // past about sixty degrees the shoulders come round too
+        yaw = clamp(rel - twist, -1.2, 1.2);
+        if (EYE[2] >= 0 && !(ps.air && ps.air.target === p)) tip = clamp(Math.atan2(EYE[2] - 1.9 * f.root.scale.y, far) * 0.8, 0, 0.55);  // the man it is thrown to has his own way of looking at it (the catch)
+      }
+    }
+    const turn = f.snap ? 1 : 1 - Math.exp(-dt * 8);
+    f.look += (yaw - f.look) * turn;
+    f.tip += (tip - f.tip) * turn;
+    f.twist += (twist - f.twist) * turn;
+    tg[HEADRY] += f.look;
+    tg[HEADRX] += f.tip;
+    tg[CHRY] += f.twist;
+    /* standing room (at a block, beside a pile) comes and goes over a few tenths of a second, so nobody jumps */
+    const ease = f.snap ? 1 : 1 - Math.exp(-dt * 6), mx = (wantX - f.sx) * ease, my = (wantY - f.sy) * ease;
+    f.sx += mx;
+    f.sy += my;
+    f.svx = f.snap || !(dt > 0) ? 0 : mx / dt;
+    f.svy = f.snap || !(dt > 0) ? 0 : my / dt;
+    f.ox += f.sx;
+    f.oy += f.sy;
     if (!(p.thrT > 0) && !winding) f.wind = 0;
     easePose(f, tg, f.snap || snap ? (f.snap ? 1 : 1 - Math.exp(-dt * 60)) : 1 - Math.exp(-dt * 28), striding, dt);
     f.snap = false;
@@ -2147,7 +2316,7 @@
     /* players */
     const fresh = ps !== lastPs;
     lastPs = ps;
-    const st = { G, ps, pre: G.state === 'pre' || G.state === 'kickm', live: G.state === 'live' || G.state === 'replay', dir: G.dir || 1, celeb: G.celeb || null, charge: s.charge, figOf: q => figs[SIDELINE + P.indexOf(q)] };
+    const st = { G, ps, pre: G.state === 'pre' || G.state === 'kickm', live: G.state === 'live' || G.state === 'replay', dir: G.dir || 1, celeb: G.celeb || null, charge: s.charge, P, figOf: q => (P.indexOf(q) < 0 ? null : figs[SIDELINE + P.indexOf(q)]) };  // a man who is not on the field has no figure (the slot before the first player's is a reserve on the bench)
     let ctl = null;
     for (let i = 0; i < MAXP; i++) {
       const f = figs[SIDELINE + i], p = P[i];
@@ -2173,10 +2342,10 @@
       if (s.isCtl(p)) ctl = p;
     }
     /* the benches, then the officials */
-    const scored = G.celeb && G.state === 'dead' ? G.celeb.team : -1;
+    const scored = G.celeb && G.state === 'dead' ? G.celeb.team : -1, seen = ps ? ps.air || ps.loose || ps.carrier || (ps.bx === undefined ? null : { x: ps.bx, y: ps.los }) : null;
     for (let i = 0; i < SIDELINE; i++) {
       const f = figs[i];
-      poseBench(f, (i < SIDELINE / 2 ? 0 : 1) === scored, dt);
+      poseBench(f, (i < SIDELINE / 2 ? 0 : 1) === scored, dt, seen ? seen.x : null, seen ? seen.y : 0);
       writeFigure(f, i);
       contact.setMatrixAt(i, m4.makeTranslation(f.root.position.x, 0.04, f.root.position.z));
     }
@@ -2653,8 +2822,10 @@
         ps.after += dt;
       }
       poseFor(fa, c, s, dt);
+      fa.root.updateMatrixWorld(true);  // as the game does when it writes a figure out: the next man is posed against where this one really is
       poseFor(fb, o, s, dt);
-      if (each) each(t);
+      fb.root.updateMatrixWorld(true);
+      if (each) each(t, c, o, s);
     }
     fa.root.updateMatrixWorld(true);
     fb.root.updateMatrixWorld(true);
@@ -2751,8 +2922,202 @@
     return cv.toDataURL('image/png');
   }
 
+  /* ---------- test hooks for eyes, blocks and the men beside a tackle ----------
+     eyesTest(): a defender running up the field with the ball carrier at each of a set of angles round him; how far
+     the helmet ends up from pointing at the carrier. blockTest(): a guard and a tackle locked up at a given distance;
+     how far each hand is from the other man's trunk (0 is on him, less is in him). besideTest(): a staged tackle
+     with another defender a yard or two off at an angle; whether he ends up standing in the two men on the ground. */
+  const helmetYaw = f => {
+    f.root.updateMatrixWorld(true);
+    const a = f.head.localToWorld(new T.Vector3(0, 0, 0)), b = f.head.localToWorld(new T.Vector3(0, 0, -1));
+    return Math.atan2(-(b.x - a.x), -(b.z - a.z));  // as a heading: 0 up the field
+  };
+
+  function eyesTest(opts) {
+    const o = opts || {}, f = testFig || (testFig = makeFigure()), out = {};
+    setBuild(f, BUILD.db);
+    for (const deg of o.angles || [0, 30, 60, 90, 120, 150, 180, -45, -100]) {
+      const an = deg * Math.PI / 180, c = { x: 26 - Math.sin(an) * 12, y: 30 + Math.cos(an) * 12, vx: 0, vy: 0, team: 0 };
+      const p = { x: 26, y: 30, vx: 0, vy: o.speed === undefined ? 5 : o.speed, role: 'MLB', team: 1, asg: 'rush' };
+      const ps = { carrier: c, air: null, mode: 'run', offTeam: 0, runner: c, los: 20, qb: null, t: 3, recs: [] };
+      if (o.ball) {
+        ps.carrier = null;
+        ps.air = { x: c.x, y: c.y, z: o.ball, kick: true, t: 1, T: 3 };
+      }
+      const s = { ps, G: { state: 'live' }, pre: false, live: true, dir: 1, celeb: null, charge: -1 };
+      f.snap = true;
+      f.heading = 0;
+      f.look = f.tip = 0;
+      for (let i = 0; i < 120; i++) poseFor(f, p, s, 1 / 120);
+      let off = helmetYaw(f) - an;
+      off = Math.atan2(Math.sin(off), Math.cos(off));
+      out[deg] = { helmetOffDeg: Math.round(off * 1800 / Math.PI) / 10, neckDeg: Math.round(f.cur[HEADRY] * 1800 / Math.PI) / 10, tipDeg: Math.round(f.tip * 1800 / Math.PI) / 10 };
+    }
+    return out;
+  }
+
+  let testFig3 = null;
+  const handGaps = (f, of) => {
+    /* each hand's distance from the other man's trunk, in centimetres: the palm's centre from the surface */
+    f.root.updateMatrixWorld(true);
+    of.root.updateMatrixWorld(true);
+    const a = of.pelvis.localToWorld(new T.Vector3(0, 0, 0)), b = of.chest.localToWorld(new T.Vector3(0, 0.62, 0)), osc = of.root.scale.y;
+    return [f.elL, f.elR].map(el => {
+      const h = el.localToWorld(new T.Vector3(0, -0.3, 0));
+      return Math.round((segDist(h, h, a, b) - 0.18 * of.bodyS.z * osc) * 91.44 * 10) / 10;
+    });
+  };
+
+  function blockRun(dist, fa, fb, secs, turn) {
+    const b = { x: 26, y: 30, vx: 0, vy: 0, role: 'LG', team: 0 }, d = { x: 26 + Math.sin(turn || 0) * dist, y: 30 + Math.cos(turn || 0) * dist, vx: 0, vy: 0, role: 'DT1', team: 1, asg: 'rush' };
+    b.block = d;
+    d.eng = b;
+    const ps = { carrier: null, air: null, mode: 'pass', offTeam: 0, runner: null, los: 30, qb: null, t: 2, recs: [] };
+    const s = { ps, G: { state: 'live' }, pre: false, live: true, dir: 1, celeb: null, charge: -1, figOf: q => (q === b ? fa : fb) };
+    setBuild(fa, buildOf(b.role));
+    setBuild(fb, buildOf(d.role));
+    for (const f of [fa, fb]) {
+      f.snap = true;
+      f.fall = f.sx = f.sy = 0;
+    }
+    fa.heading = turn || 0;
+    fb.heading = (turn || 0) + Math.PI;
+    for (let t = 0; t < secs; t += 1 / 120) {
+      poseFor(fa, b, s, 1 / 120);
+      fa.root.updateMatrixWorld(true);
+      poseFor(fb, d, s, 1 / 120);
+      fb.root.updateMatrixWorld(true);
+    }
+  }
+
+  function blockTest(dist, opts) {
+    const o = opts || {}, fa = testFig || (testFig = makeFigure()), fb = testFig2 || (testFig2 = makeFigure());
+    blockRun(dist === undefined ? 1 : dist, fa, fb, o.secs || 0.6, o.turn);
+    const at = (j, y) => j.localToWorld(new T.Vector3(0, y, 0)), cm = v => Math.round(v * 91.44 * 10) / 10;
+    return { blockerHandsCm: handGaps(fa, fb), defenderHandsCm: handGaps(fb, fa), elbowsDeg: [fa.cur[EL], fa.cur[ER], fb.cur[EL], fb.cur[ER]].map(v => Math.round(v * 180 / Math.PI)),
+      drawnApartCm: cm(Math.hypot(fa.root.position.x - fb.root.position.x, fa.root.position.z - fb.root.position.z)),
+      chestsApartCm: cm(segDist(at(fa.pelvis, 0), at(fa.chest, 0.5), at(fb.pelvis, 0), at(fb.chest, 0.5)) - 0.18 * (fa.bodyS.z * fa.root.scale.y + fb.bodyS.z * fb.root.scale.y)),
+      helmetsApartCm: cm(at(fa.head, 0.1).distanceTo(at(fb.head, 0.1)) - 0.17 * (fa.root.scale.y + fb.root.scale.y)) };
+  }
+
+  /* the staged tackle of tackleRun() with a third man: a defender `off` yards from the runner at `angle2` when he goes
+     down, who coasts to a stop the way the engine has everyone do after the whistle */
+  function thirdRun(angle, angle2, fa, fb, fc, until, off) {
+    const sx = Math.sin(angle2), sy = Math.cos(angle2);
+    let o2 = null, world = null;
+    tackleRun(angle, fa, fb, until, (t, c, o, s) => {
+      if (!o2) {
+        o2 = { x: 0, y: 0, vx: -sx * 4, vy: -sy * 4, role: 'OLB1', team: 1, asg: 'rush' };
+        fc.snap = true;
+        fc.fall = fc.sx = fc.sy = 0;
+        fc.heading = Math.atan2(-o2.vx, o2.vy);
+        setBuild(fc, BUILD.big);
+        world = { ps: s.ps, G: s.G, pre: false, live: true, dir: 1, celeb: null, charge: -1, P: [c, o, o2], figOf: q => (q === c ? fa : q === o ? fb : fc) };
+      }
+      if (t < 0) {
+        o2.x = 26 + sx * (off || 1.7) + o2.vx * t;
+        o2.y = 30 + sy * (off || 1.7) + o2.vy * t;
+      } else {
+        const k = Math.pow(0.03, 1 / 120);
+        o2.x += o2.vx / 120;
+        o2.y += o2.vy / 120;
+        o2.vx *= k;
+        o2.vy *= k;
+      }
+      world.live = s.live;
+      poseFor(fc, o2, world, 1 / 120);
+      fc.root.updateMatrixWorld(true);
+    });
+    return o2;
+  }
+
+  /* where a man who was beside the tackle ends up: how far any part of his trunk or legs is inside the runner or the
+     tackler (trunks, legs, necks and helmets), and how far from the engine's spot he had to be drawn */
+  function besideTest(angle, angle2, opts) {
+    const o = opts || {}, fa = testFig || (testFig = makeFigure()), fb = testFig2 || (testFig2 = makeFigure()), fc = testFig3 || (testFig3 = makeFigure()), r1 = x => Math.round(x * 91.44 * 10) / 10;
+    setBuild(fa, BUILD.back);
+    setBuild(fb, BUILD.big);
+    thirdRun(angle || 0, angle2 === undefined ? 1.8 : angle2, fa, fb, fc, o.at === undefined ? 0.9 : o.at, o.off);
+    const at = (j, x, y, z) => j.localToWorld(new T.Vector3(x, y, z)), sc = fc.root.scale.y;
+    for (const f of [fa, fb, fc]) f.root.updateMatrixWorld(true);
+    const lines = f => [[at(f.pelvis, 0, 0, 0), at(f.chest, 0, 0.5, 0), 0.18], [at(f.hipL, 0, 0, 0), at(f.kneeL, 0, 0, 0), 0.1], [at(f.hipR, 0, 0, 0), at(f.kneeR, 0, 0, 0), 0.1], [at(f.kneeL, 0, 0, 0), at(f.ankL, 0, 0, 0), 0.07],
+      [at(f.kneeR, 0, 0, 0), at(f.ankR, 0, 0, 0), 0.07], [at(f.chest, 0, 0.6, 0), at(f.head, 0, 0.12, 0), 0.15]];  // trunk, thighs, shins, and the neck and helmet
+    const mine = lines(fc), inside = set => Math.max(0, ...mine.map(([a, b, r]) => Math.max(...set.map(([c, d, r2]) => (r + r2) * sc - segDist(a, b, c, d)))));
+    return { insideRunnerCm: r1(inside(lines(fa))), insideTacklerCm: r1(inside(lines(fb))), movedCm: r1(Math.hypot(fc.sx, fc.sy)) };
+  }
+
+  /* every pairing of a tackler from four sides and a bystander from twelve, at three distances: the worst of each number */
+  function besideSweep(opts) {
+    const worst = { insideRunnerCm: 0, insideTacklerCm: 0, movedCm: 0 };
+    let n = 0, moved = 0;
+    for (const off of [1.1, 1.7, 2.3]) for (const a of [0, 1.57, 3.14, -1.57]) for (let b = -3; b <= 3.1; b += 0.5) {
+      const r = besideTest(a, b, Object.assign({ off }, opts));
+      n++;
+      if (r.movedCm > 0.5) moved++;
+      for (const k in worst) worst[k] = Math.max(worst[k], r[k]);
+    }
+    return Object.assign({ stagings: n, moved }, worst);
+  }
+
+  /* a block drawn from the side, from above and from behind the blocker, at the engine's distance */
+  function blockStrip(opts) {
+    if (!renderer) return null;
+    const o = opts || {}, ar = arenaOf(), cell = o.cell || 300, cv = document.createElement('canvas'), teams = PG.TEAMS || [{ c1: '#c0392b', c2: '#f1f1f1' }], views = ['side', 'top', 'back', 'threeq'];
+    cv.width = cell * views.length;
+    cv.height = Math.round(cell * ar.ph / ar.pw);
+    const x = cv.getContext('2d');
+    x.fillStyle = '#0d1524';
+    x.fillRect(0, 0, cv.width, cv.height);
+    dress(ar.a, teams[0], true, 66);
+    dress(ar.b, teams[1] || teams[0], false, 94);
+    blockRun(o.dist === undefined ? 0.8 : o.dist, ar.a.f, ar.b.f, o.secs || 0.6, 0);
+    const mx = (ar.a.f.root.position.x + ar.b.f.root.position.x) / 2, mz = (ar.a.f.root.position.z + ar.b.f.root.position.z) / 2;
+    ar.floor.position.set(mx, 0, mz);
+    views.forEach((v, i) => {
+      if (v === 'top') ar.cam.position.set(mx + 0.01, 12, mz + 2);
+      else if (v === 'back') ar.cam.position.set(mx + 1.5, 3.2, mz + 10);
+      else if (v === 'threeq') ar.cam.position.set(mx + 7, 3.5, mz + 7);
+      else ar.cam.position.set(mx + 11, 2.2, mz + 0.01);
+      ar.cam.lookAt(mx, 1.5, mz);
+      shoot(ar, x, i * cell, 0, cell);
+    });
+    return cv.toDataURL('image/png');
+  }
+
+  /* a defender running up the field toward the camera with the ball carrier at each angle in turn: where the helmet points */
+  function eyesStrip(opts) {
+    if (!renderer) return null;
+    const o = opts || {}, ar = arenaOf(), angles = o.angles || [0, 45, 90, 130, 180, -60], cell = o.cell || 240, cv = document.createElement('canvas'), teams = PG.TEAMS || [{ c1: '#c0392b', c2: '#f1f1f1' }];
+    cv.width = cell * angles.length;
+    cv.height = Math.round(cell * ar.ph / ar.pw);
+    const x = cv.getContext('2d'), f = ar.a.f;
+    x.fillStyle = '#0d1524';
+    x.fillRect(0, 0, cv.width, cv.height);
+    dress(ar.a, teams[1] || teams[0], false, 52);
+    ar.b.f.root.position.set(0, -50, 0);  // the other figure out of the picture
+    ar.b.f.root.updateMatrixWorld(true);
+    setBuild(f, BUILD.big);
+    angles.forEach((deg, i) => {
+      const an = deg * Math.PI / 180, c = { x: 26 - Math.sin(an) * 12, y: 30 + Math.cos(an) * 12, vx: 0, vy: 0, team: 0 }, p = { x: 26, y: 30, vx: 0, vy: o.speed === undefined ? 5 : o.speed, role: 'MLB', team: 1, asg: 'rush' };
+      const ps = { carrier: c, air: o.ball ? { x: c.x, y: c.y, z: o.ball, kick: true, t: 1, T: 3 } : null, mode: 'run', offTeam: 0, runner: c, los: 20, qb: null, t: 3, recs: [] };
+      if (o.ball) ps.carrier = null;
+      f.snap = true;
+      f.heading = 0;
+      f.look = f.tip = f.twist = 0;
+      for (let k = 0; k < 150; k++) poseFor(f, p, { ps, G: { state: 'live' }, pre: false, live: true, dir: 1, celeb: null, charge: -1 }, 1 / 120);
+      f.root.updateMatrixWorld(true);
+      ar.floor.position.set(f.root.position.x, 0, f.root.position.z);
+      ar.cam.position.set(f.root.position.x + 0.01, o.high ? 9 : 2.6, f.root.position.z - (o.high ? 4 : 9));  // from up the field, looking back at him: his left is on the right of the picture
+      ar.cam.lookAt(f.root.position.x, 1.8, f.root.position.z);
+      shoot(ar, x, i * cell, 0, cell);
+    });
+    return cv.toDataURL('image/png');
+  }
+
   PG.r3d = {
     init, resize, render, project, portrait,
+    blockStrip, eyesStrip,  // test hooks: a block, and a man watching the ball, drawn as rows of pictures
+    eyes: eyesTest, block: blockTest, beside: besideTest, besideSweep,  // test hooks: where a helmet points, where a blocker's hands are, whether a man beside a tackle is standing in it
     tackle: tackleTest, tackleStrip,  // test hooks: measure a staged tackle, and draw it as a row of frames
     /* test hook: the pose player i is drawn in now (the joint angles in the order of the pose layout), and a few of his figure's states */
     poseOf(i) {

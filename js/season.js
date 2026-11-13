@@ -15,6 +15,7 @@
 
   let S = load(KEY, null);
   if (S && S.v !== 1) S = null;
+  if (S && PG.league) PG.league.fix(S);  // a season from the eight-team league: ratings for the new teams too
   const persist = () => save(KEY, S);
 
   function ensureRoster() {
@@ -68,10 +69,9 @@
     const st = { team: PG.SET.me || 0, diff: 1, ql: 180 };
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button><h1 class="sm">New <em>season</em></h1>
-        <p class="tag">Seven games, then the top four play for the title. You call and play every snap.</p>
+        <p class="tag">Ten games: your division twice, and four against another division of your conference. The division winners make an eight-team playoff. You call and play every snap.</p>
         ${PG.kitsHtml([[st.team, true, 'Home'], [st.team, false, 'Away']]).replace('<em>vs</em>', '')}
-        <h2>Your team</h2><div class="teams" id="st">${TEAMS.map((t, i) =>
-          `<button class="tm ${i === st.team ? 'on' : ''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`).join('')}</div>
+        <h2>Your team</h2><div class="teams" id="st">${PG.teamGrid(st.team)}</div>
         <h2>Difficulty</h2><div class="seg" id="sd">${DIFF.map((d, i) => `<button data-d="${i}" class="${i === st.diff ? 'on' : ''}">${d}</button>`).join('')}</div>
         <h2>Quarter length</h2><div class="seg" id="sq">${[60, 120, 180, 300].map(q => `<button data-q="${q}" class="${q === st.ql ? 'on' : ''}">${q / 60} min</button>`).join('')}</div>
         <button class="go" id="sgo">Start season</button></div>`;
@@ -103,7 +103,7 @@
   /* End-of-season honors. The league's best attack and defense come from the standings (the other teams are simulated,
      so they have scores but no players); the most valuable player is yours, from the season's stat lines. */
   function awards() {
-    const games = i => Math.max(1, S.tab[i].w + S.tab[i].l + (S.tab[i].t || 0)), ids = TEAMS.map((_, i) => i), per = (i, k) => S.tab[i][k] / games(i);
+    const games = i => Math.max(1, S.tab[i].w + S.tab[i].l + (S.tab[i].t || 0)), ids = S.tab.map((_, i) => i), per = (i, k) => S.tab[i][k] / games(i);
     const off = ids.slice().sort((a, b) => per(b, 'pf') - per(a, 'pf'))[0], def = ids.slice().sort((a, b) => per(a, 'pa') - per(b, 'pa'))[0];
     let mvp = null, top = 0;
     for (const role in S.ps || {}) {
@@ -201,7 +201,7 @@
     PG.snd('whistle');
     ensureRoster();
     PG.startGame({ a: S.team, b: opp, ql: S.ql, diff: S.diff, mode: 'season', ros0: S.roster, ovr: [S.ovrs[S.team], S.ovrs[opp]], mustWin: S.phase !== 'reg',
-      env: PG.envFor(S.year + 50, S.week + (S.phase === 'reg' ? 0 : S.phase === 'semi' ? 8 : 9), S.phase !== 'reg' || S.week >= 5),
+      env: PG.envFor(S.year + 50, LG.weekNo(S), S.phase !== 'reg' || S.week >= S.sched.length - 4),
       onEnd: r => gameEnd(r, opp), onQuit: () => hub('table') });
   }
 
@@ -259,7 +259,7 @@
     },
     summary() {
       if (!S) return null;
-      const ph = S.phase === 'reg' ? `week ${S.week + 1}` : S.phase === 'semi' ? 'semifinal' : S.phase === 'final' ? 'championship game' : 'offseason';
+      const ph = LG.stage(S);
       return `Continue: ${TEAMS[S.team].name} · ${LG.recTxt(S, S.team)} · season ${S.year}, ${ph}`;
     },
     get data() {

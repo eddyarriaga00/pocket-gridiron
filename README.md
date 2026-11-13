@@ -25,6 +25,17 @@ plays offline too)
   sound is generated in code (the commentary is recorded on a local, open speech model). All teams and players are
   fictional.
 
+## The league
+
+32 teams, one in every city of American pro football, in two conferences (Union and Frontier) of four divisions each,
+aligned the way the real league is by city. The nicknames and colors are this game's own: the Dallas Outlaws, the Green
+Bay Lumberjacks, the Kansas City Blaze, the San Francisco Fog and so on. Real league and team names are trademarks, so
+the game does not use them, or names made to sound like them. **Settings, Edit teams** lets you rename any team (city,
+nickname, short name, colors) on your own device; it stays in your browser. A season is ten weeks: your three division
+rivals twice and the four teams of another division of your conference, a different one each year. The four division
+winners of each conference make an eight-team playoff: the divisional round, the conference finals, the championship.
+A season saved in the old eight-team league finishes the old way and the next one starts in the full league.
+
 ## Modes
 
 - **Career** (the main focus). Create one player, a quarterback or a wide receiver, and pick a build. At the combine you run a
@@ -33,9 +44,10 @@ plays offline too)
   the job. You play only your own snaps: the coach calls the plays and other drives are simulated. Stats and per-game
   goals earn XP for ratings and abilities. Each week has practice, a game grade and a headline; a season has league
   leaders, honors and playoffs with a bracket. You sign a contract at the draft, can ask for a trade while it runs,
-  and choose among every team's offer when it ends. The coach has a word for you
-  after every game, and a rival at your position on the best other team is the man to beat. There are 14 trophies.
-- **Season.** Take one team through seven weeks and a four-team playoff, calling and playing every snap. Your roster
+  and choose among the eight best offers when it ends. The draft is a full first round of 32. The coach has a word
+  for you after every game, and a rival at your position on the best team in your division is the man to beat (you
+  play him twice a season). There are 14 trophies.
+- **Season.** Take one team through the ten-week season and the eight-team playoff, calling and playing every snap. Your roster
   keeps its names, numbers and ratings all season, with a stat line for every player and team leaders.
 - **Exhibition.** One game between any two teams. You pick the difficulty, quarter length, kickoff time and weather.
 - **Milestones.** Twelve things worth doing once (a shutout, a win in the rain, a title), earned in any mode.
@@ -69,8 +81,10 @@ plays offline too)
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - Catches look like catches: a receiver with a defender on him goes up for the ball, arms high, and takes it at the top
   of the jump (the defender goes up with him), and a ball thrown off his line gets a stretch, chest out and arms long.
-- Kick with a swipe: field goals, punts and your kickoffs. The swipe's angle is the aim and its length and speed the
-  power: a straight, strong swipe splits the uprights, a soft kickoff stays in play. The timing bar still works.
+- Kick with a swipe: field goals, extra points, punts and your kickoffs, in a career too (your team's kicks are yours to
+  make whatever your position). The swipe's angle is the aim and its length and speed the power: a straight, strong
+  swipe splits the uprights, a soft kickoff stays in play. The timing bar still works. The extra point is a real kick
+  from the 15, not a roll of the dice.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, or scoop up and run back, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and

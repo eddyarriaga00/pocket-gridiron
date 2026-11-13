@@ -131,6 +131,7 @@
     G.pendKO = t;
   };  // the ball is spotted for a touchback; a live return can move it
   const ab = t => TEAMS[G.tm[t]].ab, tname = t => TEAMS[G.tm[t]].name;
+  const vk = i => (TEAMS[i].custom ? '-' : TEAMS[i].vo || TEAMS[i].ab);  // the key of a team's recorded calls; a renamed team has none, so the booth leaves its name out
 
   function spotTxt(y) {
     y = Math.round(y);
@@ -139,6 +140,7 @@
 
   function downTxt() {
     if (G.try2 != null) return 'Two-point try';
+    if (G.patKick != null) return 'Extra point';
     const goal = G.poss === 0 ? G.fd >= 99.9 : G.fd <= 0.1;
     return `${ORD[Math.min(3,G.down-1)]} & ${goal?'Goal':Math.max(1,Math.round(G.togo))} · ${spotTxt(G.los)}`;
   }
@@ -204,12 +206,12 @@
       $('#intro').onclick = endIntro;
       /* the coin toss was won by the side that receives: the referee says so over the speakers, then the broadcast opens
          with a welcome, who is playing, and a word from the analyst if there is time before the ball is kicked */
-      const toss = G.tossSaid ? 0 : PG.audio && PG.audio.pa ? PG.audio.pa(`The ${t1 === TEAMS[G.tm[G.first]] ? t1.name : t0.name} have won the toss, and will receive.`, { wait: 0.2, clips: ['ref.toss.' + TEAMS[G.tm[G.first]].ab] }) : 0;
+      const toss = G.tossSaid ? 0 : PG.audio && PG.audio.pa ? PG.audio.pa(`The ${t1 === TEAMS[G.tm[G.first]] ? t1.name : t0.name} have won the toss, and will receive.`, { wait: 0.2, clips: ['ref.toss.' + vk(G.tm[G.first])] }) : 0;
       G.introT = -Math.min(2.5, toss);  // the matchup card stays up a little longer for it
       setTimeout(() => {
         vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
-        vo('intro.away.' + t1.ab, { ttl: 14 });
-        vo('intro.home.' + t0.ab, { ttl: 16 });
+        vo('intro.away.' + vk(o.b), { ttl: 14 });
+        vo('intro.home.' + vk(o.a), { ttl: 16 });
         if (G.callout) {
           vo(G.callout === 'guarantee' ? 'call.guar' : 'call.trash', { keep: true, ttl: 20 });
           vo('a.callout', { pri: 0, keep: true, ttl: 24 });
@@ -329,7 +331,7 @@
       },
       cues: [
         [0.3, () => {
-          if (PG.audio && PG.audio.pa) G.welcomed = PG.audio.pa('Ladies and gentlemen, welcome to ' + TEAMS[G.tm[0]].name + ' football!', { announcer: true, wait: 0, clips: ['pa.welcome.' + TEAMS[G.tm[0]].ab] }) > 0;
+          if (PG.audio && PG.audio.pa) G.welcomed = PG.audio.pa('Ladies and gentlemen, welcome to ' + TEAMS[G.tm[0]].name + ' football!', { announcer: true, wait: 0, clips: ['pa.welcome.' + vk(G.tm[0])] }) > 0;
         }],
         [0.95, () => {
           snd('boom');
@@ -455,7 +457,7 @@
       [3.15, sc => {
         sc.ref.act = sc.win === 0 ? 'signalL' : 'signalR';
         const w = TEAMS[G.tm[sc.win]];
-        G.tossSaid = !!(PG.audio && PG.audio.pa && PG.audio.pa(`The ${w.name} have won the toss, and will receive.`, { wait: 0.1, clips: ['ref.toss.' + w.ab] }));
+        G.tossSaid = !!(PG.audio && PG.audio.pa && PG.audio.pa(`The ${w.name} have won the toss, and will receive.`, { wait: 0.1, clips: ['ref.toss.' + vk(G.tm[sc.win])] }));
         for (const p of P) if (!p.ref && p.team === sc.win) p.act = 'cheer';
         const c = $('#scn .cap');
         if (c) c.innerHTML = `<small>Coin toss · midfield</small><b>${esc(w.name)} win the toss</b><span>They will receive</span>`;
@@ -485,7 +487,7 @@
       [0.4, sc => {
         const o = sc.o;
         if (PG.audio && PG.audio.pa) PG.audio.pa(`With pick number ${o.pick}, the ${TEAMS[o.team].city} ${TEAMS[o.team].name} select ${o.name}.`, { announcer: true, anywhere: true, wait: 0.1,
-          clips: ['pa.draft.' + o.pick, 'pa.select.' + TEAMS[o.team].ab].concat(o.pos === 'QB' ? ['pa.qb'] : o.pos === 'WR' ? ['pa.wr'] : []) });
+          clips: ['pa.draft.' + o.pick, 'pa.select.' + vk(o.team)].concat(o.pos === 'QB' ? ['pa.qb'] : o.pos === 'WR' ? ['pa.wr'] : []) });
       }],
       [2.7, sc => (sc.boss.act = 'shake')],
       [4.5, sc => {
@@ -550,7 +552,7 @@
   /* the stadium announcer welcomes everybody as the teams line up for the opening kick, and the crowd roars back */
   function welcome() {
     if (AUTO || QUIET || G.drill || !PG.audio || !PG.audio.pa) return;
-    const a = PG.audio, home = TEAMS[G.tm[0]], len = a.pa('Ladies and gentlemen, welcome to ' + home.name + ' football!', { announcer: true, wait: 0.3, clips: ['pa.welcome.' + home.ab] });
+    const a = PG.audio, home = TEAMS[G.tm[0]], len = a.pa('Ladies and gentlemen, welcome to ' + home.name + ' football!', { announcer: true, wait: 0.3, clips: ['pa.welcome.' + vk(G.tm[0])] });
     if (len) setTimeout(() => {
       if (G.ros && G.state !== 'menu' && G.state !== 'over') a.crowd.cheer(0.7, 2.5);
     }, Math.max(400, len * 1000 - 350));
@@ -1811,24 +1813,7 @@
     setBrief('');
     scr.innerHTML = `<div class="sheet"><div class="shd"><b>After the touchdown</b><span>${ab(0)} ${G.score[0]} · ${ab(1)} ${G.score[1]}</span></div>
   <button class="go" id="p1">Kick the extra point</button><button class="btn2" id="p2" style="margin-top:8px">Go for two · one play from the 2-yard line</button></div>`;
-    $('#p1').onclick = () => {
-      G.pat = null;
-      scr.innerHTML = '';
-      const ok = rnd() < 0.96;
-      if (ok) G.score[t]++;
-      if (G.lastScore) {
-        G.lastScore.score = G.score.slice();
-        G.lastScore.text += ok ? ' (kick good)' : ' (kick missed)';
-      }
-      snd(ok ? 'chime' : 'whistle');
-      toast(ok ? 'Extra point is good' : 'Extra point missed');
-      vo(ok ? 'xp.good' : 'xp.miss');
-      voScore(t, G.voS0);
-      G.voS0 = null;
-      hudKey = '';
-      updHud();
-      next();
-    };
+    $('#p1').onclick = () => patKick(t);
     $('#p2').onclick = () => {
       G.pat = null;
       G.try2 = t;
@@ -1837,6 +1822,51 @@
       hudKey = '';
       startCall();
     };
+  }
+
+  /* The extra point, kicked: the ball at the 15, a 32-yard field goal worth one, kicked with the swipe or the meter
+     like any other. It used to be a roll of the dice, good 96 times in 100, with no kick at all. */
+  function patKick(t) {
+    G.pat = null;
+    G.patKick = t;
+    G.pendKO = null;
+    scr.innerHTML = '';
+    setBall(t, t === 0 ? 85 : 15, FW / 2);
+    G.op = OFF.find(p => p.n === 'Field Goal');
+    G.dp = DEF[0];
+    hudKey = '';
+    begin();
+  }
+
+  /* how the kick ends: one point or none, then the kickoff either way */
+  function finishPat(good) {
+    const off = G.patKick;
+    G.patKick = null;
+    if (good) G.score[off]++;
+    if (G.lastScore) {
+      G.lastScore.score = G.score.slice();
+      G.lastScore.text += good ? ' (kick good)' : ' (kick missed)';
+    }
+    if (G.drive) G.drive.done = true;
+    kickoff(1 - off);
+    G.last = good ? 'Extra point' : 'No good';
+    G.sig = good ? 'td' : 'inc';
+    G.rp = false;
+    G.runoff = 0;
+    ps.after = 0;
+    if (good) {
+      react(off, 0.6, 1.6);
+      if (off === 0) snd('chime');
+    } else react(1 - off, 0.6, 1.6);
+    snd('whistle');
+    G.state = 'dead';
+    G.deadT = 1.6;
+    banner(good ? 'It’s good' : 'No good', good ? 'Extra point' : 'The extra point is missed', 1500);
+    vo(good ? 'xp.good' : 'xp.miss', { pri: 2 });
+    voScore(off, G.voS0);
+    G.voS0 = null;
+    hudKey = '';
+    updHud();
   }
 
   /* how a two-point try ends: in the end zone or not. No yards, no clock, then the kickoff. */
@@ -1959,6 +1989,7 @@
 
   function finish(kind, arg) {
     if (G.state !== 'live' && G.state !== 'kicka') return;
+    if (kind === 'fg' && G.patKick != null) return finishPat(!!arg);  // an extra point, not a field goal
     /* Brought down, or out of bounds, already in the end zone he is attacking: that is a touchdown. The tackle check
        runs before the goal-line check in each step, so a catch in the end zone with a defender on the receiver, or a
        runner hit as he crossed, used to be spotted at the one-yard line and called a first down. */
@@ -1993,7 +2024,7 @@
       G.score[t] += 6;
       /* the try: when you run the whole team you choose after the celebration; everyone else decides right here */
       let tryTxt = '';
-      if (t === 0 && !AUTO && !QUIET && !G.lock && !G.drill) G.pat = t;
+      if (t === 0 && !AUTO && !QUIET && !G.drill && (!G.lock || !wantsTwo(t))) G.pat = t;  // your extra point is kicked by you (a career's coach still decides when to go for two)
       else if (wantsTwo(t)) {
         const ok = rnd() < 0.45;
         if (ok) G.score[t] += 2;
@@ -2122,7 +2153,7 @@
             snd('chime');
             if (gi < 15) react(0, 0.45, 1.8);
             /* the ones that matter (a third or fourth down made, or a good gain) get the stadium announcer, and the crowd finishing his sentence */
-            if (!AUTO && !QUIET && !G.drill && PG.audio && (dn >= 3 || gi >= 8)) PG.audio.firstDown(TEAMS[G.tm[0]].name, TEAMS[G.tm[0]].ab);
+            if (!AUTO && !QUIET && !G.drill && PG.audio && (dn >= 3 || gi >= 8)) PG.audio.firstDown(TEAMS[G.tm[0]].name, vk(G.tm[0]));
           }
         } else {
           G.down++;
@@ -2461,7 +2492,7 @@
       G.score = [0, 0];
       return startCall();
     }  // practice: same spot every rep
-    if (G.pat != null) return showPat();  // your touchdown: one point or two?
+    if (G.pat != null) return G.lock ? patKick(G.pat) : showPat();  // your touchdown: one point or two? (a career's coach has chosen the kick)
     if (advance()) return endGame();
     if (G.half) {
       G.half = false;
@@ -2868,7 +2899,7 @@
       const t = G.pendKO, k = 1 - t;  // t receives, k kicks
       if (!G.drill && lateAndBehind(k)) return k === 0 && !AUTO && !G.lock ? showOnside(k) : onside(k);  // your call, or the computer's (it always tries)
       G.pendKO = null;
-      if (!AUTO && !G.lock && !G.drill) return beginKickoff(t);
+      if (!AUTO && !G.drill && (!G.lock || k === 0)) return beginKickoff(t);  // in a career, your team's kickoffs are yours too; theirs still go straight to your offense
     }
     if (G.drill && G.drill.script) {
       /* a guided drill: its script names the play for each rep */
@@ -2949,10 +2980,11 @@
     G.preT = 0;
     if (G.op.cat === 'special') {
       const fg = G.op.n === 'Field Goal', d = Math.round(((G.poss === 0 ? 100 : 0) - G.los) * G.dir + 17);
-      if (G.poss === 0 && !AUTO && !G.lock) {
+      if (G.poss === 0 && !AUTO) {
+        // your team's kicks are yours, in a career too (the owner: "why are field goals still automatic")
         G.state = 'kickm';
         G.meter = rnd(3);
-        $('#mtxt').textContent = fg ? `${d} yards · swipe up, or stop in the green` : 'Punt · swipe up, or stop in the green';  // one line on the narrowest phone; the tag below names the kick
+        $('#mtxt').textContent = G.patKick != null ? 'Extra point · swipe up, or stop in the green' : fg ? `${d} yards · swipe up, or stop in the green` : 'Punt · swipe up, or stop in the green';  // one line on the narrowest phone; the tag below names the kick
         voPre();
         return;
       }
@@ -3692,7 +3724,7 @@
      speed the power. The timing meter (Space, or the Kick button) still works. */
   const swipe = { id: null, x: 0, y: 0, t: 0 };
   const swipeKick = () => !AUTO && !G.paused && (G.state === 'kickm' || koMine());
-  const koMine = () => G.state === 'pre' && !!ps && ps.mode === 'ko' && ps.offTeam === 1 && !G.lock && !G.drill;  // your team is kicking off
+  const koMine = () => G.state === 'pre' && !!ps && ps.mode === 'ko' && ps.offTeam === 1 && !G.drill;  // your team is kicking off (in a career too)
 
   function kickBySwipe(dx, dy, ms) {
     const H = cv.clientHeight || 600, len = Math.hypot(dx, dy), pw = clamp(0.55 * len / (0.42 * H) + 0.45 * (len / Math.max(60, ms)) / 2.2, 0, 1.15), aim = Math.atan2(dx, -dy);
@@ -4028,7 +4060,7 @@
      is cosmetic, so it uses Math.random and never the game's own generator (a seeded test run must not change
      because someone is listening), and none of it happens in simulated games or in practice. */
   const chance = p => Math.random() < p;
-  const tab = t => TEAMS[G.tm[t]].ab;
+  const tab = t => vk(G.tm[t]);  // in the booth's keys
   const voSaid = {};
   let voClock = 0, voAn = -99;  // seconds of football the booth has sat through (step() counts them), and when the analyst last spoke
 
@@ -4661,6 +4693,10 @@
     upd();
   }
 
+  /* every team, grouped by conference and division, for the team pickers */
+  const teamGrid = sel => PG.data.CONF.map((c, ci) => `<h3 class="tgh">${c} Conference</h3>` + PG.data.DIV.map((d, di) => `<small class="tgd">${c} ${d}</small>`
+    + TEAMS.map((t, i) => [t, i]).filter(([t]) => t.conf === ci && t.div === di).map(([t, i]) => tmBtn(t, i, i === sel)).join('')).join('')).join('');
+
   const tmBtn = (t, i, on) => `<button class="tm ${on?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`;
 
   function showMenu() {
@@ -4694,6 +4730,59 @@
     if ($('#mF')) $('#mF').onclick = go(() => PG.career.hall());
   }
 
+  /* ---------- the team editor ----------
+     Any team can be renamed on this device: its city, nickname, short name and two colors. The game ships with its own
+     names; what you type is kept in this browser only (pg.teams) and goes nowhere else. A team whose nickname you
+     change loses its recorded calls (the booth would still say the old one), so the commentators leave its name out. */
+  const TEAM0 = TEAMS.map(t => ({ city: t.city, name: t.name, ab: t.ab, c1: t.c1, c2: t.c2 }));
+
+  function applyTeams() {
+    const o = load('pg.teams', {}) || {};
+    TEAMS.forEach((t, i) => {
+      Object.assign(t, TEAM0[i], o[i] || {});
+      t.custom = !!o[i] && t.name !== TEAM0[i].name;
+    });
+  }
+  applyTeams();
+
+  function showTeams(sel) {
+    const o = load('pg.teams', {}) || {}, t = TEAMS[sel], clean = (v, n) => String(v || '').replace(/[<>&"]/g, '').trim().slice(0, n);
+    scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Settings</button><h1 class="sm">Edit <em>teams</em></h1>
+  <p class="tag">Rename any team on this device: what you type stays in this browser. Pick a team, change it, save.</p>
+  <div class="ted" style="--c:${t.c1}"><i></i><div><b>${esc(t.city)} ${esc(t.name)}</b><span>${esc(t.ab)} · ${PG.data.CONF[t.conf]} ${PG.data.DIV[t.div]}${o[sel] ? ' · renamed' : ''}</span></div></div>
+  <div class="cols"><div><label class="lbl" for="tc">City</label><input id="tc" maxlength="16" autocomplete="off" value="${esc(t.city)}"></div>
+  <div><label class="lbl" for="tn">Nickname</label><input id="tn" maxlength="14" autocomplete="off" value="${esc(t.name)}"></div></div>
+  <div class="cols" style="margin-top:8px"><div><label class="lbl" for="ta">Short name</label><input id="ta" maxlength="3" autocomplete="off" value="${esc(t.ab)}"></div>
+  <div class="cols"><div><label class="lbl" for="t1">Jersey</label><input id="t1" type="color" value="${t.c1}"></div><div><label class="lbl" for="t2">Trim</label><input id="t2" type="color" value="${t.c2}"></div></div></div>
+  <div class="row2"><button class="go sm" id="tsv">Save</button><button class="btn2" id="trs"${o[sel] ? '' : ' disabled'}>Back to ${esc(TEAM0[sel].name)}</button></div>
+  <h2>Teams</h2><div class="teams" id="tlist">${teamGrid(sel)}</div>
+  ${Object.keys(o).length ? '<button class="btn2 warn" id="tra" style="margin-top:12px">Put every team back</button>' : ''}</div>`;
+    $('#bk').onclick = showSettings;
+    scr.querySelectorAll('#tlist .tm').forEach(b => b.onclick = () => showTeams(+b.dataset.i));
+    $('#tsv').onclick = () => {
+      const v = { city: clean($('#tc').value, 16) || TEAM0[sel].city, name: clean($('#tn').value, 14) || TEAM0[sel].name, ab: clean($('#ta').value, 3).toUpperCase() || TEAM0[sel].ab, c1: $('#t1').value, c2: $('#t2').value };
+      const same = Object.keys(v).every(k => v[k] === TEAM0[sel][k]);
+      if (same) delete o[sel];
+      else o[sel] = v;
+      save('pg.teams', o);
+      applyTeams();
+      toast(same ? 'Back to the original' : 'Saved: ' + v.city + ' ' + v.name);
+      showTeams(sel);
+    };
+    $('#trs').onclick = () => {
+      delete o[sel];
+      save('pg.teams', o);
+      applyTeams();
+      showTeams(sel);
+    };
+    if ($('#tra')) $('#tra').onclick = () => {
+      save('pg.teams', {});
+      applyTeams();
+      toast('Every team is back to its own name');
+      showTeams(sel);
+    };
+  }
+
   function showSettings() {
     const chip = (id, label, val) => `<div class="opt"><span>${label}</span><button class="chip" id="${id}">${val}</button></div>`;
     const draw = () => {
@@ -4711,6 +4800,8 @@
   ${chip('san','Commentary',SET.ann!==false?'On':'Off')}
   <h2>Rules</h2>
   ${chip('spn','Penalties',SET.pen!==false?'On':'Off')}
+  <h2>League</h2>
+  <div class="opt"><span>Team names and colors</span><button class="chip" id="steams">Edit teams</button></div>
   <h2>Help</h2>
   ${chip('stp','Control tips',SET.tips&&Object.keys(SET.tips).length?'Show again':'On')}
   ${navigator.vibrate?chip('shp','Vibration',SET.hap!==false?'On':'Off'):''}</div>`;
@@ -4723,6 +4814,7 @@
         }
       };
       $('#bk').onclick = showMenu;
+      $('#steams').onclick = () => showTeams(0);
       scr.querySelectorAll('#acc button').forEach(b => b.onclick = () => {
         SET.acc = b.dataset.a;
         save('pg.settings', SET);
@@ -4813,7 +4905,7 @@
       G.env = { time: tod, weather: wx };  // the stadium behind the menu shows the choice
       scr.innerHTML = `<div class="menu"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Exhibition</h1>
   ${kitsHtml([[me, true, 'Home'], [opp, false, 'Away']])}
-  <h2>Your team</h2><div class="teams" id="tms">${TEAMS.map((t,i)=>tmBtn(t,i,i===me)).join('')}</div>
+  <h2>Your team</h2><div class="teams" id="tms">${teamGrid(me)}</div>
   <h2>Opponent</h2><div class="row"><button class="nav" id="opl" aria-label="Previous opponent">‹</button>${tmBtn(TEAMS[opp],opp,false)}<button class="nav" id="opr" aria-label="Next opponent">›</button></div>
   <h2>Difficulty</h2><div class="seg" id="dif">${['Rookie','Pro','All-Pro'].map((d,i)=>`<button data-d="${i}" class="${i===diff?'on':''}">${d}</button>`).join('')}</div>
   <h2>Quarter length</h2><div class="seg" id="qls">${[60,120,180,300].map(q=>`<button data-q="${q}" class="${q===ql?'on':''}">${q/60} min</button>`).join('')}</div>
@@ -5656,6 +5748,7 @@
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, CELEBS, rnd, pick, clamp, load, save, scr, $,
     startGame, showMenu, toMenu, banner, toast, snd, playScene, cinema, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
+    vk, teamGrid,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

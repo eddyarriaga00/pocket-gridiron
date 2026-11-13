@@ -3,16 +3,49 @@
 (() => {
   'use strict';
 
-  /* The league. c1 is the helmet and jersey color, c2 the trim; ovr is the starting team rating. All fictional. */
+  /* The league: a team in each of the 32 cities of American pro football, aligned in two conferences of four divisions
+     the way the real league is, by city. The nicknames and colors are this game's own (no real league's names, marks
+     or color schemes); anyone can rename a team on their own device (Settings, Teams). c1 is the helmet and jersey
+     color, c2 the trim; ovr the starting team rating; conf 0 is the Union Conference, 1 the Frontier Conference; div
+     0-3 East, North, South, West; style the offense it runs (STYLES below). vo is the key of its recorded calls in the
+     booth's script: the first eight kept theirs when they moved from Austin, Portland, Omaha, Salt Lake, Orlando,
+     St. Louis, Honolulu and Brooklyn (the booth only ever said the nickname). Their order is the order saves use, so
+     a team keeps its place in the list for good. */
+  const T = (city, name, ab, c1, c2, ovr, conf, div, style, vo) => ({ city, name, ab, c1, c2, ovr, conf, div, style, vo: vo || ab });
   const TEAMS = [
-    { city: 'Austin', name: 'Outlaws', ab: 'ATX', c1: '#b4371f', c2: '#f4e9d0', ovr: 88 },
-    { city: 'Portland', name: 'Lumberjacks', ab: 'PDX', c1: '#1f6b3a', c2: '#f2f2f2', ovr: 85 },
-    { city: 'Omaha', name: 'Thunder', ab: 'OMA', c1: '#4634a8', c2: '#d9d4f7', ovr: 83 },
-    { city: 'Salt Lake', name: 'Summit', ab: 'SLC', c1: '#0e7490', c2: '#ffffff', ovr: 86 },
-    { city: 'Orlando', name: 'Comets', ab: 'ORL', c1: '#e07a10', c2: '#1b1b3a', ovr: 82 },
-    { city: 'St. Louis', name: 'Aviators', ab: 'STL', c1: '#1e3a8a', c2: '#d1d5db', ovr: 90 },
-    { city: 'Honolulu', name: 'Tide', ab: 'HNL', c1: '#0f766e', c2: '#ffb59e', ovr: 80 },
-    { city: 'Brooklyn', name: 'Knights', ab: 'BKN', c1: '#27272a', c2: '#c3cad6', ovr: 87 }];
+    T('Dallas', 'Outlaws', 'DAL', '#b4371f', '#f4e9d0', 88, 1, 0, 0, 'ATX'),
+    T('Green Bay', 'Lumberjacks', 'GB', '#1f6b3a', '#f2f2f2', 85, 1, 1, 1, 'PDX'),
+    T('Tennessee', 'Thunder', 'TEN', '#4634a8', '#d9d4f7', 83, 0, 2, 2, 'OMA'),
+    T('Seattle', 'Summit', 'SEA', '#0e7490', '#ffffff', 86, 1, 3, 3, 'SLC'),
+    T('Jacksonville', 'Comets', 'JAX', '#e07a10', '#1b1b3a', 82, 0, 2, 4, 'ORL'),
+    T('New Jersey', 'Aviators', 'NJ', '#1e3a8a', '#d1d5db', 90, 0, 0, 5, 'STL'),
+    T('Miami', 'Tide', 'MIA', '#0f766e', '#ffb59e', 80, 0, 0, 6, 'HNL'),
+    T('New York', 'Knights', 'NYK', '#27272a', '#c3cad6', 87, 1, 0, 7, 'BKN'),
+    T('Buffalo', 'Blizzard', 'BUF', '#2563eb', '#e0ecff', 86, 0, 0, 1),
+    T('New England', 'Ironsides', 'NE', '#4b5563', '#e5e7eb', 84, 0, 0, 7),
+    T('Baltimore', 'Admirals', 'BAL', '#312e81', '#c7d2fe', 88, 0, 1, 2),
+    T('Cincinnati', 'Riverboats', 'CIN', '#0369a1', '#e0f2fe', 82, 0, 1, 5),
+    T('Cleveland', 'Foundry', 'CLE', '#7f1d1d', '#fca5a5', 79, 0, 1, 1),
+    T('Pittsburgh', 'Inclines', 'PIT', '#111827', '#93c5fd', 85, 0, 1, 1),
+    T('Houston', 'Wildcatters', 'HOU', '#7c2d12', '#fdba74', 83, 0, 2, 4),
+    T('Indianapolis', 'Express', 'IND', '#be123c', '#ffe4e6', 81, 0, 2, 3),
+    T('Denver', 'Highlanders', 'DEN', '#14532d', '#bbf7d0', 84, 0, 3, 3),
+    T('Kansas City', 'Blaze', 'KC', '#dc2626', '#1f2937', 91, 0, 3, 4),
+    T('Las Vegas', 'Neon', 'LV', '#db2777', '#0f172a', 80, 0, 3, 5),
+    T('Hollywood', 'Headliners', 'HOL', '#1e1b4b', '#f0abfc', 78, 0, 3, 0),
+    T('Philadelphia', 'Founders', 'PHI', '#1d4ed8', '#dbeafe', 89, 1, 0, 2),
+    T('Washington', 'Statesmen', 'WAS', '#334155', '#e2e8f0', 79, 1, 0, 7),
+    T('Chicago', 'Gales', 'CHI', '#1f3a5f', '#93c5fd', 82, 1, 1, 7),
+    T('Detroit', 'Engines', 'DET', '#9a3412', '#e7e5e4', 87, 1, 1, 1),
+    T('Minnesota', 'Voyageurs', 'MIN', '#115e59', '#ccfbf1', 84, 1, 1, 3),
+    T('Atlanta', 'Firebirds', 'ATL', '#9f1239', '#fecdd3', 81, 1, 2, 4),
+    T('Carolina', 'Pines', 'CAR', '#4d7c0f', '#ecfccb', 78, 1, 2, 7),
+    T('New Orleans', 'Krewe', 'NO', '#6d28d9', '#ede9fe', 83, 1, 2, 0),
+    T('Tampa Bay', 'Manatees', 'TB', '#0ea5e9', '#f0f9ff', 82, 1, 2, 5),
+    T('Arizona', 'Scorpions', 'ARI', '#c2410c', '#ffedd5', 80, 1, 3, 0),
+    T('Los Angeles', 'Surf', 'LA', '#e11d48', '#fff1f2', 86, 1, 3, 6),
+    T('San Francisco', 'Fog', 'SF', '#64748b', '#f1f5f9', 89, 1, 3, 3)];
+  const CONF = ['Union', 'Frontier'], DIV = ['East', 'North', 'South', 'West'];
 
   /* surnames for generated players */
   const SUR = ['Carter', 'Reyes', 'Okafor', 'Lindqvist', 'Tran', 'Baptiste', 'Mendez', 'Holloway', 'Park', 'Achebe', 'Sullivan', 'Vega', 'Kowalski', 'Brooks', 'Nakamura', 'Diaz', 'Freeman', 'Petrov', 'Haddad', 'Whitaker', 'Osei', 'Marsh', 'Castillo', 'Rhodes', 'Ibarra', 'Quinn', 'Dalton', 'Singh', 'Moreau', 'Tucker'];
@@ -150,7 +183,7 @@
   /* Each team's offense, by TEAMS index: how much it likes each formation (1 when not named), a nudge to how often it
      runs (run) and goes deep (deep), how much it likes play action (pa) and trick plays (gadget). So a week against
      Austin looks nothing like a week against Portland, and your own coach has a style you learn. */
-  const SCHEME = [
+  const STYLES = [
     { n: 'Air raid', f: { gun: 1.6, empty: 1.5, trips: 1.3, slot: 1.2, single: 0.6, pistol: 0.6, iform: 0.4, heavy: 0.4 }, run: -0.08, deep: 0.08 },
     { n: 'Power run', f: { iform: 1.7, heavy: 1.5, single: 1.3, pistol: 0.8, gun: 0.6, trips: 0.6, slot: 0.6, bunch: 0.6, empty: 0.3 }, run: 0.08, pa: 1.5 },
     { n: 'Pistol option', f: { pistol: 1.9, single: 0.8, iform: 0.6, heavy: 0.7, slot: 0.8, bunch: 0.6, empty: 0.5 }, run: 0.05, gadget: 1.5 },
@@ -159,10 +192,11 @@
     { n: 'Vertical', f: { iform: 1.2, single: 1.2, gun: 1.1, trips: 1.1, bunch: 0.8, empty: 0.8, heavy: 0.7 }, deep: 0.1, pa: 1.6 },
     { n: 'Run and shoot', f: { empty: 1.6, slot: 1.5, gun: 1.3, bunch: 1.2, trips: 1.2, pistol: 0.7, single: 0.6, iform: 0.4, heavy: 0.4 }, run: -0.06 },
     { n: 'Pro style', f: {} }];
+  const SCHEME = TEAMS.map(t => STYLES[t.style]);  // by team, as the play callers look it up
 
   /* receiver button colors (no yellow, by request) and down names */
   const LCOL = ['#ff6b6b', '#ff9a3d', '#51e08a', '#4dabf7', '#d59bff'];
   const ORD = ['1st', '2nd', '3rd', '4th'];
 
-  window.PG = { data: { TEAMS, SUR, OLR, OLX, OFFR, DEFR, BASE, NUM, FORM, FNAME, ROUTES, RNAME, OFF, DPOS, DEF, SCHEME, LCOL, ORD } };
+  window.PG = { data: { TEAMS, CONF, DIV, SUR, OLR, OLX, OFFR, DEFR, BASE, NUM, FORM, FNAME, ROUTES, RNAME, OFF, DPOS, DEF, STYLES, SCHEME, LCOL, ORD } };
 })();

@@ -1088,6 +1088,36 @@ what is next. Update it after every item.
   came down as a leap and 4 as a stretch (before widening the contest from 1.6 to 1.8 yards). Checked: fingerprint
   unchanged, gait slide 1 cm at 5 and 8 yd/s with no sinking, a whole drawn game with every pose finite, careers,
   exhibition, drills, audit empty at 320x568 and 390x844, no console errors.
+- 02:30 Round 23, the owner at 02:10 on 2026-11-13: "i want 30 nfl teams in this game, and bruh if u really can't have
+  the normal teams from the nfl due to copyright, can u have similar names to represent them or nah / why are field
+  goals still automatic".
+  Kicks: a career's own team kicked nothing (field goals and punts went in by themselves when `G.lock`), and the extra
+  point was a roll of the dice in every mode (96 in 100, no kick at all). Now your team's field goals, punts and
+  kickoffs are yours in a career too, and the extra point is a real kick from the 15 (`patKick`, `finishPat`: a
+  32-yard field goal worth one, with the swipe or the meter; a career's coach still decides when to go for two).
+  The league: 32 teams, one in every city of American pro football, two conferences (Union, Frontier) of four
+  divisions aligned by city the way the real league is. Real names are trademarks, and names made to sound like them
+  were left out on purpose (the answer to "similar names"); the nicknames and colors are original, and a new team
+  editor (Settings, Edit teams; `pg.teams` in this browser) renames any team on the owner's own device. The first
+  eight keep their nicknames, colors, offenses and index (so saves keep their team) and moved city: Austin to Dallas,
+  Portland to Green Bay, Omaha to Tennessee, Salt Lake to Seattle, Orlando to Jacksonville, St. Louis to New Jersey,
+  Honolulu to Miami, Brooklyn to New York; their recorded calls stay valid (`vo` keys: the booth only ever said the
+  nickname). League (league.js rewritten): ten weeks, the division twice (weeks 1-3 and 8-10) and four games against
+  another division of the conference, rotating each season (`schedule(lg)`, checked: every week all 32 play, every
+  team 10 games, 6 in the division, all in the conference); the four division winners of each conference make an
+  eight-team playoff (divisional round, conference finals, championship; phases 'qf', 'semi', 'final'); standings by
+  division, yours first, leaders marked; the bracket by conference. A save from the eight-team league (no `L.fmt`)
+  finishes its season the old way and starts the next in the full league (`LG.fix` extends its ratings; tested with
+  a staged old save: loaded at week 4, finished, free agency, then 32 teams and 10 weeks). Career: the rival is the
+  best team in your division (you play him twice), free agency shows your team and the seven best offers, the draft
+  is a full first round of 32 (eight contract tiers). Team pickers grouped by conference and division. The booth: 24
+  new nicknames and draft picks to 32, recorded on the local Kokoro model (790 clips, 7.4 MB; Krewe is spoken
+  "Crew", Voyageurs "Voyagers"); the checker flags "The Iron Sides select..." (4 syllables heard of 7, 1.33 s, the
+  same line passes for the other 31; kept). New clips measure as the old ones (Touchdown, Blizzard! -3.2 dB peak,
+  -17.2 RMS; Touchdown, Outlaws! -3.4, -17.5). Checked: play unchanged (the fingerprint's games, stats and trace are
+  identical; only the career schedule in it went from 7 weeks to 10, new baseline stored), careers, a full WR season
+  through the playoffs, exhibition, drills, the booth asks for nothing missing, the editor (rename, reload, reset),
+  audit empty at 320x568 and 390x844 with and without the 34 px strip, no console errors.
 
 ## Morning hand-off
 

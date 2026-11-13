@@ -40,6 +40,7 @@
   let C = load(KEY, null);
   if (C && (C.v !== 1 || !POS[C.pos])) C = null;
   if (C && C.trust === undefined) C.trust = 70;  // careers from before coach trust existed stay starters
+  if (C && PG.league) PG.league.fix(C);  // a career from the eight-team league: ratings for the new teams too
   if (C && !C.pre && !C.rival) setRival();  // and get a rival
 
   /* Coach trust (0 to 100) decides how much you play: [trust needed, role, share of your unit's drives] */
@@ -162,7 +163,8 @@
 
   function setRival() {
     if (C.rival && C.rival.team !== C.team) return;
-    const team = TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => TEAMS[b].ovr - TEAMS[a].ovr)[0];
+    const t = TEAMS[C.team], div = TEAMS.map((_, i) => i).filter(i => i !== C.team && TEAMS[i].conf === t.conf && TEAMS[i].div === t.div);
+    const team = (div.length ? div : TEAMS.map((_, i) => i).filter(i => i !== C.team)).sort((a, b) => TEAMS[b].ovr - TEAMS[a].ovr)[0];  // the best of your division: you play him twice a season
     const mine = PG.media ? PG.media.lastOf(C.name) : '', names = PG.NAMES.filter(n => n !== mine);
     C.rival = { team, name: names[Math.floor(Math.random() * names.length)] };
   }
@@ -242,7 +244,7 @@
 
   /* postseason bonus and honors, once the league says the season is over */
   function closeSeason(finish) {
-    let bonus = { Champion: 1500, 'Runner-up': 800, Semifinalist: 400 }[finish] || 0;
+    let bonus = { Champion: 1500, 'Runner-up': 800, Semifinalist: 400, 'Lost in the conference final': 400, 'Lost in the divisional round': 200 }[finish] || 0;
     const reg = C.log.filter(g => g.pts !== undefined && /^Wk/.test(g.wk)), avg = reg.length ? reg.reduce((t, g) => t + g.pts, 0) / reg.length : 0;
     const L = leaders(), mine = L.rows.find(r => r.me), his = L.rows.find(r => r.riv);  // the season-long race with your rival
     const night = awardsNight(finish, avg, L), aw = night.won;
@@ -485,7 +487,7 @@
    <h2>${P.label} build</h2><div class="arch" id="ca">${P.arch.map(([n,a],i)=>`<button data-a="${i}" class="${i===st.arch?'on':''}"><b>${n} · ${ovrOf(st.pos,a)} OVR</b><span>${P.attrs.map(([k,l])=>`${l} ${a[k]}`).join(' · ')}</span></button>`).join('')}</div>
    <h2>Into the league</h2><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Enter the draft</b><span>Work out at the combine first</span><u>›</u></button>
    <p class="note" style="grid-column:1/3;margin:2px 0">Or walk on with a team: no draft, no signing bonus, and you start in the rotation.</p>
-   ${TEAMS.map((t,i)=>`<button class="tm ${i===st.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`).join('')}</div>
+   ${PG.teamGrid(st.team)}</div>
    <button class="go" id="cgo">Start career</button></div>`;
       const keep = () => {
         st.name = $('#cn').value;
@@ -615,9 +617,10 @@
 
   function draft(grade) {
     const order = TEAMS.map((_, i) => i).sort((a, b) => TEAMS[a].ovr - TEAMS[b].ovr);  // the weakest team picks first
-    const pick = clamp(1 + Math.floor((100 - grade) / 9), 1, 8), tm = order[pick - 1], bonus = PICK_XP[pick - 1], pre = C.pre || {};
+    // a full first round: the grade sets the pick (a top grade goes first, a poor one late), and the pick's eight tiers the contract
+    const n = TEAMS.length, pick = clamp(1 + Math.floor((100 - grade) * n / 72), 1, n), tier = Math.min(7, Math.floor((pick - 1) * 8 / n)), tm = order[pick - 1], bonus = PICK_XP[tier], pre = C.pre || {};
     delete C.pre;
-    Object.assign(C, { team: tm, trust: PICK_TRUST[pick - 1], pick, xp: C.xp + bonus, xpTotal: C.xpTotal + bonus, deal: { years: PICK_YEARS[pick - 1], left: PICK_YEARS[pick - 1], pay: PICK_PAY[pick - 1] } });
+    Object.assign(C, { team: tm, trust: PICK_TRUST[tier], pick, xp: C.xp + bonus, xpTotal: C.xpTotal + bonus, deal: { years: PICK_YEARS[tier], left: PICK_YEARS[tier], pay: PICK_PAY[tier] } });
     initSeason();
     C.coach = { Starter: 'Welcome. You start from day one, so do not make me regret the pick.', Rotation: 'Welcome. You will play, but the starting job is not yours yet. Earn it.', Backup: 'Welcome. You are behind some good players here. Practice hard and take your chances.' }[roleOf()[1]];
     checkTrophies();
@@ -633,13 +636,13 @@
     scr.innerHTML = `<div class="menu solid"><h1 class="sm">The <em>draft</em></h1>
   <p class="tag">${pre.dash?`Dash ${pre.dash.time.toFixed(2)} s, grade ${pre.dash.grade}${pre.work?` · drills grade ${pre.work.grade}`:''} · `:''}Draft grade ${grade}</p>
   <table class="lg">${order.map((ti,n)=>n===pick-1?`<tr class="me"><td>${n+1}. ${full(ti)}</td><td>${esc(C.name)}, ${C.pos}</td></tr>`:`<tr><td>${n+1}. ${full(ti)}</td><td>${any(PG.NAMES)}, ${any(others)}</td></tr>`).join('')}</table>
-  <div class="nx"><small>Pick ${pick} of 8</small><h4>${full(tm)}</h4><p>${C.deal.years}-year contract at ${money(C.deal.pay)} a season · Signing bonus +${fmt(bonus)} XP · Coach trust ${C.trust}: ${opens}.</p></div>
+  <div class="nx"><small>Pick ${pick} of ${TEAMS.length}</small><h4>${full(tm)}</h4><p>${C.deal.years}-year contract at ${money(C.deal.pay)} a season · Signing bonus +${fmt(bonus)} XP · Coach trust ${C.trust}: ${opens}.</p></div>
   <button class="go" id="camp">Report to camp</button></div>`;
     $('#camp').onclick = () => showHub('up');
     if (played) return;  // the stage had the fanfare and the announcer
     PG.snd('fanfare');
     if (PG.audio && PG.audio.pa) PG.audio.pa(`With pick number ${pick}, the ${full(tm)} select ${C.name}.`, { announcer: true, anywhere: true, wait: 0.6,
-      clips: ['pa.draft.' + pick, 'pa.select.' + TEAMS[tm].ab].concat(C.pos === 'QB' ? ['pa.qb'] : C.pos === 'WR' ? ['pa.wr'] : []) });  // recorded: the stadium announcer
+      clips: ['pa.draft.' + pick, 'pa.select.' + PG.vk(tm)].concat(C.pos === 'QB' ? ['pa.qb'] : C.pos === 'WR' ? ['pa.wr'] : []) });  // recorded: the stadium announcer
   }
 
   /* ---------- hub ---------- */
@@ -1155,10 +1158,10 @@
 
   /* free agency: when your contract has run out, every team makes an offer and you choose one */
   function showFreeAgency() {
-    const offers = TEAMS.map((_, i) => offerFrom(i));
+    const offers = TEAMS.map((_, i) => offerFrom(i)), show = [C.team, ...TEAMS.map((_, i) => i).filter(i => i !== C.team).sort((a, b) => offers[b].pay - offers[a].pay).slice(0, 7)];  // your team and the seven that want you most
     scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Back</button><h1 class="sm">Contract <em>offers</em></h1>
-  <p class="tag">Your contract is up and every team has made an offer. Weak teams pay more and will play you; strong teams pay less. Signing pays its bonus in XP at once.</p>
-  <h2>Offers</h2><div class="offers">${TEAMS.map((t,i)=>{const o=offers[i];return`<button class="tm of ${i===C.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city} ${t.name}${i===C.team?' · re-sign':''}</b><span>${o.years} season${o.years>1?'s':''} at ${money(o.pay)} · +${fmt(o.xp)} XP · ${o.role}</span><u>${C.ovrs[i]}</u></button>`}).join('')}</div>
+  <p class="tag">Your contract is up: your team and the seven others that want you most have made offers. Weak teams pay more and will play you; strong teams pay less. Signing pays its bonus in XP at once.</p>
+  <h2>Offers</h2><div class="offers">${show.map(i=>{const t=TEAMS[i],o=offers[i];return`<button class="tm of ${i===C.team?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city} ${t.name}${i===C.team?' · re-sign':''}</b><span>${o.years} season${o.years>1?'s':''} at ${money(o.pay)} · +${fmt(o.xp)} XP · ${o.role}</span><u>${C.ovrs[i]}</u></button>`}).join('')}</div>
   <p class="note">The number on the right is the team's rating. Starter, Rotation or Backup is where their coach would put you on day one.</p></div>`;
     $('#bk').onclick = () => showHub('season');
     scr.querySelectorAll('.tm').forEach(b => b.onclick = () => {
@@ -1310,7 +1313,7 @@
     /* a rival game opens with the two of you face to face at midfield: his words, and yours if you called him out */
     const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
     PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
-      mustWin: C.phase !== 'reg', env: PG.envFor(C.season, C.week + (C.phase === 'reg' ? 0 : C.phase === 'semi' ? 8 : 9), C.phase !== 'reg' || C.week >= 5), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
+      mustWin: C.phase !== 'reg', env: PG.envFor(C.season, LG.weekNo(C), C.phase !== 'reg' || C.week >= C.sched.length - 4), line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
   /* weekly practice: six reps with the first team, no clock, XP for what you do with them */
@@ -1383,7 +1386,7 @@
     C.news = headline(m, won, us, them, opp);
     if (C.rival && C.rival.team === opp && us !== them) C.news += won ? `. ${C.rival.name} left without talking to reporters.` : `. ${C.rival.name}, afterward: \u201cTold you.\u201d`;
     const fin = LG.advance(C, opp, us, them);
-    if (C.phase === 'semi' || C.phase === 'final' || (fin && fin !== 'Missed the playoffs')) C.madePO = 1;
+    if (C.phase === 'qf' || C.phase === 'semi' || C.phase === 'final' || (fin && fin !== 'Missed the playoffs')) C.madePO = 1;
     if (fin) {
       if (fin === 'Champion') {
         C.rings++;
@@ -1457,7 +1460,7 @@
     },
     summary() {
       if (!C || C.pre) return null;
-      const ph = C.phase === 'reg' ? `week ${C.week+1}` : C.phase === 'semi' ? 'semifinal' : C.phase === 'final' ? 'championship game' : 'offseason';
+      const ph = LG.stage(C);
       return `Continue: ${esc(C.name)} · ${C.pos} · ${ovr()} OVR · ${TEAMS[C.team].name}, season ${C.season}, ${ph}`;
     },
     /* test hook */

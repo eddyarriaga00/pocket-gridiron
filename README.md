@@ -80,7 +80,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   of them, and the pile comes apart from the top. Anyone else close by steps clear instead of standing in it.
 - Eleven touchdown celebrations: the scorer jumps, spikes it, struts, takes a knee, roars, bows, shuffles, salutes,
   points both arms to the sky, flexes or leaps; his teammates jump, pump a fist, clap, wave to the crowd or shuffle,
-  and about one in three the whole side does it together on the same beat. In a career you can pick your own (the
+  and about one in three the whole side does it together on the same beat. Teammates within 40 yards run to the
+  scorer, gather round him an arm's length apart and celebrate facing him. In a career you can pick your own (the
   hub, under Touchdown celebration). On the other side heads go down and hands go to helmets.
 - The officials signal touchdowns, first downs, incomplete passes, timeouts and the two-minute warning.
 - Everybody watches something. Helmets turn to the ball in the air, to the man carrying it, to the quarterback; a

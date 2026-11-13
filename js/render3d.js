@@ -1514,10 +1514,17 @@
       tg[KR] = -0.35;
       tg[HEADRX] = 0.4;
       plant(tg);
-    } else if (s.celeb && s.G.state === 'dead') {
+    } else if (s.celeb && s.G.state === 'dead' && !(p.team === s.celeb.team && p !== s.celeb.who && sp > 1.3)) {
+      // a teammate still running to the scorer runs (the last branch); he celebrates once he is there
       eyes = false;
-      if (p.team === s.celeb.team) snap = celebrate(f, p === s.celeb.who, tg, s.celeb.style ?? -1, s.celeb.group || 0);
-      else {
+      if (p.team === s.celeb.team) {
+        snap = celebrate(f, p === s.celeb.who, tg, s.celeb.style ?? -1, s.celeb.group || 0);
+        const w = s.celeb.who;
+        if (w && w !== p && Math.hypot(w.x - p.x, w.y - p.y) < 6) {
+          hx = w.x - p.x;  // gathered round him, facing him
+          hy = w.y - p.y;
+        }
+      } else {
         // heads down; and some with their hands on their helmets
         tg[CHRX] = -0.18;
         tg[HEADRX] = -0.4;

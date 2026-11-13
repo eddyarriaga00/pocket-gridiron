@@ -821,6 +821,14 @@ what is next. Update it after every item.
   a picture strip and staged in an end zone; ends turning in a bot game at Q2, Q3, Q4. `H.fingerprint()` unchanged;
   exhibition, both careers and the drills clean; audit empty at 320x568 and 390x844 (the celebration picker first
   overlapped its own touch areas; rows are now 14 px apart), and the sheet with the challenge button checked at both.
+- 22:55 Teammates run to the scorer (automatic run 14, from "Motion, the rest"). After a touchdown, coast() in game.js
+  steers every teammate within 40 yards of the scorer to his own place in a loose ring round him (golden-angle
+  spacing, 1.6 to 3 yards out) at up to 6.2 yd/s, and keeps them about an arm's length (1.1 yd) apart; render3d.js
+  draws a man still running with his running stride and starts his celebration when he gets there, facing the
+  scorer. Cosmetic only: never in simulations, so `H.fingerprint()` is unchanged. Measured over 11 bot touchdowns:
+  from 0 or 1 teammates within 4 yards at the whistle to 2 to 9 two seconds later; the closest pairs (0.3 to 0.8 yd)
+  are men still running past, standing men keep their spacing. A screenshot shows the group round the scorer in the
+  end zone. Exhibition, both careers and the drills clean; audit empty at 320x568 and 390x844; no console errors.
 
 ## Morning hand-off
 
@@ -1075,11 +1083,9 @@ Major improvements, biggest first:
   joining single numbers sounds like a machine. Worth it only if the owner wants it.
 - The pile, the rest: for about a tenth of a second while the top man slides off, about 4% of piles have a leg through
   someone (`PG.r3d.beside()` at 0.8 s); and the top man lies a little stiff and flat.
-- Motion, the rest: reserves on the bench who walk about; a ball carrier who looks at the man about to hit him;
-  teammates who run to the scorer.
+- Motion, the rest: reserves on the bench who walk about; a ball carrier who looks at the man about to hit him.
 - Career: the awards night could have a booth or
   stadium voice reading the winners (one clip per award and per name is too many; per award is not).
-- More NFL details: a play clock with delay of game, teams changing ends between quarters, a challenge flag.
 Interface, when no major item fits in a run:
 - Run `tools/audit.js` after every change and keep its report empty.
 - A person on a real phone still has to judge touch feel, the frame rate with close-up models, and the sound.

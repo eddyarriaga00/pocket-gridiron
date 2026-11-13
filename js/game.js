@@ -4634,10 +4634,11 @@
     }
   }
 
-  /* after the whistle players ease to a stop instead of freezing mid-stride */
+  /* after the whistle players ease to a stop instead of freezing mid-stride; after a touchdown the scorer's teammates
+     who are near enough run to him instead and gather round (cosmetic: never in simulations) */
   function coast(dt) {
     if (!ps) return;
-    const k = Math.pow(0.03, dt), b = ps.loose;
+    const k = Math.pow(0.03, dt), b = ps.loose, cel = G.celeb && !AUTO && !QUIET && G.celeb.who && !G.celeb.who.down && ps.after > 0.35 ? G.celeb : null;
     if (b) bounce(b, dt);  // an incomplete pass bounces away
     ps.after = (ps.after || 0) + dt;
     if (ps.after < 0.8) record();
@@ -4653,8 +4654,26 @@
         }
         continue;
       }
-      p.vx *= k;
-      p.vy *= k;
+      const w = cel && p.team === cel.team && p !== cel.who ? cel.who : null;
+      if (w && hyp(w.x - p.x, w.y - p.y) < 40) {
+        // a place in a loose ring round him, each man his own (golden-angle spacing), the nearer ones closest
+        const i = P.indexOf(p), a = i * 2.39996 + 0.7, r = 1.6 + (i % 3) * 0.7, tx = clamp(w.x + Math.cos(a) * r, 0.6, FW - 0.6), ty = w.y + Math.sin(a) * r;
+        const dx = tx - p.x, dy = ty - p.y, d = hyp(dx, dy), spd = d > 0.35 ? Math.min(6.2, d * 1.8) : 0, e = 1 - Math.exp(-dt * 3.5);
+        p.vx += ((d ? dx / d : 0) * spd - p.vx) * e;
+        p.vy += ((d ? dy / d : 0) * spd - p.vy) * e;
+        for (const q of P) {
+          // and they keep an arm's length from each other (and from him)
+          if (q === p || q.team !== p.team || q.down || q.fell) continue;
+          const ox = p.x - q.x, oy = p.y - q.y, o = hyp(ox, oy);
+          if (o > 0.01 && o < 1.1) {
+            p.vx += ox / o * (1.1 - o) * 6 * dt * 10;
+            p.vy += oy / o * (1.1 - o) * 6 * dt * 10;
+          }
+        }
+      } else {
+        p.vx *= k;
+        p.vy *= k;
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.anim += hyp(p.vx, p.vy) * dt;

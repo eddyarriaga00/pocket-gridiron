@@ -466,3 +466,14 @@ tr.me td{color:var(--acc);font-weight:700}
 .bstats td{width:30%;text-align:center;font-family:var(--display);font-weight:700}
 .bstats th{font-weight:500;font-size:11px;color:var(--mute);text-align:center}
 #app.bcon #mine{opacity:0;transition:opacity .3s}
+/* awards night: a sealed card shows its nominees, the card being read glows, an opened one shows the winner */
+.nx.aw .aw-s{display:none}
+.nx.aw.sealed .aw-w,.nx.aw.sealed .aw-r{display:none}
+.nx.aw.sealed .aw-s{display:block;margin:6px 0 0}
+.nx.aw.sealed::after{content:"";display:block;height:3px;margin-top:9px;border-radius:2px;background:linear-gradient(90deg,var(--panel3),var(--line),var(--panel3))}
+.nx.aw.calling{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.nx.aw.calling::after{background:linear-gradient(90deg,var(--panel3),var(--acc),var(--panel3));background-size:200% 100%;animation:awcall 1.1s linear infinite}
+@keyframes awcall{from{background-position:100% 0}to{background-position:-100% 0}}
+.nx.aw:not(.sealed) .aw-w{animation:awin .45s ease-out}
+@keyframes awin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.nx.aw.calling::after,.nx.aw:not(.sealed) .aw-w{animation:none}}

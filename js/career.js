@@ -1041,19 +1041,74 @@
   }
 
   /* the ceremony: every award, who won it and who else was up for it */
+  /* Awards night as a ceremony: the honors are read out from the smallest to the biggest (the statistical title
+     first, the MVP last). Each card starts sealed with its nominees on it; the stadium announcer introduces the award,
+     a drum roll, then the winner's name comes up to applause, louder and with a fanfare when it is you. "Reveal all"
+     opens every card at once, and Continue works at any point. With the sound off the cards open on a timer. */
+  const AW_CLIP = a => (/^League MVP/.test(a) ? 'mvp' : /^Offensive/.test(a) ? 'opoy' : /^Rookie/.test(a) ? 'roy' : /^All-League/.test(a) ? 'all' : 'title');
+  const AW_SAY = { mvp: 'And now, the league’s Most Valuable Player. The winner is...', opoy: 'The Offensive Player of the Year award goes to...', roy: 'This year’s Rookie of the Year is...',
+    all: 'Named to this year’s All-League team...', title: 'This season’s statistical champion at the position is...' };
+
   function showAwards(then) {
-    const po = C.po, list = po.night || [], mine = list.filter(x => x.w.me);
+    const po = C.po, list = (po.night || []).slice().reverse(), mine = list.filter(x => x.w.me);
     po.nightSeen = true;
     persist();
     const who = x => `${esc(x.name)} <span class="aw-t">${x.ab}${x.me ? ' · you' : x.riv ? ' · your rival' : ''}</span>`;
-    scr.innerHTML = `<div class="menu solid"><h1 class="sm">Awards <em>night</em></h1>
-  <p class="tag">Season ${C.season} is in the books. The league hands out its awards${mine.length ? `, and your name is called ${mine.length === 1 ? 'once' : mine.length + ' times'}` : ''}.</p>
-  ${list.map(x => `<div class="nx aw${x.w.me ? ' won' : ''}"><small>${esc(x.a)}</small><h4>${who(x.w)}</h4>
-  <p>${x.stat ? esc(x.stat) + ' · ' : ''}${x.n.length ? 'Also nominated: ' + x.n.map(who).join(', ') : ''}${x.xp ? `<br><b>+${fmt(x.xp)} XP</b>` : ''}</p></div>`).join('')}
+    const noms = x => [x.w, ...x.n].map(n => esc(n.name) + (n.me ? ' (you)' : '')).sort().join(', ');
+    scr.innerHTML = `<div class="menu solid" id="awn"><h1 class="sm">Awards <em>night</em></h1>
+  <p class="tag">Season ${C.season} is in the books. The league hands out its awards.</p>
+  ${list.map((x, k) => `<div class="nx aw sealed" data-k="${k}"><small>${esc(x.a)}</small><h4 class="aw-w">${who(x.w)}</h4><p class="aw-s">Nominees: ${noms(x)}</p>
+  <p class="aw-r">${x.stat ? esc(x.stat) + ' · ' : ''}${x.n.length ? 'Also nominated: ' + x.n.map(who).join(', ') : ''}${x.xp ? `<br><b>+${fmt(x.xp)} XP</b>` : ''}</p></div>`).join('')}
   ${po.rival ? `<p class="note">${esc(po.rival)}</p>` : ''}
-  <button class="go" id="awgo">Continue</button></div>`;
-    if (mine.length) PG.snd('fanfare');
-    $('#awgo').onclick = then || (() => showHub('season'));
+  <div class="stack"><button class="btn2" id="awall">Reveal all</button><button class="go" id="awgo" style="margin-top:0">Continue</button></div></div>`;
+    const root = $('#awn'), cards = [...scr.querySelectorAll('.nx.aw')], A = PG.audio;
+    let i = 0, live = true;
+    const here = () => live && document.body.contains(root);
+    const open = (k, loud) => {
+      const card = cards[k], x = list[k];
+      if (!card || !card.classList.contains('sealed')) return;
+      card.classList.remove('sealed', 'calling');
+      if (x.w.me) card.classList.add('won');
+      if (loud) {
+        PG.snd('applause', { level: x.w.me ? 0.85 : 0.5, dur: x.w.me ? 3.4 : 2.2 });
+        if (x.w.me) PG.snd('fanfare');
+      }
+    };
+    const step = () => {
+      if (!here()) return;
+      if (i >= list.length) {
+        if (A && A.pa) A.pa('Congratulations to all of this year’s winners.', { announcer: true, anywhere: true, wait: 0.6, clips: ['pa.aw.close'] });
+        $('#awall').hidden = true;
+        return;
+      }
+      const k = i, key = AW_CLIP(list[k].a), len = A && A.pa ? A.pa(AW_SAY[key], { announcer: true, anywhere: true, wait: 0.1, clips: ['pa.aw.' + key] }) : 0;
+      cards[k].classList.add('calling');
+      cards[k].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      const roll = len ? len * 1000 + 150 : 900;
+      setTimeout(() => {
+        if (!here()) return;
+        PG.snd('roll', { dur: 0.9 });
+        setTimeout(() => {
+          if (!here()) return;
+          open(k, true);
+          i++;
+          setTimeout(step, 1500);
+        }, 950);
+      }, roll);
+    };
+    const first = A && A.pa ? A.pa('Ladies and gentlemen, welcome to the league’s awards night.', { announcer: true, anywhere: true, wait: 0.3, clips: ['pa.aw.open'] }) : 0;
+    setTimeout(step, first ? first * 1000 + 600 : 500);
+    $('#awall').onclick = () => {
+      live = false;  // the ceremony stops; every card opens, with one round of applause
+      cards.forEach((_, k) => open(k, false));
+      PG.snd('applause', { level: mine.length ? 0.8 : 0.5, dur: 2.4 });
+      if (mine.length) PG.snd('fanfare');
+      $('#awall').hidden = true;
+    };
+    $('#awgo').onclick = () => {
+      live = false;
+      (then || (() => showHub('season')))();
+    };
   }
 
   /* ---------- the hall of fame ----------

@@ -924,6 +924,18 @@ what is next. Update it after every item.
   Checked: fingerprint unchanged; exhibition, careers (QB and WR, three games each), a WR season, drills clean; a drawn
   game with every pose finite; cards seen in real career games; audit empty at 320x568 and 390x844, with and
   without a simulated 34 px bottom strip, including every Social sub-tab, an opened week and four leader boards.
+- 00:12 Awards night as a ceremony (automatic run 18, the last of the career items in "Next ideas"; the voices and the
+  read-out scores wait on the owner, the pile was measured and left, see its item). The cards start sealed with their
+  nominees and are read from the stat title up to the MVP: the stadium announcer introduces each (new clips
+  pa.aw.open/title/all/roy/opoy/mvp/close, 7 clips, recorded locally: 478 in the pack), the drum roll (`roll`, 0.9 s),
+  then the winner comes up to applause, with the fanfare when it is you; Reveal all opens every card at once and
+  Continue works throughout; with the sound off the cards open on a timer (about 5 s an award, 24 s in all). New
+  synthesized `applause`: single claps, about one every hundredth of a second at first and thinning, each a band of
+  noise between 1 and 3.4 kHz at its own pan, over a quiet murmur. Measured: the first version put its energy in the
+  murmur (bands 9/36/30/15/7/3) and sat 13 dB under the voice; now 1/5/7/20/41/27, the big round -28 dB RMS on a phone
+  (the voice -20, the fanfare -20 over it), the polite round -32. Checked: the ceremony stepped through five awards in
+  order in a real end of season; fingerprint unchanged; exhibition, careers, a WR and a QB season, drills clean;
+  audit empty at 320x568 (sealed, mid-ceremony and opened, and with the 34 px strip) and 390x844; no console errors.
 
 ## Morning hand-off
 
@@ -1187,10 +1199,12 @@ Major improvements, biggest first:
 - More booth lines: the score read out at the half and the end. Not done in run 7 on purpose: the natural way, "The
   Outlaws fourteen, the Aviators seven", is a clip for every team and score (about 370 more clips, 3 MB), and
   joining single numbers sounds like a machine. Worth it only if the owner wants it.
-- The pile, the rest: for about a tenth of a second while the top man slides off, about 4% of piles have a leg through
-  someone (`PG.r3d.beside()` at 0.8 s); and the top man lies a little stiff and flat.
-- Career: the awards night could have a booth or
-  stadium voice reading the winners (one clip per award and per name is too many; per award is not).
+- The pile, the rest (measured again in run 18 with `PG.r3d.beside(a, b, {off, at})` over the 156 stagings): while
+  defenders dive on (0.6 s) 14 of 156 have more than 10 cm of one man inside another, 7 at 0.8 s, none at 1.0 s; and
+  as the runner gets up (1.15 to 1.5 s) a few men standing 2.3 yd off end up inside him, up to 33 cm (the clearance
+  stops once a body's fall drops under 0.3, so a standing man is no longer pushed). The top man also lies a little
+  stiff and flat. Not taken in run 18: the fix is inside the pile solver and could not be finished and checked in one
+  run.
 Interface, when no major item fits in a run:
 - Run `tools/audit.js` after every change and keep its report empty.
 - A person on a real phone still has to judge touch feel, the frame rate with close-up models, and the sound.

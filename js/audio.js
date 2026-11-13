@@ -737,6 +737,18 @@
         chain(noise(c, 'white', at, 0.03), filter(c, 'highpass', rnd(2200, 5000)), env(c, at, 0.001, rnd(0.06, 0.16), 0.02), pan(c, rnd(-0.9, 0.9)), out);
       }
     },
+    /* a hall applauding: single hand claps, thick at first and thinning out over the length, each a short band of
+       noise at its own pitch and place, over a low murmur of voices; o.level for how big a hand it is */
+    applause(c, out, t, o) {
+      const dur = (o && o.dur) || 2.6, lvl = o && o.level !== undefined ? o.level : 0.6;
+      let at = 0;
+      while (at < dur) {
+        const k = at / dur, a = t + at;
+        chain(noise(c, 'white', a, 0.04), filter(c, 'bandpass', rnd(1000, 3400), rnd(0.8, 1.4)), env(c, a, 0.001, lvl * rnd(0.65, 1.4) * (1 - k * 0.7), rnd(0.02, 0.04)), pan(c, rnd(-0.9, 0.9)), out);
+        at += lerp(0.01, 0.04, k) * rnd(0.5, 1.5);  // a full hall: a clap every hundredth of a second at first
+      }
+      chain(noise(c, 'pink', t, dur + 0.4), filter(c, 'bandpass', 520, 0.7), envHold(c, t, 0.15, lvl * 0.08, dur * 0.6, dur * 0.4), out);  // the voices under it
+    },
     /* the drum line before a kickoff: a snare roll that grows, a boom and a cymbal as the ball is struck */
     roll(c, out, t, o) {
       const dur = o && o.dur || 1.1;

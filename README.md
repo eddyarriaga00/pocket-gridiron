@@ -89,7 +89,9 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   drinks, trucks, chips, phones, gyms, watches, insurance). Sign it for XP now and XP every game, the pay set by your
   following; two deals at most; a brand walks away when your hype falls under 25.
 - Career awards night after every season: MVP, Offensive Player of the Year, Rookie of the Year, All-League at your
-  position and your position's statistical title, each with its nominees from around the league. Retire a career
+  position and your position's statistical title, each with its nominees from around the league. It is a ceremony:
+  the stadium announcer introduces each award from the stat title up to the MVP, a drum roll, then the winner comes up
+  to applause (louder, with a fanfare, when it is you); Reveal all skips it. Retire a career
   and it goes to a hall of fame vote; every retired career is kept in the Hall of fame, on the main menu.
 - After every scoring drive, its plays, yards and time. Halftime and the final screen (in every mode) show the
   scoring summary, each score with the drive that made it, and each team's passing, rushing and receiving leaders.

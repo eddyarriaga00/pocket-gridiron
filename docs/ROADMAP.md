@@ -1142,6 +1142,20 @@ what is next. Update it after every item.
   forecast ("Night game · snow in the forecast", "Indoors, under the roof"), from the same function the game uses
   (`gameEnv`), so it is what you get. Left: a roof drawn over those stadiums (in "Next ideas"). Checked: fingerprint
   unchanged, careers, exhibition, drills, audit empty at 320x568 and 390x844 with and without the 34 px strip.
+- 03:23 Automatic run: home and away. `G.home` says which side is at home (team 0, yours, unless `startGame({away})`); the
+  league decides (`LG.home`: each schedule pair is [home, visitor], five home games each, the middle round of each
+  division leg turned round so nobody opens with three at home; in the playoffs the better seed hosts, the
+  championship the better record; the old eight-team league plays at home). On the road: midfield and the crowd's
+  colors are the home team's, the visitors wear white (render3d `setTeams(t0, t1, hs)`, the uniforms' kit from
+  `p.team === G.home`), the crowd cheers the home side and groans at yours (`react`), roars on your third downs,
+  boos your walkout (no welcome from their announcer), cheers a flag on you; a false start comes a little easier for
+  you there (+0.8 in 100 a snap) and the hard count rarely works (3 in 100 instead of 12); "at" on the cards and the
+  matchup card; the weather is the home city's; a road win +100 XP. Computer-only games are all at home, so play is
+  unchanged (the fingerprint's games, stats and trace identical; only its schedule changed, new baseline stored).
+  Measured: in a home game the third-down roar came on the other side's third downs only (5, none on yours), on the
+  road on yours (3 of 3); a road walkout drew a boo and no cheer. Checked: careers, a full QB season (five at home,
+  five away), exhibition, drills, a drawn road game with every pose finite, gait slide 1 cm and no sinking, audit
+  empty at 320x568 and 390x844 with and without the 34 px strip, no console errors.
 
 ## Morning hand-off
 
@@ -1457,10 +1471,8 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- Home and away: a career and season schedule has road games. On the road the field is the other team's (end zones,
-  midfield, the stadium's banners and the announcer's welcome are theirs), you wear white, the crowd cheers their side
-  and makes its noise on your third downs (your hard count is drowned out: it never draws a jump there), and the
-  booth says so. Today team 0 is always at home: `G.home` and every place that reads team 0 as the home side.
+- Home and away, the rest (the core landed at 03:40): booth lines for a road game ("a hostile place to play") recorded
+  on the local Kokoro model, and the end zones both in the home team's paint on the road.
 - Kick and punt returns for a receiver's career: the coach makes you the returner (a role with its own trust line);
   on their kickoffs and punts you field it and run it back live (today their kickoffs go straight to your offense).
 - Pre-snap motion: jet and orbit motion, a shift from one formation to another; the computer uses it on a third of its

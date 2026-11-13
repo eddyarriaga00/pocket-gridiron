@@ -153,7 +153,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, diff: o.diff ?? 1, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, prime: !!o.prime, around: o.around || null, highs: o.highs || null, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, home: o.away ? 1 : 0, prime: !!o.prime, around: o.around || null, highs: o.highs || null, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     G.callout = o.callout || null;
@@ -201,7 +201,7 @@
       const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = e.roof ? 'Indoors' : { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = e.roof ? 'Under the roof' : { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
       G.state = 'intro';
       const sty = i => (SCHEME[i] ? `<i>${SCHEME[i].n} offense</i>` : '');  // each team calls its own kind of game
-      scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span>${sty(o.a)}</div><em>vs</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span>${sty(o.b)}</div></div>
+      scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span>${sty(o.a)}</div><em>${G.home ? 'at' : 'vs'}</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span>${sty(o.b)}</div></div>
   ${G.prime ? '<p class="prime">Primetime · the whole league is watching</p>' : ''}<p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><p class="toss">${TEAMS[G.tm[G.first]].name} won the toss · will receive</p><small>Tap to skip</small></button>`;
       $('#intro').onclick = endIntro;
       /* the coin toss was won by the side that receives: the referee says so over the speakers, then the broadcast opens
@@ -210,8 +210,8 @@
       G.introT = -Math.min(2.5, toss);  // the matchup card stays up a little longer for it
       setTimeout(() => {
         vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
-        vo('intro.away.' + vk(o.b), { ttl: 14 });
-        vo('intro.home.' + vk(o.a), { ttl: 16 });
+        vo('intro.away.' + vk(G.home ? o.a : o.b), { ttl: 14 });  // a road game: you are the visitors
+        vo('intro.home.' + vk(G.home ? o.b : o.a), { ttl: 16 });
         if (G.callout) {
           vo(G.callout === 'guarantee' ? 'call.guar' : 'call.trash', { keep: true, ttl: 20 });
           vo('a.callout', { pri: 0, keep: true, ttl: 24 });
@@ -331,14 +331,15 @@
       },
       cues: [
         [0.3, () => {
-          if (PG.audio && PG.audio.pa) G.welcomed = PG.audio.pa('Ladies and gentlemen, welcome to ' + TEAMS[G.tm[0]].name + ' football!', { announcer: true, wait: 0, clips: ['pa.welcome.' + vk(G.tm[0])] }) > 0;
+          // at home the announcer brings you out; on the road nobody here is glad to see you
+          if (!G.home && PG.audio && PG.audio.pa) G.welcomed = PG.audio.pa('Ladies and gentlemen, welcome to ' + TEAMS[G.tm[0]].name + ' football!', { announcer: true, wait: 0, clips: ['pa.welcome.' + vk(G.tm[0])] }) > 0;
         }],
         [0.95, () => {
           snd('boom');
-          if (PG.audio) PG.audio.crowd.cheer(1.25, 4.5);
+          if (PG.audio) G.home ? PG.audio.crowd.boo(0.6) : PG.audio.crowd.cheer(1.25, 4.5);
         }],
         [2.6, () => {
-          if (PG.audio) PG.audio.crowd.cheer(0.9, 3);
+          if (PG.audio) G.home ? PG.audio.crowd.ooh(0.3) : PG.audio.crowd.cheer(0.9, 3);
         }],
       ],
     },
@@ -461,7 +462,7 @@
         for (const p of P) if (!p.ref && p.team === sc.win) p.act = 'cheer';
         const c = $('#scn .cap');
         if (c) c.innerHTML = `<small>Coin toss · midfield</small><b>${esc(w.name)} win the toss</b><span>They will receive</span>`;
-        if (PG.audio) PG.audio.crowd.cheer(sc.win === 0 ? 0.8 : 0.4, 2);
+        if (PG.audio) PG.audio.crowd.cheer(sc.win === (G.home || 0) ? 0.8 : 0.4, 2);  // louder when the home side wins it
       }],
     ],
   };
@@ -552,7 +553,7 @@
   /* the stadium announcer welcomes everybody as the teams line up for the opening kick, and the crowd roars back */
   function welcome() {
     if (AUTO || QUIET || G.drill || !PG.audio || !PG.audio.pa) return;
-    const a = PG.audio, home = TEAMS[G.tm[0]], len = a.pa('Ladies and gentlemen, welcome to ' + home.name + ' football!', { announcer: true, wait: 0.3, clips: ['pa.welcome.' + vk(G.tm[0])] });
+    const a = PG.audio, home = TEAMS[G.tm[G.home || 0]], len = a.pa('Ladies and gentlemen, welcome to ' + home.name + ' football!', { announcer: true, wait: 0.3, clips: ['pa.welcome.' + vk(G.tm[G.home || 0])] });
     if (len) setTimeout(() => {
       if (G.ros && G.state !== 'menu' && G.state !== 'over') a.crowd.cheer(0.7, 2.5);
     }, Math.max(400, len * 1000 - 350));
@@ -2157,8 +2158,9 @@
           if (off === 0) {
             snd('chime');
             if (gi < 15) react(0, 0.45, 1.8);
-            /* the ones that matter (a third or fourth down made, or a good gain) get the stadium announcer, and the crowd finishing his sentence */
-            if (!AUTO && !QUIET && !G.drill && PG.audio && (dn >= 3 || gi >= 8)) PG.audio.firstDown(TEAMS[G.tm[0]].name, vk(G.tm[0]));
+            /* the ones that matter (a third or fourth down made, or a good gain) get the stadium announcer, and the crowd
+               finishing his sentence; not on the road, where it is the other team's announcer */
+            if (!AUTO && !QUIET && !G.drill && PG.audio && !G.home && (dn >= 3 || gi >= 8)) PG.audio.firstDown(TEAMS[G.tm[0]].name, vk(G.tm[0]));
           }
         } else {
           G.down++;
@@ -2350,7 +2352,7 @@
     a.crowd.ooh(0.35);  // a flag is down, and nobody knows on whom yet
     setTimeout(() => {
       if (!G.ros || G.state === 'menu' || G.state === 'over') return;
-      if (team === 0) a.crowd.boo(size);
+      if (team === (G.home || 0)) a.crowd.boo(size);  // a flag on the home side is booed, one on the visitors cheered
       else {
         a.crowd.cheer(size, 2);
         if (R3) R3.cheer(size);
@@ -3006,10 +3008,10 @@
     setBrief(briefTxt());
     if (!AUTO && PG.audio && ps.mode !== 'kick' && !G.drill) {
       const a = PG.audio, redZone = (G.poss === 0 ? 100 - G.los : G.los) < 20;
-      if (G.poss === 1 && G.down >= 3) {
+      if (G.poss !== (G.home || 0) && G.down >= 3) {
         a.crowd.rise(2.2);  // the home crowd makes all the noise it can until the ball is snapped
         Math.random() < 0.5 ? a.crowd.chant(3) : a.crowd.clapBuild(2.4);
-      } else if (G.poss === 0 && (G.down === 3 || redZone) && Math.random() < 0.45) {
+      } else if (G.poss === (G.home || 0) && (G.down === 3 || redZone) && Math.random() < 0.45) {
         if (Math.random() < 0.5) a.crowd.letsgo(2);  // "LET'S GO!" and the claps
         else {
           a.play('organ');
@@ -3041,9 +3043,9 @@
     if (ps.mode === 'kick') return doKick(rnd(0.55, 1));
     if (flagsOn()) {
       // once in a long while somebody jumps
-      const r = rnd();
-      if (r < 0.011) return flag('False start', ps.offTeam);
-      if (r < 0.02) return flag('Offside', 1 - ps.offTeam);
+      const r = rnd(), loud = G.home === 1 && ps.offTeam === 0 ? 0.008 : 0;  // on the road the crowd is at full voice when you snap it
+      if (r < 0.011 + loud) return flag('False start', ps.offTeam);
+      if (r < 0.02 + loud) return flag('Offside', 1 - ps.offTeam);
     }
     G.state = 'live';
     ps.t = 0;
@@ -3425,12 +3427,12 @@
     G.pad = null;  // the button goes: one try a play
     snd('cadence', { x: ps.bx });
     snd('calls', { x: ps.bx, delay: 0.35 });
-    const r = Math.random(), pen = SET.pen !== false && !G.drill;
-    if (pen && r < 0.12) {
+    const r = Math.random(), pen = SET.pen !== false && !G.drill, road = G.home === 1 && ps.offTeam === 0;  // on the road the crowd drowns the count out
+    if (pen && r < (road ? 0.03 : 0.12)) {
       toast('They jumped!');
       flag('Offside', 1 - ps.offTeam);
-    } else if (pen && r < 0.16) flag('False start', ps.offTeam);
-    else toast('Hard count · nobody jumped');
+    } else if (pen && r < (road ? 0.09 : 0.16)) flag('False start', ps.offTeam);
+    else toast(road ? 'Hard count · the crowd drowned it out' : 'Hard count · nobody jumped');
   }
 
   /* Changes at the line of scrimmage. On offense Audible steps through four standby plays and Flip mirrors the play;
@@ -4351,10 +4353,11 @@
   /* the home crowd is on the user's side: it cheers what is good for team 0 and groans at the rest */
   function react(goodFor, size, dur) {
     if (AUTO || QUIET) return;
-    if (goodFor === 0 && R3) R3.cheer(size);
+    const fans = G.home || 0;  // the crowd is the home team's: on the road your big plays get a groan
+    if (goodFor === fans && R3) R3.cheer(size);
     const a = PG.audio;
     if (!a) return;
-    if (goodFor === 0) a.crowd.cheer(size, dur);
+    if (goodFor === fans) a.crowd.cheer(size, dur);
     else if (size >= 0.7) a.crowd.groan(size * 0.9);
     else a.crowd.ooh(size);
   }

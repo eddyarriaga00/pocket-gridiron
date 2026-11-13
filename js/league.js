@@ -43,8 +43,12 @@
     const divs = [];
     for (let c = 0; c < 2; c++) for (let d = 0; d < 4; d++) divs.push(shuffle(divTeams(c, d)));
     const rr = g => [[[g[0], g[1]], [g[2], g[3]]], [[g[0], g[2]], [g[1], g[3]]], [[g[0], g[3]], [g[1], g[2]]]];  // a division's three rounds
-    const first = [0, 1, 2].map(r => divs.flatMap(g => rr(g)[r]));
-    const second = [2, 0, 1].map(r => divs.flatMap(g => rr(g)[r].map(([a, b]) => [b, a])));  // the return games, the other way round
+    /* each pair is [home, visitor]: the middle round of a leg is turned round so nobody opens with three at home, and
+       the return games are the first leg's the other way round: five home games each, mixed through the season (a
+       road trip of three or four can still happen where the crossover weeks meet the division ones, as in real life) */
+    const leg = r => divs.flatMap(g => rr(g)[r].map(([a, b]) => (r % 2 ? [b, a] : [a, b])));
+    const first = [0, 1, 2].map(leg);
+    const second = [2, 0, 1].map(r => leg(r).map(([a, b]) => [b, a]));
     const pairs = [[[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]][(lg || 0) % 3], cross = [];
     for (let r = 0; r < 4; r++) {
       const week = [];
@@ -142,6 +146,20 @@
     });
     L.pend = { week: L.week, lg: L.lg, games };
     return games;
+  }
+
+  /* Is this week's game at home? In the season the schedule says (each pair is [home, visitor]; the division return
+     games are the other way round). In the playoffs the better seed hosts, and the championship the better record.
+     The old eight-team league played every game at home. */
+  function home(L) {
+    if (!full2(L)) return true;
+    if (L.phase === 'reg') return L.sched[L.week].find(p => p.includes(L.team))[0] === L.team;
+    const o = L.po.opp;
+    if (L.phase !== 'final' && L.po.seeds) {
+      const s = L.po.seeds[TEAMS[L.team].conf];
+      return s.indexOf(L.team) < s.indexOf(o);
+    }
+    return better(L)(L.team, o) <= 0;
   }
 
   function nextOpp(L) {
@@ -319,5 +337,5 @@
       <p class="note">The four division winners of each conference make the playoffs.</p>${around}`;
   }
 
-  PG.league = { prime, preWeek, start, fix, record, simScore, simWinner, seeds, confSeeds, recTxt, label, short, weekNo, stage, nextOpp, advance, standingsHtml, bracketHtml, divTeams, divName, divOf, full: full2, schedule };
+  PG.league = { home, prime, preWeek, start, fix, record, simScore, simWinner, seeds, confSeeds, recTxt, label, short, weekNo, stage, nextOpp, advance, standingsHtml, bracketHtml, divTeams, divName, divOf, full: full2, schedule };
 })();

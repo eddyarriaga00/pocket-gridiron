@@ -35,7 +35,10 @@ nickname, short name, colors) on your own device; it stays in your browser. A se
 rivals twice and the four teams of another division of your conference, a different one each year. The four division
 winners of each conference make an eight-team playoff: the divisional round, the conference finals, the championship.
 A season saved in the old eight-team league finishes the old way and the next one starts in the full league.
-Every city has its own weather: eleven teams play under a roof (never rain or snow), the cold cities get snow late in
+Half your games are on the road (five of ten, mixed through the season; in the playoffs the better seed hosts). On
+the road the field's midfield and the crowd are the other team's, you wear white, the crowd groans at your big plays,
+boos your walkout, roars on your third downs (a false start comes a little easier and your hard count is drowned
+out), and the stadium announcer is theirs; a road win is worth a little XP. Every city has its own weather: eleven teams play under a roof (never rain or snow), the cold cities get snow late in
 the season, the wet ones more rain, the warm ones never snow; the career hub gives the next game's forecast.
 
 ## Modes

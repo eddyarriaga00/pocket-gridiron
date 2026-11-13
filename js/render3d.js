@@ -2652,9 +2652,9 @@
   /* ---------- textures ---------- */
   const PAD_X = 6, Y0 = -16, Y1 = 116, TEXW = 1280, TEXS = TEXW / (FW + 2 * PAD_X), TEXH = Math.round((Y1 - Y0) * TEXS);
 
-  function paintField(t0, t1) {
-    lastTeams = [t0, t1];
-    const home = t0;  // midfield stays the home side's
+  function paintField(t0, t1, host) {
+    lastTeams = [t0, t1, host];
+    const home = host || t0;  // midfield stays the home side's (the other team's, in a road game)
     if (ends) [t0, t1] = [t1, t0];  // the teams have changed ends: each end zone carries the other side's paint
     const c = fieldCanvas.getContext('2d'), S = TEXS, X = x => (x + PAD_X) * S, Y = y => (Y1 - y) * S;
     c.fillStyle = '#1b5a30';
@@ -3260,12 +3260,13 @@
   }
 
   /* repaint everything that carries team colors, and stand the reserves along the sidelines */
-  function setTeams(t0, t1) {
-    paintField(t0, t1);
-    paintCrowd(t0, t1);
+  function setTeams(t0, t1, hs) {
+    hs = hs || 0;  // which side is at home: its paint at midfield, its colors in the seats, its men in their home jerseys
+    paintField(t0, t1, hs ? t1 : t0);
+    paintCrowd(hs ? t1 : t0, hs ? t0 : t1);
     const kinds = [BUILD.line, BUILD.big, BUILD.slim, BUILD.back, BUILD.db, BUILD.end, BUILD.qb];
     for (let i = 0; i < SIDELINE; i++) {
-      const home = i < SIDELINE / 2, n = i % (SIDELINE / 2), f = figs[i], t = home ? t0 : t1;
+      const home = i < SIDELINE / 2, n = i % (SIDELINE / 2), f = figs[i], t = home ? t0 : t1, kit = (home ? 0 : 1) === hs;  // home: your bench, on the near side
       const x = home ? -4.2 - (n % 2) * 1.1 : FW + 4.2 + (n % 2) * 1.1, y = 33 + n * 3.6 + (Math.random() - 0.5);
       setBuild(f, kinds[(i * 5 + n) % kinds.length]);
       f.root.position.set(x, 0, -y);
@@ -3274,7 +3275,7 @@
       f.bw = null;
       f.root.visible = true;
       f.snap = true;
-      const c = teamColors(t, home, SKIN[Math.floor(Math.random() * SKIN.length)]);
+      const c = teamColors(t, kit, SKIN[Math.floor(Math.random() * SKIN.length)]);
       f.num.material = numberMaterial(Math.floor(Math.random() * 98) + 1, c.number);
       f.nameplate.material = nameMaterial(PG.NAMES[Math.floor(Math.random() * PG.NAMES.length)], c.number);
       colorFigure(i, c);
@@ -3320,7 +3321,7 @@
   function turnEnds(w) {
     ends = w;
     if (lastTeams) {
-      paintField(lastTeams[0], lastTeams[1]);
+      paintField(lastTeams[0], lastTeams[1], lastTeams[2]);
       fieldTex.needsUpdate = true;
     }
     if (lastEnv) applyEnv(lastEnv);
@@ -3330,7 +3331,7 @@
   function render(s, dt) {
     time += dt;
     const G = s.G, P = s.P, ps = s.ps, t0 = s.teams[G.tm[0]], t1 = s.teams[G.tm[1]];
-    const key = G.tm[0] + '-' + G.tm[1], e = s.env || NIGHT, ek = e.time + '|' + e.weather;
+    const key = G.tm[0] + '-' + G.tm[1] + '-' + (G.home || 0), e = s.env || NIGHT, ek = e.time + '|' + e.weather;
     if (ek !== envKey) {
       envKey = ek;
       applyEnv(e);
@@ -3338,7 +3339,7 @@
     if (key !== teamsKey) {
       teamsKey = key;
       boardKey = '';
-      setTeams(t0, t1);
+      setTeams(t0, t1, G.home || 0);
     }
     updateProps(s.scene || null, t0, P);
     /* the second and fourth quarters are played the other way round (see ends) */
@@ -3373,7 +3374,7 @@
         f.hide = p.suit || p.hoodie ? BARE_HIDE : p.ref ? REF_HIDE : null;
         f.extra = p.hoodie ? CAP_ON : p.suit ? HAIR_ON : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
         setBuild(f, p.ref || p.suit ? BUILD.ref : p.hoodie ? BUILD.qb : buildOf(p.role));
-        const home = p.team === 0, c = p.hoodie ? HOOD(t0) : p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, home, SKIN[(p.num * 7 + i) % SKIN.length]);
+        const home = p.team === 0, kit = p.team === (G.home || 0), c = p.hoodie ? HOOD(t0) : p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, kit, SKIN[(p.num * 7 + i) % SKIN.length]);  // kit: home colors for the home side, white for the visitors
         colorFigure(SIDELINE + i, c);
         f.num.material = p.ref ? stripeMaterial() : p.suit || p.hoodie ? NO_NAME : numberMaterial(p.num, c.number);
         f.nameplate.material = p.ref || p.suit || p.hoodie ? NO_NAME : nameMaterial(p.name, c.number);

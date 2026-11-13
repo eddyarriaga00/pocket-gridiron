@@ -660,7 +660,7 @@
     :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
     const o = nextOpp(), lab = LG.label(C), pt = LG.prime(C);
-    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>vs ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}<br>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
+    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>${LG.home(C)?'vs':'at'} ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}<br>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
   ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
   ${C.rival&&C.rival.team===o&&C.phase!=='done'&&!(C.social&&C.social.mday===pracKey())?`<button class="btn2" id="mday" style="margin:0 0 8px">Media day \u00b7 one question about ${esc(C.rival.name)}</button>`:''}
   ${C.social&&C.social.offer?'<p class="note" style="margin:0 0 8px">An endorsement offer is waiting in the Social tab.</p>':''}
@@ -674,7 +674,7 @@
   /* this week's game: the home city's weather, the same every time it is asked (so the forecast on the hub is what you
      get), and a primetime game at night */
   function gameEnv() {
-    const env = PG.envFor(C.season, LG.weekNo(C), C.phase !== 'reg' || C.week >= C.sched.length - 4, C.team);
+    const env = PG.envFor(C.season, LG.weekNo(C), C.phase !== 'reg' || C.week >= C.sched.length - 4, LG.home(C) ? C.team : nextOpp());  // the home city's weather
     if (LG.prime(C)) env.time = 'night';
     return env;
   }
@@ -1331,7 +1331,7 @@
     const rivalry = C.rival && C.rival.team === opp ? { name: C.rival.name, quote: rivalSays(), mine: C.social && C.social.callout && C.social.callout.team === opp ? C.social.callout.quote : '' } : null;
     const pt = LG.prime(C), env = gameEnv();
     PG.startGame({ a: C.team, b: opp, ql: C.ql, mode: 'career', lock: POS[C.pos].role, hero: hero(), ovr: [C.ovrs[C.team], C.ovrs[opp]], diff: C.diff ?? 1, share: share(), callout: call, rivalry,
-      prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
+      away: !LG.home(C), prime: pt, around: LG.preWeek && LG.full(C) ? LG.preWeek(C) : null, highs: Object.assign({}, C.highs || {}),
       mustWin: C.phase !== 'reg', env, line: chip, goals: m => goals().map(g => ({ d: g.d, ok: !!g.t(m) })), onEnd: r => gameEnd(r, opp), onQuit: () => showHub('up') });
   }
 
@@ -1372,7 +1372,8 @@
     const beatRival = won && !!C.rival && C.rival.team === opp;
     const base = xpFor(m, won), hard = (C.diff ?? 1) === 2 ? [['All-Pro bonus', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.2)]] : [];
     const items = base.concat(hard, star ? [['Player of the game', 300]] : [], beatRival ? [['Beat your rival', 300]] : []), met = gl.filter(g => g.ok).length, [pts, grade] = gradeOf(m, won, met);
-    const prime = LG.prime(C), playoff0 = C.phase !== 'reg';
+    const prime = LG.prime(C), playoff0 = C.phase !== 'reg', away = !LG.home(C);
+    if (away && won) items.push(['Won on the road', 100]);  // a win in their building is worth a little more
     if (prime) items.push(['Primetime game', Math.round(base.reduce((t, [, v]) => t + v, 0) * 0.25)]);
     /* Player of the Week in your conference: a win, and an A+ or (one time in three, other men had big weeks too) an A */
     const potw = !playoff0 && won && (grade === 'A+' || (grade === 'A' && rnd() < 0.35)), confName = PG.data.CONF[TEAMS[C.team].conf];
@@ -1415,7 +1416,7 @@
     const role1 = roleOf()[1], dTrust = C.trust - t0;
     const moved = role1 === role0 ? '' : ROLES.findIndex(r => r[1] === role1) < ROLES.findIndex(r => r[1] === role0) ? ` The coach moves you up: ${role1.toLowerCase()}.` : ` The coach moves you down: ${role1.toLowerCase()}.`;
     const wk = LG.short(C), playoff = C.phase !== 'reg';
-    C.log.push({ wk, opp, us, them, res, line: line(m), grade, pts, met });
+    C.log.push({ wk, opp, us, them, res, line: line(m), grade, pts, met, away });
     C.news = headline(m, won, us, them, opp);
     if (potw) C.news += `. Named the ${confName} Player of the Week`;
     if (C.rival && C.rival.team === opp && us !== them) C.news += won ? `. ${C.rival.name} left without talking to reporters.` : `. ${C.rival.name}, afterward: \u201cTold you.\u201d`;

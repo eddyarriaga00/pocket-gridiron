@@ -137,6 +137,8 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .dlg h3{margin:0 0 4px;font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.05em;text-transform:uppercase}
 .dlg p{margin:0 0 4px;color:var(--mute);font-size:13px;line-height:1.45}
 .sheet{box-sizing:border-box;max-height:66%;overflow-y:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:12px 12px calc(16px + var(--sb));touch-action:pan-y;box-shadow:0 -14px 30px rgba(0,0,0,.35)}
+.tsheet{position:relative;z-index:2}   /* the coin toss call, over the toss scene */
+.tsheet .cols .go{margin-top:0}
 .shd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;font-family:var(--display)}
 .shd b{font-size:14px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .shd span{color:var(--mute);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;text-align:right}

@@ -33,6 +33,10 @@ window.H = (() => {
       const r = q('#pr');
       if (r) r.click();
     }  // the game pauses itself when the page is hidden, which the test pane often is
+    {
+      const t = q('#tsH') || q('#tsR');  // the coin toss call, then the choice: heads, and receive
+      if (t) return t.click();
+    }
     if (G.state === 'call') {
       const c = q('.card.sug') || q('.card') || q('#h2') || q('#p1') || q('#k1');  // the suggested play (or the first card), the second-half button, the extra point, a deep kickoff
       if (c) c.click();

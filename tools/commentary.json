@@ -158,6 +158,7 @@
     "a.twomin": { "v": "a", "e": 0.35, "t": ["Here's where games are won and lost.", "Clock management takes over from here."] },
     "ref.twomin": { "v": "r", "e": 0.2, "t": ["Two minute warning."] },
     "ref.toss": { "v": "r", "e": 0.2, "t": ["The {team} have won the toss, and will receive."] },
+    "ref.defer": { "v": "r", "e": 0.2, "t": ["The {team} have won the toss, and have deferred to the second half."] },
     "ref.to": { "v": "r", "e": 0.2, "t": ["Timeout, {team}."] },
     "ref.tox1": { "v": "r", "e": 0.2, "t": ["That's their first timeout."] },
     "ref.tox2": { "v": "r", "e": 0.2, "t": ["That's their second timeout."] },

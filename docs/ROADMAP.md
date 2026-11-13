@@ -1235,6 +1235,22 @@ what is next. Update it after every item.
   mirrored heavy and trips, bunch or empty to gun, bunch to empty), 2 to 4 men each, set for 1.0 s every time, the
   corners 0.0 yd from the outside men at the snap, every man at his spot; motion on 40 more. Checked: fingerprint
   unchanged, careers (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844, no console errors.
+- 07:54 Automatic run: the coin toss call. `G.toss` (`mine`: you are a captain, so every exhibition and season game and a
+  career once you start; `coin`, `call`, `win`, `choice`). The toss scene now waits at midfield (`sc.hold`, which stops
+  the scene clock) for "Heads / Tails" before the referee flips it, and again after the coin lands if you won it, for
+  "Receive / Defer"; the question hides the scene's tap-to-skip layer under it (the audit flagged the two overlapping).
+  A scene skipped early, or cutscenes turned off, ask the same questions in a 'toss' state (`tossDone`). The computer,
+  and your own captain when you are not one, defer 70% of the time. `tossApply` sets `G.first` (who receives now; the
+  second half already kicks to the other side) and respots the kickoff; the matchup card says "won the toss ·
+  deferred" or "will receive". The referee's line has a new form, `ref.defer` ("The {team} have won the toss, and have
+  deferred to the second half."), recorded for all 32 teams on the local Kokoro model (3.2-3.7 s each, none flagged;
+  the pack is 8.2 MB, 832 clips). Measured: ref.defer.ATX peaks -2.8 dB at -18.3 RMS, ref.toss.ATX beside it -3.3 at
+  -17.9. Exhibition no longer always opens with you receiving. The test bot calls heads and receives (`H.bot` clicks
+  `#tsH` and `#tsR`). Checked: the three outcomes (lost the call: they chose; won and deferred: they receive first;
+  won and received), a skip before the call, fingerprint unchanged (simulations keep the old coin), careers (QB and
+  WR), exhibition, drills, audit empty at 320x568 and 390x844 including both questions; the console showed only the
+  test pane's "AudioContext encountered an error from the audio device" after long runs (see 02:20 and 02:45 on
+  2026-11-12).
 
 ## Morning hand-off
 
@@ -1550,8 +1566,6 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- The coin toss call: as a captain you call heads or tails and choose to receive or defer (then you get the ball to
-  start the second half).
 - More penalties with real enforcement: defensive pass interference at the spot, roughing the passer (15 yards and a
   first down), unnecessary roughness, intentional grounding (loss of down), illegal formation; the user accepts or
   declines when it matters.

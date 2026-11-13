@@ -192,9 +192,10 @@
       G.pendKO = null;
       banner(G.drill.title, G.drill.n + ' reps', 1500);
     } else if (!AUTO) {
-      const intro = () => startIntro(o, first);
+      const intro = () => startIntro(o, G.first);
       G.rivalry = o.rivalry || null;
-      const toss = () => playScene('toss', {}, intro);  // every game: the captains and the coin at midfield
+      G.toss = { mine: !G.lock || G.share >= 0.99, coin: Math.random() < 0.5 ? 'heads' : 'tails', call: null, win: null, choice: null };  // you call it as a captain
+      const toss = () => playScene('toss', {}, () => tossDone(intro));  // every game: the captains and the coin at midfield
       if (G.mode === 'career') playScene('walkout', {}, () => (G.rivalry ? playScene('faceoff', {}, toss) : toss()));  // a career game opens in the tunnel; a rival game then at midfield
       else toss();
       return;
@@ -210,11 +211,11 @@
       G.state = 'intro';
       const sty = i => (SCHEME[i] ? `<i>${SCHEME[i].n} offense</i>` : '');  // each team calls its own kind of game
       scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span>${sty(o.a)}</div><em>${G.home ? 'at' : 'vs'}</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span>${sty(o.b)}</div></div>
-  ${G.prime ? '<p class="prime">Primetime · the whole league is watching</p>' : ''}<p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><p class="toss">${TEAMS[G.tm[G.first]].name} won the toss · will receive</p><small>Tap to skip</small></button>`;
+  ${G.prime ? '<p class="prime">Primetime · the whole league is watching</p>' : ''}<p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><p class="toss">${G.toss ? `${TEAMS[G.tm[G.toss.win]].name} won the toss · ${G.toss.choice === 'defer' ? 'deferred' : 'will receive'}` : `${TEAMS[G.tm[G.first]].name} won the toss · will receive`}</p><small>Tap to skip</small></button>`;
       $('#intro').onclick = endIntro;
       /* the coin toss was won by the side that receives: the referee says so over the speakers, then the broadcast opens
          with a welcome, who is playing, and a word from the analyst if there is time before the ball is kicked */
-      const toss = G.tossSaid ? 0 : PG.audio && PG.audio.pa ? PG.audio.pa(`The ${t1 === TEAMS[G.tm[G.first]] ? t1.name : t0.name} have won the toss, and will receive.`, { wait: 0.2, clips: ['ref.toss.' + vk(G.tm[G.first])] }) : 0;
+      const toss = G.tossSaid ? 0 : G.toss ? tossSay(0.2) : PG.audio && PG.audio.pa ? PG.audio.pa(`The ${t1 === TEAMS[G.tm[G.first]] ? t1.name : t0.name} have won the toss, and will receive.`, { wait: 0.2, clips: ['ref.toss.' + vk(G.tm[G.first])] }) : 0;
       G.introT = -Math.min(2.5, toss);  // the matchup card stays up a little longer for it
       setTimeout(() => {
         vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
@@ -274,7 +275,7 @@
 
   function stepScene(dt) {
     const sc = G.scene, S = SCENES[sc.kind];
-    sc.t += dt;
+    if (!sc.hold) sc.t += dt;  // a question on screen (the coin toss call) holds the scene
     while (sc.cues.length && sc.cues[0][0] <= sc.t) sc.cues.shift()[1](sc);
     if (S.update) S.update(sc, dt);
     for (const p of P) {
@@ -457,24 +458,113 @@
       const ref = { x: FW / 2, y: 50.6, vx: 0, vy: 0, team: 0, role: 'REF', num: 12 + Math.floor(Math.random() * 60), name: 'Referee', ref: true, face: Math.PI, act: 'coin' };
       A.push(ref);
       sc.ref = ref;
-      sc.win = G.first;
+      if (G.toss && !G.toss.mine) tossResolve();  // somebody else calls it
       sc.cap = `<small>Coin toss · midfield</small><b>${esc(t0.name)} vs ${esc(t1.name)}</b><span>${mine ? `#${A[0].num} ${esc(A[0].name)} is a captain` : 'The captains meet the referee'}</span>`;
       return A;
     },
     cues: [
+      [0.6, sc => {
+        // your call, before he flips it: the scene waits at midfield
+        if (!G.toss || !G.toss.mine || G.toss.call) return;
+        sc.hold = true;
+        askCall(() => {
+          tossResolve();
+          sc.hold = false;
+        });
+      }],
       [1.35, sc => (sc.ref.act = 'flip')],
       [3.0, () => snd('mic')],
       [3.15, sc => {
-        sc.ref.act = sc.win === 0 ? 'signalL' : 'signalR';
-        const w = TEAMS[G.tm[sc.win]];
-        G.tossSaid = !!(PG.audio && PG.audio.pa && PG.audio.pa(`The ${w.name} have won the toss, and will receive.`, { wait: 0.1, clips: ['ref.toss.' + vk(G.tm[sc.win])] }));
-        for (const p of P) if (!p.ref && p.team === sc.win) p.act = 'cheer';
-        const c = $('#scn .cap');
-        if (c) c.innerHTML = `<small>Coin toss · midfield</small><b>${esc(w.name)} win the toss</b><span>They will receive</span>`;
-        if (PG.audio) PG.audio.crowd.cheer(sc.win === (G.home || 0) ? 0.8 : 0.4, 2);  // louder when the home side wins it
+        if (G.toss) tossResolve();
+        const T = G.toss, win = T ? T.win : G.first;
+        sc.ref.act = win === 0 ? 'signalL' : 'signalR';
+        const w = TEAMS[G.tm[win]], c = $('#scn .cap'), coin = T ? COIN(T.coin) + ' · ' : '';
+        const said = () => {
+          G.tossSaid = !!(T ? tossSay(0.1) : PG.audio && PG.audio.pa && PG.audio.pa(`The ${w.name} have won the toss, and will receive.`, { wait: 0.1, clips: ['ref.toss.' + vk(G.tm[win])] }));
+          if (c) c.innerHTML = `<small>Coin toss · midfield</small><b>${coin}${esc(w.name)} win the toss</b><span>${T && T.choice === 'defer' ? 'They defer to the second half' : 'They will receive'}</span>`;
+        };
+        for (const p of P) if (!p.ref && p.team === win) p.act = 'cheer';
+        if (PG.audio) PG.audio.crowd.cheer(win === (G.home || 0) ? 0.8 : 0.4, 2);  // louder when the home side wins it
+        if (T && T.choice == null) {
+          // you won it: your choice, while your captains celebrate
+          if (c) c.innerHTML = `<small>Coin toss · midfield</small><b>${coin}${esc(w.name)} win the toss</b><span>Your choice</span>`;
+          sc.hold = true;
+          askChoice(() => {
+            said();
+            sc.hold = false;
+          });
+        } else said();
       }],
     ],
   };
+
+  /* The coin toss call: a captain calls heads or tails with the coin in the air, and the winner chooses to receive or
+     to defer (and get the ball to start the second half). You make both calls in an exhibition or a season, and in a
+     career once you are the starter (a captain); otherwise your captain does. The computer defers seven times in ten,
+     as most teams do now. The toss scene waits at midfield while you choose; with cutscenes off the same two questions
+     come up over the empty stadium. Simulations keep the old coin. */
+  const COIN = c => (c === 'heads' ? 'Heads' : 'Tails');
+  const cpuChoice = () => (Math.random() < 0.7 ? 'defer' : 'receive');
+
+  function tossResolve() {
+    const T = G.toss;
+    if (T.win == null) T.win = T.mine ? (T.call === T.coin ? 0 : 1) : Math.random() < 0.5 ? 0 : 1;
+    if (T.choice == null && !(T.win === 0 && T.mine)) T.choice = cpuChoice();  // the other side, or your captain
+  }
+
+  function tossApply() {
+    const T = G.toss;
+    G.first = T.choice === 'receive' ? T.win : 1 - T.win;  // the team that receives now; the other one gets the second half
+    kickoff(G.first);
+  }
+
+  const tossLine = () => `The ${TEAMS[G.tm[G.toss.win]].name} have won the toss, and ${G.toss.choice === 'defer' ? 'have deferred to the second half' : 'will receive'}.`;
+  function tossSay(wait) {
+    const T = G.toss;
+    return PG.audio && PG.audio.pa ? PG.audio.pa(tossLine(), { wait, clips: [(T.choice === 'defer' ? 'ref.defer.' : 'ref.toss.') + vk(G.tm[T.win])] }) : 0;
+  }
+
+  /* a two-button question at the foot of the screen, over a cutscene if one is playing */
+  function tossAsk(title, sub, a, b, done) {
+    const el = document.createElement('div');
+    el.className = 'sheet tsheet';
+    el.innerHTML = `<div class="shd"><b>${title}</b><span>${sub}</span></div><div class="cols"><button class="go sm" id="${a[0]}">${a[1]}</button><button class="go sm" id="${b[0]}">${b[1]}</button></div>`;
+    scr.appendChild(el);
+    const scn = $('#scn');
+    if (scn) scn.style.display = 'none';  // over a cutscene: no tap-to-skip under the buttons while the question is up
+    const pick = (e, v) => {
+      e.stopPropagation();
+      el.remove();
+      if (scn) scn.style.display = '';
+      done(v);
+    };
+    el.querySelector('#' + a[0]).onclick = e => pick(e, 0);
+    el.querySelector('#' + b[0]).onclick = e => pick(e, 1);
+  }
+  const askCall = done => tossAsk('Coin toss', 'You are the captain · call it', ['tsH', 'Heads'], ['tsT', 'Tails'], v => {
+    G.toss.call = v ? 'tails' : 'heads';
+    done();
+  });
+  const askChoice = done => tossAsk(`${COIN(G.toss.coin)} · you won the toss`, 'Your choice', ['tsR', 'Receive'], ['tsD', 'Defer'], v => {
+    G.toss.choice = v ? 'defer' : 'receive';
+    done();
+  });
+
+  /* after the scene (or with none): whatever was not asked yet is asked now, then the kickoff is spotted */
+  function tossDone(next) {
+    const T = G.toss;
+    if (!T) return next();
+    G.state = 'toss';
+    if (T.mine && !T.call) return askCall(() => tossDone(next));
+    tossResolve();
+    if (T.choice == null) {
+      toast(`${COIN(T.coin)} · you won the toss`);
+      return askChoice(() => tossDone(next));
+    }
+    tossApply();
+    G.state = 'dead';
+    next();
+  }
 
   /* Draft day: a stage at midfield with the draft board behind it in the new team's colors. You walk up onto it, shake
      the commissioner's hand, then turn to the cameras holding up your new jersey (render3d.js draws it with your name

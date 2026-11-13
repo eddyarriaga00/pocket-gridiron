@@ -1249,8 +1249,8 @@ what is next. Update it after every item.
   `#tsH` and `#tsR`). Checked: the three outcomes (lost the call: they chose; won and deferred: they receive first;
   won and received), a skip before the call, fingerprint unchanged (simulations keep the old coin), careers (QB and
   WR), exhibition, drills, audit empty at 320x568 and 390x844 including both questions; the console showed only the
-  test pane's "AudioContext encountered an error from the audio device" after long runs (see 02:20 and 02:45 on
-  2026-11-12).
+  test pane's "AudioContext encountered an error from the audio device" after long runs, as two earlier runs in this
+  log noted.
 
 ## Morning hand-off
 

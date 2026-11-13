@@ -183,13 +183,18 @@
       const e = G.env, t0 = TEAMS[o.a], t1 = TEAMS[o.b], when = { day: 'Afternoon', dusk: 'Dusk', night: 'Night' }[e.time] || 'Night', sky = { rain: 'Rain', snow: 'Snow' }[e.weather] || 'Clear';
       G.state = 'intro';
       scr.innerHTML = `<button class="intro" id="intro"><div class="mu"><div style="--c:${t0.c1}"><b>${t0.ab}</b><span>${t0.name}</span></div><em>vs</em><div style="--c:${t1.c1}"><b>${t1.ab}</b><span>${t1.name}</span></div></div>
-  <p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><small>Tap to skip</small></button>`;
+  <p>${when} · ${sky} · ${G.ql / 60}-minute quarters</p><p class="toss">${TEAMS[G.tm[G.first]].name} won the toss · will receive</p><small>Tap to skip</small></button>`;
       $('#intro').onclick = endIntro;
-      /* the broadcast opens: a welcome, who is playing, and a word from the analyst if there is time before the ball is kicked */
-      vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
-      vo('intro.away.' + t1.ab, { ttl: 14 });
-      vo('intro.home.' + t0.ab, { ttl: 16 });
-      vo('a.intro', { pri: 0, keep: true, ttl: 16 });
+      /* the coin toss was won by the side that receives: the referee says so over the speakers, then the broadcast opens
+         with a welcome, who is playing, and a word from the analyst if there is time before the ball is kicked */
+      const toss = PG.audio && PG.audio.pa ? PG.audio.pa(`The ${t1 === TEAMS[G.tm[G.first]] ? t1.name : t0.name} have won the toss, and will receive.`, { wait: 0.2, clips: ['ref.toss.' + TEAMS[G.tm[G.first]].ab] }) : 0;
+      G.introT = -Math.min(2.5, toss);  // the matchup card stays up a little longer for it
+      setTimeout(() => {
+        vo('intro.' + (e.weather === 'rain' || e.weather === 'snow' ? e.weather : e.time === 'day' || e.time === 'dusk' ? e.time : 'night'), { ttl: 6 });
+        vo('intro.away.' + t1.ab, { ttl: 14 });
+        vo('intro.home.' + t0.ab, { ttl: 16 });
+        vo('a.intro', { pri: 0, keep: true, ttl: 16 });
+      }, toss ? toss * 1000 + 250 : 0);
       if (PG.audio) PG.audio.weather(e.weather);
       return;
     } else banner('Kickoff', tname(first) + ' ball', 1500);
@@ -1765,6 +1770,7 @@
     if ((kind === 'tackle' || kind === 'oob') && ps.fum) sub += ps.fum.muff ? ' · muffed, recovered' : ' · fumble, recovered';
     G.runoff = !stop && !score && !G.drill ? Math.min(13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle (there is no clock in practice)
     G.clock -= G.runoff;
+    twoMinute();
     cpuTimeout();
     if (G.ot && score) G.final = true;
     G.last = sub === 'Turnover on downs' ? sub : big;
@@ -1812,9 +1818,36 @@
       snd('whistle');
       toast(`Timeout, ${tname(t)} · ${G.to[t]} left`);
       vo(chance(0.7) ? 'timeout.team.' + tab(t) : 'timeout');
+      if (PG.audio) PG.audio.pa(`Timeout, ${tname(t)}.`, { wait: 1.6, clips: ['ref.to.' + tab(t), 'ref.tox' + (3 - G.to[t])] });  // after the booth: "Timeout, Outlaws. That's their second timeout
       updHud();
     }
     return true;
+  }
+
+  /* The two-minute warning, as the professional game has it: the first time the clock reaches 2:00 in the second or
+     the fourth quarter, it stops there. If it got there running between plays it stops at exactly 2:00 (the seconds
+     past it are given back), and since the clock is stopped there is nothing for a timeout to save. It is called on
+     the play-call sheet that follows. Quarters of two minutes or less have none: there would be nothing before it. */
+  const WARN = 120;
+
+  function twoMinute() {
+    if (G.drill || G.ot || G.ql <= WARN || !(G.q === 2 || G.q === 4) || G.clock > WARN || G.clock <= 0 || (G.warned && G.warned[G.q])) return;
+    G.warned = Object.assign({}, G.warned, { [G.q]: 1 });
+    if (G.clock + G.runoff > WARN) G.clock = WARN;  // it ran down to 2:00 between plays: stopped right there
+    G.runoff = 0;
+    G.warnNow = true;
+  }
+
+  /* called on the next play-call sheet: the referee, the booth and a banner */
+  function warnCall() {
+    if (!G.warnNow) return;
+    G.warnNow = false;
+    if (AUTO || QUIET) return;
+    banner('Two-minute warning', `${G.q === 2 ? '2nd' : '4th'} quarter · clock stopped`, 1700);
+    snd('whistle');
+    if (PG.audio) PG.audio.pa('Two minute warning.', { clips: ['ref.twomin'], wait: 0.4 });
+    vo('twomin', { pri: 1, ttl: 6 });
+    analyst('a.twomin', 0.5, { big: true, ttl: 9 });
   }
 
   /* The computer's clock management: late in a half, the side that needs time stops the clock.
@@ -1923,8 +1956,10 @@
           G.q++;
           G.ot = true;
           G.clock = G.ql;
-          kickoff(rnd() < .5 ? 0 : 1);
-          banner('Overtime', 'Next score wins', 1600);
+          const otr = rnd() < .5 ? 0 : 1;
+          kickoff(otr);
+          banner('Overtime', `Next score wins · ${tname(otr)} won the toss`, 1600);
+          if (!AUTO && !QUIET && PG.audio) PG.audio.pa(`The ${tname(otr)} have won the toss, and will receive.`, { wait: 2.2, clips: ['ref.toss.' + tab(otr)] });
           vo('ot', { pri: 2 });
         } else {
           G.final = true;
@@ -2156,6 +2191,7 @@
     updHud();
     setBrief('');
     if (PG.audio && PG.audio.half) PG.audio.halftime(false);  // the teams are back: the band leaves the field
+    warnCall();
     if (!AUTO && !QUIET && !G.drill && PG.audio && Math.random() < 0.3) PG.audio.band();  // the band fills some of the gaps between plays
     if (G.pendKO != null) {
       const t = G.pendKO, k = 1 - t;  // t receives, k kicks
@@ -2212,6 +2248,7 @@
       G.togo += 1;
       G.runoff = Math.min(40, G.clock);
       G.clock -= G.runoff;
+      twoMinute();
     } else G.runoff = 0;
     let sub2 = kneel ? '40 seconds run off' : 'Clock stopped';
     if (G.down > 4) {
@@ -3521,7 +3558,7 @@
   <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and play one game.</span><i>›</i></button>
   ${camp?`<button class="mode" id="mT"><b>Training camp</b><span>${camp.summary()}</span><i>›</i></button>`:''}
   <div class="row2"><button class="btn2" id="mS">Settings</button><button class="btn2" id="mH">How to play</button></div>
-  ${PG.milestones?`<button class="btn2" id="mM" style="margin-top:8px">${PG.milestones.summary()}</button>`:''}</div>`;
+  <div class="row2" style="margin-top:8px">${PG.milestones?`<button class="btn2" id="mM">${PG.milestones.summary()}</button>`:''}${PG.career&&PG.career.hall?'<button class="btn2" id="mF">Hall of fame</button>':''}</div></div>`;
     /* the offer is for the first look at the menu: any choice here answers it */
     const go = f => () => {
       if (camp) camp.seen();
@@ -3538,6 +3575,7 @@
     $('#mS').onclick = showSettings;
     $('#mH').onclick = showHow;
     if (PG.milestones) $('#mM').onclick = PG.milestones.open;
+    if ($('#mF')) $('#mF').onclick = go(() => PG.career.hall());
   }
 
   function showSettings() {

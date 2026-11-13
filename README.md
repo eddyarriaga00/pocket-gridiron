@@ -41,6 +41,12 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   "FIRST DOWN!", and the calls know who has the ball ("The quarterback keeps it himself!"). 365 recorded lines, every one
   written for this game and spoken by an open speech model; the big calls cut in over the small talk, and the crowd
   sits under them. Settings can turn the commentary off; the referee and the announcer are part of the stadium.
+- The two-minute warning in the second and fourth quarters (quarters of three minutes or more): the clock stops at
+  2:00 and the referee calls it. The referee also announces the coin toss and every timeout ("Timeout, Outlaws.
+  That's their second timeout.").
+- Career awards night after every season: MVP, Offensive Player of the Year, Rookie of the Year, All-League at your
+  position and your position's statistical title, each with its nominees from around the league. Retire a career
+  and it goes to a hall of fame vote; every retired career is kept in the Hall of fame, on the main menu.
 - After every scoring drive, its plays, yards and time. Halftime and the final screen (in every mode) show the
   scoring summary, each score with the drive that made it, and each team's passing, rushing and receiving leaders.
 - A stadium you can hear, all of it made in code: the quarterback's cadence, pads that crack harder the faster the hit,

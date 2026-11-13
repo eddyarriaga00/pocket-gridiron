@@ -151,19 +151,64 @@
     return { years, pay, xp: Math.round(pay * years * 6) * 10, trust, role: ROLES.find(r => trust >= r[0])[1] };
   }
 
+  /* ---------- awards night ----------
+     When the season is over the league hands out its awards. You can win them; when you do not, somebody from around
+     the league does, and the nominees are named. Who the others are comes from a hash of the season and the award,
+     not from the game's generator, so seeded test careers are not disturbed. Each award: [name, XP, your bar (the
+     average game grade, in points, that wins it), who may win it]. */
+  const AWARDS = [
+    ['League MVP', 1200, (avg, fin) => avg >= 8.2 || (avg >= 7.5 && fin && fin !== 'Missed the playoffs'), 'any'],
+    ['Offensive Player of the Year', 800, avg => avg >= 7, 'any'],
+    ['Rookie of the Year', 700, avg => avg >= 5.6, 'rookie'],
+    ['All-League', 600, avg => avg >= 6.5, 'pos']];
+  const OTHER_POS = ['QB', 'RB', 'WR', 'TE', 'DE', 'LB', 'CB', 'S'];
+
+  function awardsNight(finish, avg, L) {
+    let h = (C.season * 7919 + C.team * 104729 + C.pos.charCodeAt(0) * 131) >>> 0;
+    const r = () => {
+      h = (h * 1664525 + 1013904223) >>> 0;
+      return h / 4294967296;
+    };
+    const somebody = pos => {
+      const t = Math.floor(r() * TEAMS.length);
+      return { name: PG.NAMES[Math.floor(r() * PG.NAMES.length)], ab: TEAMS[t === C.team ? (t + 1) % TEAMS.length : t].ab, pos };
+    };
+    const me = { name: C.name, ab: TEAMS[C.team].ab, pos: C.pos, me: true }, night = [], won = [];
+    let xp = 0;
+    for (const [name, gain, bar, who] of AWARDS) {
+      if (who === 'rookie' && C.season !== 1) continue;
+      const wins = bar(avg, finish), close = wins || bar(avg + 1.2, finish), pos = () => who === 'pos' ? C.pos : OTHER_POS[Math.floor(r() * OTHER_POS.length)];
+      const others = [somebody(pos()), somebody(pos()), somebody(pos())];
+      const winner = wins ? me : others[0], noms = (close ? [me, ...others.slice(0, 2)] : others).filter(n => n !== winner);
+      night.push({ a: name + (who === 'pos' ? ' · ' + POS[C.pos].label : ''), w: winner, n: noms.slice(0, 2), xp: wins ? gain : 0 });
+      if (wins) {
+        won.push(name);
+        xp += gain;
+      }
+    }
+    /* the statistical title at your position goes to whoever led the league: the leaders table is the record */
+    const top = L.rows[0];
+    if (top) {
+      const title = L.label.replace(/ yards$/, '') + ' title';
+      night.push({ a: title, w: top.me ? me : { name: top.name, ab: top.ab, pos: C.pos, riv: top.riv }, n: L.rows.slice(1, 3).map(x => (x.me ? me : { name: x.name, ab: x.ab, pos: C.pos, riv: x.riv })), xp: top.me ? 500 : 0,
+        stat: `${fmt(top.v)} ${L.label.toLowerCase()}` });
+      if (top.me) {
+        won.push(title);
+        xp += 500;
+      }
+    }
+    return { night, won, xp };
+  }
+
   /* postseason bonus and honors, once the league says the season is over */
   function closeSeason(finish) {
     let bonus = { Champion: 1500, 'Runner-up': 800, Semifinalist: 400 }[finish] || 0;
-    const reg = C.log.filter(g => g.pts !== undefined && /^Wk/.test(g.wk)), avg = reg.length ? reg.reduce((t, g) => t + g.pts, 0) / reg.length : 0, aw = [];
-    if (avg >= 6.5) {
-      aw.push('All-League');
-      bonus += 600;
-    }
-    if (avg >= 7.5 && finish === 'Champion') {
-      aw.push('League MVP');
-      bonus += 1200;
-    }
+    const reg = C.log.filter(g => g.pts !== undefined && /^Wk/.test(g.wk)), avg = reg.length ? reg.reduce((t, g) => t + g.pts, 0) / reg.length : 0;
     const L = leaders(), mine = L.rows.find(r => r.me), his = L.rows.find(r => r.riv);  // the season-long race with your rival
+    const night = awardsNight(finish, avg, L), aw = night.won;
+    bonus += night.xp;
+    C.po.night = night.night;
+    C.po.nightSeen = false;
     if (mine && his && mine.v > his.v) {
       C.beatRival = 1;
       bonus += 500;
@@ -507,7 +552,7 @@
     if (C.phase === 'done') {
       const po = C.po;
       return `<div class="nx"><small>Season ${C.season} complete</small><h4>${po.finish}</h4>
-  <p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.rival?` ${esc(po.rival)}`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
+  ${po.night ? '<button class="btn2" id="an" style="margin:0 0 8px">Awards night</button>' : ''}<p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.rival?` ${esc(po.rival)}`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
   ${deal().left>0?`<button class="go sm" id="nxs">Start season ${C.season+1}</button><p class="note" style="margin:8px 0 0">Under contract for ${deal().left} more season${deal().left>1?'s':''} at ${money(deal().pay)}.</p>`
     :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
@@ -622,8 +667,8 @@
   <div class="trust" style="margin:8px 0 6px"><span>Score · 100 is a first-ballot career</span><b>${fame.score}</b><div class="bar"><i style="width:${Math.min(100,fame.score)}%"></i></div></div>
   <p>${fame.parts.map(([l,v])=>`${l} ${v}`).join(' · ')}</p></div>
   ${historyHtml()}${trophiesHtml()}
-  <button class="go" id="keep">Keep playing</button><div class="stack"><button class="btn2 warn" id="nc">Erase and start a new career</button></div>
-  <p class="note">A new career replaces this one. It cannot be undone.</p></div>`;
+  <button class="go" id="keep">Keep playing</button><div class="stack"><button class="btn2" id="rt">Retire · put it to the hall of fame vote</button><button class="btn2 warn" id="nc">Erase and start a new career</button></div>
+  <p class="note">Either way a new career replaces this one, and it cannot be undone. Retiring keeps this one in the hall of fame; erasing does not.</p></div>`;
     $('#nc').onclick = () => {
       C = null;
       try {
@@ -632,6 +677,63 @@
       showCreate();
     };
     $('#keep').onclick = () => showHub('up');
+    $('#rt').onclick = () => {
+      const e = retireToHall();
+      C = null;
+      try {
+        localStorage.removeItem(KEY);
+      } catch (_) {}
+      showHall(e);
+    };
+  }
+
+  /* the ceremony: every award, who won it and who else was up for it */
+  function showAwards(then) {
+    const po = C.po, list = po.night || [], mine = list.filter(x => x.w.me);
+    po.nightSeen = true;
+    persist();
+    const who = x => `${esc(x.name)} <span class="aw-t">${x.ab}${x.me ? ' · you' : x.riv ? ' · your rival' : ''}</span>`;
+    scr.innerHTML = `<div class="menu solid"><h1 class="sm">Awards <em>night</em></h1>
+  <p class="tag">Season ${C.season} is in the books. The league hands out its awards${mine.length ? `, and your name is called ${mine.length === 1 ? 'once' : mine.length + ' times'}` : ''}.</p>
+  ${list.map(x => `<div class="nx aw${x.w.me ? ' won' : ''}"><small>${esc(x.a)}</small><h4>${who(x.w)}</h4>
+  <p>${x.stat ? esc(x.stat) + ' · ' : ''}${x.n.length ? 'Also nominated: ' + x.n.map(who).join(', ') : ''}${x.xp ? `<br><b>+${fmt(x.xp)} XP</b>` : ''}</p></div>`).join('')}
+  ${po.rival ? `<p class="note">${esc(po.rival)}</p>` : ''}
+  <button class="go" id="awgo">Continue</button></div>`;
+    if (mine.length) PG.snd('fanfare');
+    $('#awgo').onclick = then || (() => showHub('season'));
+  }
+
+  /* ---------- the hall of fame ----------
+     Every career that is retired (not erased) is put to the vote and kept here for good, on this device. The case is
+     fameCase(); 70 gets you in. */
+  const HOF = 'pg.hof';
+
+  function retireToHall() {
+    const fame = fameCase(), hall = load(HOF, []), t = team(C.team);
+    const e = { name: C.name, num: C.num, pos: POS[C.pos].label, team: `${t.city} ${t.name}`, c1: t.c1, seasons: C.season, games: C.career.g, line: line(C.career), rings: C.rings,
+      honors: (C.awards || []).map(a => a.name), score: fame.score, verdict: fame.verdict, inducted: fame.score >= 70, cls: hall.length + 1 };
+    hall.push(e);
+    save(HOF, hall);
+    return e;
+  }
+
+  function showHall(fresh) {
+    const hall = load(HOF, []).slice().sort((a, b) => (b.inducted - a.inducted) || b.score - a.score), ins = hall.filter(e => e.inducted).length;
+    const honors = e => {
+      const n = {};
+      for (const h of e.honors || []) n[h] = (n[h] || 0) + 1;
+      return Object.entries(n).map(([k, v]) => v > 1 ? `${v}x ${k}` : k).join(', ');
+    };
+    scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Back</button><h1 class="sm">Hall of <em>fame</em></h1>
+  <p class="tag">${ins} enshrined${hall.length > ins ? ` · ${hall.length - ins} more retired` : ''}. Retire a career to put it to the vote: a case of 70 gets in.</p>
+  ${fresh ? `<div class="nx aw${fresh.inducted ? ' won' : ''}"><small>The vote · class of ${fresh.cls}</small><h4>${fresh.inducted ? `${esc(fresh.name)} is a hall of famer` : `${esc(fresh.name)} falls short`}</h4>
+  <p>${esc(fresh.verdict)} · case ${fresh.score}${fresh.inducted ? '' : ' of the 70 it takes'}</p></div>` : ''}
+  ${hall.length ? hall.map(e => `<div class="pc hof" style="--c:${e.c1}"><div><h3>${esc(e.name)}</h3><p>#${e.num} · ${esc(e.pos)} · ${esc(e.team)}<br>${e.seasons} season${e.seasons === 1 ? '' : 's'} · ${e.games} games · ${e.rings} title${e.rings === 1 ? '' : 's'}<br>${esc(e.line)}${e.honors && e.honors.length ? `<br>${esc(honors(e))}` : ''}</p></div><div class="ovr">${e.score}<small>${e.inducted ? 'HOF' : 'CASE'}</small></div></div>`).join('')
+    : '<p class="note">Nobody yet. A career you retire from its Retire screen is put to the vote here.</p>'}
+  ${fresh ? '<button class="go" id="hnew">Start a new career</button>' : ''}</div>`;
+    $('#bk').onclick = fresh ? () => showCreate() : () => PG.showMenu();
+    if ($('#hnew')) $('#hnew').onclick = showCreate;
+    if (fresh && fresh.inducted) PG.snd('fanfare');
   }
 
   /* free agency: when your contract has run out, every team makes an offer and you choose one */
@@ -739,6 +841,8 @@
         persist();
         showHub('up');
       };
+      const an = $('#an');
+      if (an) an.onclick = () => showAwards();
       const fa = $('#fa');
       if (fa) fa.onclick = showFreeAgency;
       const tr = $('#trade');
@@ -848,7 +952,8 @@
   <button class="go" id="rc">Continue</button></div>`;
       $('#rc').onclick = () => {
         PG.toMenu();
-        showHub(C.phase === 'done' ? 'season' : 'up');
+        if (C.phase === 'done' && C.po.night && !C.po.nightSeen) showAwards();
+        else showHub(C.phase === 'done' ? 'season' : 'up');
       };
       if ($('#potd')) $('#potd').onclick = () => PG.watchPotd(show);
     };
@@ -857,6 +962,13 @@
   }
 
   PG.career = {
+    hall() {
+      PG.toMenu();
+      showHall(null);
+    },
+    get hallSize() {
+      return load(HOF, []).length;
+    },
     open() {
       PG.toMenu();
       C ? (C.pre ? showCombine() : showHub('up')) : showCreate();

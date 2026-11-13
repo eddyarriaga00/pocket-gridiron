@@ -213,6 +213,7 @@ window.H = (() => {
       const my = { ...d().G.my }, score = [...d().G.score];
       if (!q('#rc')) throw new Error('no results screen');
       q('#rc').click();
+      if (q('#awgo')) q('#awgo').click();  // the season is over: awards night comes first
       return { my, score };
     },
     career(pos, games = 2) {

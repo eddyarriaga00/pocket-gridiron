@@ -680,6 +680,30 @@ what is next. Update it after every item.
   as before (7 s in all). Commentary only: `H.fingerprint()` unchanged; exhibition, both careers, the drills and a
   drawn game clean; audit empty at 320x568 and 390x844.
 
+- 19:48 Round 12, from the owner's message at 19:42.
+  Two-minute warning (`twoMinute()` and `warnCall()` in `js/game.js`). It changes play, so it was checked: in two
+  scripted exhibitions with three-minute quarters the clock stopped at 2:00.00 in the second and fourth quarters
+  three times and at 1:59.96 once (the clock crossed 2:00 during a live play, which is how the rule works), with
+  no time left to give back for a timeout. The seeded fingerprint game uses two-minute quarters, so
+  `H.fingerprint()` is unchanged; `H.sim(10, 180)` with three-minute quarters stayed in range (3.8 yards a carry,
+  58% completions, 32 points a game).
+  Awards night (`awardsNight()` and `showAwards()` in `js/career.js`): MVP, Offensive Player of the Year, Rookie of
+  the Year (first season only), All-League at your position, and your position's statistical title from the
+  leaders table. You win on your average game grade (MVP 8.2, or 7.5 with a playoff team; OPOY 7.0; All-League 6.5,
+  as before; Rookie 5.6); otherwise a player from around the league wins, and the nominees are named. Their names
+  come from a hash of the season, not the game's generator. The ceremony opens after the season's last game and can
+  be seen again from the hub. Won awards count as honors in the hall-of-fame case, as All-League and MVP did.
+  Hall of fame (`retireToHall()` and `showHall()`): a "Retire" button beside the erase puts the career to a vote
+  (`fameCase()`, 70 to get in) and keeps it in `localStorage['pg.hof']`; the Hall of fame opens from the main menu.
+  The test harness erases careers with the erase button, so test careers never reach the hall.
+  24 new clips (389 in all, 3.4 MB): the two-minute warning for the booth and the referee, the coin toss for each
+  team, "Timeout, (team)." and "That's their first / second / third and final timeout." In a game with the sound
+  running (output muted) the toss, the welcome, the first-down call and the two-minute warning all played from
+  their clips. The audit now walks a playoff season, the awards night, the retire screen and the hall: at 320 wide
+  the bracket's names ran 2 px off the screen and the page scrolled sideways (older; never reached before). The
+  bracket's columns may now shrink and its names wrap. Audit empty at 320x568 and 390x844; exhibition, both
+  careers, two career seasons, the drills and a drawn game (7,850 frames) clean.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -869,6 +893,18 @@ what is next. Update it after every item.
       "Ladies and gentlemen... welcome... to Outlaws football!" as the teams line up for the opening kick, the crowd
       roaring back. Still to be judged by ear
 
+### Round 12 (the owner at 19:42 on 2026-11-12: "add awards night, hall of fame, 2 minute warnings for quarter or
+### such like nfl games, small details from football / nfl")
+- [x] Two-minute warning: the first time the clock reaches 2:00 in the second or fourth quarter it stops there (if it
+      ran there between plays it stops at exactly 2:00), and the next play-call sheet opens with the referee's
+      call, the booth and a banner. Quarters of two minutes or less have none.
+- [x] Awards night after every career season, and a hall of fame: retiring a career (a new button beside the erase)
+      puts it to a vote and keeps it for good; the Hall of fame is on the main menu.
+- [x] Small details: the referee announces the coin toss before the game and in overtime, and every timeout with
+      how many the team has used; the toss is on the matchup card. The playoff bracket no longer pushes the career
+      hub off the side of a 320-pixel screen (found by the audit now that it reaches a playoff season).
+      Still to be judged by ear and in a long career
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
 - The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
@@ -888,8 +924,11 @@ Major improvements, biggest first:
   ball carrier who looks at the man about to hit him.
 - A real loose-ball scramble instead of an instant recovery.
 - A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
-- Career: an awards night at the end of the season, age and decline over a long career, a hall of fame screen that
-  keeps retired players, a rival who talks back.
+- Career: age and decline over a long career, a rival who talks back; the awards night could have a booth or
+  stadium voice reading the winners (one clip per award and per name is too many; per award is not).
+- More NFL details: the officials' signals for a timeout and the two-minute warning (the referee figure already
+  signals touchdowns, first downs and incompletions), a play clock with delay of game, teams changing ends between
+  quarters, a challenge flag.
 Interface, when no major item fits in a run:
 - Run `tools/audit.js` after every change and keep its report empty.
 - A person on a real phone still has to judge touch feel, the frame rate with close-up models, and the sound.

@@ -98,6 +98,7 @@
     "q.end1": { "v": "p", "e": 0.2, "t": ["That's the end of the first quarter."] },
     "q.end3": { "v": "p", "e": 0.25, "t": ["That's the end of the third. One quarter to play."] },
     "late": { "v": "p", "e": 0.5, "t": ["We're inside the final minute.", "Under a minute to play."] },
+    "twomin": { "v": "p", "e": 0.45, "t": ["And that's the two-minute warning.", "We've reached the two-minute warning."] },
     "ot": { "v": "p", "e": 0.7, "t": ["We're headed to overtime!"] },
     "final.win": { "v": "p", "e": 0.85, "t": ["That's the ball game! The home side wins it!", "It's over! A big win for the home team!"] },
     "final.loss": { "v": "p", "e": 0.45, "t": ["That'll do it. The visitors take this one."] },
@@ -141,6 +142,13 @@
     "ref.rep4": { "v": "r", "e": 0.2, "t": ["Repeat fourth down."] },
     "pa.first": { "v": "s", "e": 0.5, "t": ["And that is another... {team}..."] },
     "a.qbrun": { "v": "a", "e": 0.35, "t": ["He's a weapon with his legs, too.", "When the coverage is that good, you just take what's there."] },
-    "pa.welcome": { "v": "s", "e": 0.6, "t": ["Ladies and gentlemen... welcome... to {team} football!"] }
+    "pa.welcome": { "v": "s", "e": 0.6, "t": ["Ladies and gentlemen... welcome... to {team} football!"] },
+    "a.twomin": { "v": "a", "e": 0.35, "t": ["Here's where games are won and lost.", "Clock management takes over from here."] },
+    "ref.twomin": { "v": "r", "e": 0.2, "t": ["Two minute warning."] },
+    "ref.toss": { "v": "r", "e": 0.2, "t": ["The {team} have won the toss, and will receive."] },
+    "ref.to": { "v": "r", "e": 0.2, "t": ["Timeout, {team}."] },
+    "ref.tox1": { "v": "r", "e": 0.2, "t": ["That's their first timeout."] },
+    "ref.tox2": { "v": "r", "e": 0.2, "t": ["That's their second timeout."] },
+    "ref.tox3": { "v": "r", "e": 0.2, "t": ["That's their third and final timeout."] }
   }
 }

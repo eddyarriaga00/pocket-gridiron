@@ -2006,9 +2006,8 @@
     };
     cam.snap = true;
     G.state = 'replay';
-    G.rpI = Math.max(0, REC.length - 270);
+    rpBegin(Math.max(0, REC.length - 270), 'Play of the game');
     G.celeb = null;
-    $('#rp').lastChild.textContent = 'Play of the game · tap to skip';
     $('#rp').hidden = false;
     $('#banner').classList.remove('on');
   }
@@ -2037,7 +2036,8 @@
   }
 
   /* Instant replay: every live frame is recorded (positions, pose flags, the ball); big plays are shown again
-     at half speed from a low sideline camera. */
+     at half speed from a low sideline camera, and then once more from the reverse angle, the way a broadcast does
+     it: a camera ahead of the play, looking back at the ball carrier coming toward it. */
   const REC = [];
 
   function record() {
@@ -2060,10 +2060,25 @@
     if (REC.length > 480) REC.shift();
   }
 
+  /* where the play went: the way the ball carrier (or the ball) was moving from the start of the replay to the end,
+     up the field (1) or down it (-1). The reverse angle stands on that side. */
+  function rpFocusY(f) {
+    return f.c >= 0 ? f.d[f.c * 8 + 1] : f.air ? f.air.y : f.loose ? f.loose.y : null;
+  }
+
+  function rpBegin(from, label) {
+    G.rpI = G.rpFrom = from;
+    G.rpAngle = 0;
+    G.rpLabel = label;
+    const y0 = REC[from] ? rpFocusY(REC[from]) : null, y1 = REC.length ? rpFocusY(REC[REC.length - 1]) : null;
+    G.rpDir = y0 !== null && y1 !== null && Math.abs(y1 - y0) > 1 ? Math.sign(y1 - y0) : G.dir || 1;
+    $('#rp').lastChild.textContent = label + ' · tap to skip';
+  }
+
   function startReplay() {
     cam.snap = true;
     G.state = 'replay';
-    G.rpI = Math.max(0, REC.length - 200);
+    rpBegin(Math.max(0, REC.length - 200), 'Replay');
     G.celeb = null;
     $('#rp').hidden = false;
     $('#banner').classList.remove('on');
@@ -2072,6 +2087,7 @@
 
   function endReplay() {
     $('#rp').hidden = true;
+    G.rpAngle = 0;
     REC.length = 0;
     if (G.rpEnd) {
       // it was the play of the game, shown from a final screen
@@ -2083,9 +2099,19 @@
   }
 
   function replayStep(dt) {
-    G.rpI += dt * 60 * 0.5;
+    G.rpI += dt * 60 * (G.rpAngle ? 0.55 : 0.5);
     const i = Math.floor(G.rpI);
-    if (i >= REC.length - 1) return endReplay();
+    if (i >= REC.length - 1) {
+      if (G.rpAngle === 0 && REC.length - G.rpFrom > 60) {
+        /* once more, from the reverse angle: the last two and a half seconds of the play, where it was decided */
+        G.rpAngle = 1;
+        G.rpI = Math.max(G.rpFrom, REC.length - 150);
+        cam.snap = true;
+        $('#rp').lastChild.textContent = G.rpLabel + ' · reverse angle';
+        return;
+      }
+      return endReplay();
+    }
     const f = REC[i], g = REC[i + 1], u = G.rpI - i, n = Math.min(P.length, f.d.length / 8);
     for (let j = 0; j < n; j++) {
       const p = P[j], k = j * 8, fl = f.d[k + 6], o = f.d[k + 7];

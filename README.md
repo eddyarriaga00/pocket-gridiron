@@ -33,7 +33,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
-- Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
+- Instant replays of big plays, at half speed from the sideline and then again from the reverse angle (a camera ahead
+  of the play looking back at the ball carrier), a flyover before kickoff, three officials who signal, a player of the game.
 - A broadcast booth: a play-by-play man and an analyst call the game ("Third and six." ... "He goes deep!" ...
   "Touchdown, Outlaws!" ... "You can't draw it up any better than that."), and sum up scoring drives ("Twelve plays on
   the drive."). The referee announces penalties over the stadium speakers ("Holding, offense. Ten yard penalty.

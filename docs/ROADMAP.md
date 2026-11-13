@@ -704,6 +704,16 @@ what is next. Update it after every item.
   bracket's columns may now shrink and its names wrap. Audit empty at 320x568 and 390x844; exhibition, both
   careers, two career seasons, the drills and a drawn game (7,850 frames) clean.
 
+- 20:03 The reverse angle (automatic run 8). The idea list's first two items wait on the owner, so this took the
+  presentation idea. `rpBegin()` works out which way the play went (the ball carrier's, or the ball's, position at
+  the start of the replay and at the end) and `replayStep()`, at the end of the sideline pass, plays the last 150
+  recorded frames again at 0.55 speed with `G.rpAngle = 1`; the renderer then puts the camera 16 yards ahead of the
+  play that way, 7 high, a quarter of the way to the middle of the field, looking back at the carrier (first tried
+  at 4.2 high and 15 ahead: a defender in front filled the picture). The badge says "Replay · reverse angle". In a
+  drawn game all three replays switched over (the first after 6.6 s); looked at on an interception return coming
+  down the sideline at the camera. Drawing only: `H.fingerprint()` unchanged; exhibition, both careers, the drills
+  and a drawn game (8,976 frames) clean; audit empty at 320x568 and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -892,6 +902,9 @@ what is next. Update it after every item.
       catch by the tight end or a running back, an analyst line after a quarterback run; and the stadium announcer's
       "Ladies and gentlemen... welcome... to Outlaws football!" as the teams line up for the opening kick, the crowd
       roaring back. Still to be judged by ear
+- [x] Run 8, the reverse angle: an instant replay (and the play of the game) is shown at half speed from the
+      sideline as before, then the last two and a half seconds again from ahead of the play, high enough to see over
+      the men between, looking back at the ball carrier. A tap still skips it all. Still to be judged by eye
 
 ### Round 12 (the owner at 19:42 on 2026-11-12: "add awards night, hall of fame, 2 minute warnings for quarter or
 ### such like nfl games, small details from football / nfl")
@@ -914,7 +927,6 @@ Major improvements, biggest first:
 - More booth lines: the score read out at the half and the end. Not done in run 7 on purpose: the natural way, "The
   Outlaws fourteen, the Aviators seven", is a clip for every team and score (about 370 more clips, 3 MB), and
   joining single numbers sounds like a machine. Worth it only if the owner wants it.
-- Presentation: replays from a second angle.
 - A pile. Run 5 tried a second man reaching in on a tackle and measured it: the first tackler finishes bent over the
   runner with his hips most of a yard up and his helmet over the runner's chest, so from every side a second man's
   back or legs end up in him (10 to 45 cm in every one of 52 stagings). It needs the first tackler to finish flat

@@ -2513,6 +2513,11 @@
       const a = lerp(-1.15, -0.25, e);
       v3.set(FW / 2 + Math.sin(a) * 100, lerp(84, 27, e), -50 + Math.cos(a) * 114);
       v3b.set(FW / 2, 4, -50);
+    } else if (G.state === 'replay' && ps && G.rpAngle === 1) {
+      // the reverse angle: ahead of the play and low, looking back at the ball carrier as he comes on
+      const d = G.rpDir || st.dir;
+      v3.set(lerp(cm.fx, FW / 2, 0.25), 7, -clamp(cm.fy + d * 16, -12, 112));  // high enough to see over the men between it and him
+      v3b.set(cm.fx, 1.2, -cm.fy);
     } else if (G.state === 'replay' && ps) {
       // replay: low, from the middle of the field
       const side = cm.fx > FW / 2 ? -1 : 1;

@@ -99,6 +99,7 @@
     "q.end3": { "v": "p", "e": 0.25, "t": ["That's the end of the third. One quarter to play."] },
     "late": { "v": "p", "e": 0.5, "t": ["We're inside the final minute.", "Under a minute to play."] },
     "twomin": { "v": "p", "e": 0.45, "t": ["And that's the two-minute warning.", "We've reached the two-minute warning."] },
+    "hurry": { "v": "p", "e": 0.5, "t": ["They're in the hurry-up.", "No huddle. They're racing the clock.", "They're hurrying to the line."] },
     "ot": { "v": "p", "e": 0.7, "t": ["We're headed to overtime!"] },
     "final.win": { "v": "p", "e": 0.85, "t": ["That's the ball game! The home side wins it!", "It's over! A big win for the home team!"] },
     "final.loss": { "v": "p", "e": 0.45, "t": ["That'll do it. The visitors take this one."] },
@@ -149,6 +150,7 @@
     "ref.to": { "v": "r", "e": 0.2, "t": ["Timeout, {team}."] },
     "ref.tox1": { "v": "r", "e": 0.2, "t": ["That's their first timeout."] },
     "ref.tox2": { "v": "r", "e": 0.2, "t": ["That's their second timeout."] },
-    "ref.tox3": { "v": "r", "e": 0.2, "t": ["That's their third and final timeout."] }
+    "ref.tox3": { "v": "r", "e": 0.2, "t": ["That's their third and final timeout."] },
+    "a.hurry": { "v": "a", "e": 0.35, "t": ["Every second counts now.", "This is where a quarterback earns his money."] }
   }
 }

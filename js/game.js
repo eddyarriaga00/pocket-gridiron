@@ -1768,7 +1768,7 @@
       react(1 - off, 0.9, 2.5);
     }
     if ((kind === 'tackle' || kind === 'oob') && ps.fum) sub += ps.fum.muff ? ' · muffed, recovered' : ' · fumble, recovered';
-    G.runoff = !stop && !score && !G.drill ? Math.min(13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle (there is no clock in practice)
+    G.runoff = !stop && !score && !G.drill ? Math.min(hurry(off) && G.poss === off ? 8 : 13, G.clock) : 0;  // the clock keeps running after an in-bounds tackle (there is no clock in practice); a hurry-up offense gets back to the line sooner
     G.clock -= G.runoff;
     twoMinute();
     cpuTimeout();
@@ -1802,7 +1802,7 @@
         takeaway: big === 'Interception!' || (kind === 'td' && !own) || (kind === 'fumble' && arg.team !== off), tkl: ps.userTkl || 0 });
     }
     G.state = 'dead';
-    G.deadT = score ? 2.6 : 1.7;
+    G.deadT = score ? 2.6 : !AUTO && hurry(G.poss) && G.poss === off ? 1.1 : 1.7;
     banner(big, sub, G.deadT * 1000 - 150);
     updHud();
   }
@@ -1829,6 +1829,13 @@
      past it are given back), and since the clock is stopped there is nothing for a timeout to save. It is called on
      the play-call sheet that follows. Quarters of two minutes or less have none: there would be nothing before it. */
   const WARN = 120;
+
+  /* The two-minute drill: late in a half, an offense that needs points goes no-huddle. In the fourth quarter that is a
+     side that is behind or level, in the last two minutes (or the last half of a short quarter); before halftime,
+     anybody with the ball in the last minute (or quarter). Between plays only 8 seconds run instead of 13, and the
+     user's play-call sheet comes up sooner, marked "No huddle". Measured: letting it run for two minutes before
+     halftime as well, with more passing, put six more points a game on the board; this is the narrower rule. */
+  const hurry = t => !G.drill && G.try2 == null && G.clock > 0 && (G.q === 2 ? G.clock <= Math.min(60, G.ql * 0.25) : G.q >= 4 && G.clock <= Math.min(WARN, G.ql * 0.5) && G.score[t] <= G.score[1 - t]);
 
   function twoMinute() {
     if (G.drill || G.ot || G.ql <= WARN || !(G.q === 2 || G.q === 4) || G.clock > WARN || G.clock <= 0 || (G.warned && G.warned[G.q])) return;
@@ -2218,6 +2225,12 @@
     setBrief('');
     if (PG.audio && PG.audio.half) PG.audio.halftime(false);  // the teams are back: the band leaves the field
     warnCall();
+    if (!AUTO && !QUIET && G.pendKO == null && hurry(G.poss) && G.drive && G.drive.team === G.poss && !G.drive.hurry) {
+      G.drive.hurry = true;  // once a drive
+      toast(`${tname(G.poss)} in the hurry-up · no huddle`);
+      vo('hurry', { ttl: 4 });
+      analyst('a.hurry', 0.35);
+    }
     if (!AUTO && !QUIET && !G.drill && PG.audio && Math.random() < 0.3) PG.audio.band();  // the band fills some of the gaps between plays
     if (G.pendKO != null) {
       const t = G.pendKO, k = 1 - t;  // t receives, k kicks
@@ -3546,7 +3559,7 @@
     }
     const draw = () => {
       const list = side === 'off' ? OFF.filter(p => p.cat === cat) : side === 'qb' ? qb : DEF;
-      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card${p.n===sug?' sug':''}">${side==='qb'&&i===0?'<em>Coach’s pick</em>':p.n===sug?'<em>Suggested</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
+      scr.innerHTML = `<div class="sheet"><div class="shd"><b>${side==='def'?'Set the defense':side==='qb'?'Coach sends in':'Call your play'}</b><span>${side!=='def'&&hurry(G.poss)?'No huddle · ':''}${downTxt()}</span></div>${G.runoff>0&&G.to[0]>0&&!G.lock&&!G.drill?`<button class="btn2" id="tmo" style="margin:0 0 8px">Time out · get ${Math.round(G.runoff)} seconds back · ${G.to[0]} left</button>`:''}${side==='off'?`<div class="tabs">${cats.map(([k,l])=>`<button data-c="${k}" class="${k===cat?'on':''}">${l}</button>`).join('')}</div>`:''}<div class="grid">${list.map((p,i)=>`<button class="card${p.n===sug?' sug':''}">${side==='qb'&&i===0?'<em>Coach’s pick</em>':p.n===sug?'<em>Suggested</em>':''}<canvas></canvas><b>${p.n}</b><small>${p.d||FNAME[p.f]||''}</small></button>`).join('')}</div></div>`;
       scr.querySelectorAll('.card').forEach((el, i) => {
         drawArt(el.querySelector('canvas'), list[i], side === 'def');
         el.onclick = () => {

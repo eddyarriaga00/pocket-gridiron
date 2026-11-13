@@ -724,6 +724,17 @@ what is next. Update it after every item.
   exhibition, both careers, two career seasons and the drills clean; audit empty at 320x568 and 390x844 including a
   35-year-old's hub, the rival game card and the retire screen.
 
+- 21:06 The two-minute drill (automatic run 10). This changes play, so it was measured against the version before
+  it, four seeds of 20 simulated games with three-minute quarters each: before, 31.4 points a game and 71.9 plays; the
+  first version (hurry for two minutes before halftime too, 6 seconds between plays, the computer throwing more)
+  38.0 points on 76.7 plays, outside the healthy 25 to 35; the narrower rule shipped (fourth quarter only when not
+  ahead, the last minute before halftime, 8 seconds, no change to play calling) 32.9 points on 74.8 plays, with
+  completions 59 to 60%, 3.9 to 4.7 yards a carry and interceptions 1.0 to 1.7%. Two-minute quarters: 25.8 points.
+  The seeded fingerprint changed (it runs in two-minute quarters, where the window is open); checked repeatable and
+  stored as the new `localStorage['pg.fingerprint']`. 5 new clips (394). In a game: "No huddle · 4th & 12 · ATX 32"
+  on the sheet, "Outlaws in the hurry-up · no huddle" as a toast, once a drive. Exhibition, both careers, a career
+  season, the drills and a drawn game clean; audit empty at 320x568 (with the no-huddle sheet) and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -921,6 +932,10 @@ what is next. Update it after every item.
       40. The hub says what changed; the age is on the player card, the retire screen and the hall of fame. The
       rival has a line before his game (from how you stand: your last game against him, the leaders race) and the
       headline after it. Still to be judged over a long career
+- [x] Run 10, the two-minute drill. In the last two minutes of the fourth quarter (half of a short quarter) a side
+      that is behind or level goes no-huddle, and anybody with the ball does in the last minute before halftime
+      (a quarter of a short quarter): 8 seconds run between plays instead of 13, the next sheet comes up sooner and
+      says "No huddle", and the booth notices. Changes play: new fingerprint baseline. Still to be judged in play
 
 ### Round 12 (the owner at 19:42 on 2026-11-12: "add awards night, hall of fame, 2 minute warnings for quarter or
 ### such like nfl games, small details from football / nfl")
@@ -951,7 +966,6 @@ Major improvements, biggest first:
 - Motion, the rest: more touchdown celebrations than the three there are; reserves on the bench who walk about; a
   ball carrier who looks at the man about to hit him.
 - A real loose-ball scramble instead of an instant recovery.
-- A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
 - Career: the awards night could have a booth or
   stadium voice reading the winners (one clip per award and per name is too many; per award is not).
 - More NFL details: the officials' signals for a timeout and the two-minute warning (the referee figure already

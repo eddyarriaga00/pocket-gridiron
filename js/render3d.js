@@ -619,13 +619,34 @@
   /* Keep a body that is going down on top of the turf, and put a tackler where he belongs on his man. The pose in tg
      is tried on the figure standing at (x, z). If the trunk, the head, a shoulder, an elbow or a knee would be under
      the grass, or (over: the runner's figure) his trunk would be inside the man he has tackled once they are down,
-     the hips come up by that much: he lies on the runner, not in him. Then each hand is solved to its place (reach: two points in the
+     the hips come up by that much: he lies on the runner, not in him. `over` may also be a list of men (a pile): he
+     ends up on top of all of them. Then each hand is solved to its place (reach: two points in the
      world, left hand and right), his feet are let down to the grass behind him, and any foot or hand still under it
      is solved back up. */
-  const KEEP = new Float32Array(NPOSE), HAND = new T.Vector3(), inv4 = new T.Matrix4(), TRUNK = [new T.Vector3(), new T.Vector3()], RUN = [0, 1, 2, 3, 4, 5, 6, 7].map(() => new T.Vector3());
-  const RUNSEG = [[0, 1, 0.18], [2, 3, 0.1], [4, 5, 0.1], [3, 6, 0.07], [5, 7, 0.07]];  // trunk, thighs, shins: which two points of RUN, and how thick
+  const KEEP = new Float32Array(NPOSE), HAND = new T.Vector3(), inv4 = new T.Matrix4(), TRUNK = [new T.Vector3(), new T.Vector3()];
+  const BODIES = [0, 1, 2, 3].map(() => [0, 1, 2, 3, 4, 5, 6, 7, 8].map(() => new T.Vector3())), RUN = BODIES[0];  // the centre lines of up to four men to keep out of
+  const RUNSEG = [[0, 1, 0.18], [2, 3, 0.1], [4, 5, 0.1], [3, 6, 0.07], [5, 7, 0.07], [1, 8, 0.15]];  // trunk, thighs, shins, neck and helmet: which two points, and how thick
 
-  function settle(f, tg, x, z, reach, over, rest) {
+  const BODYSEG = RUNSEG.slice(0, 5);
+
+  /* the points of a man on top of a pile that must clear the men under him: helmet, hips, mid-thighs, knees, mid-shins and ankles ([joint, radius, along the bone]) */
+  const PILEPTS = f => [[f.head, 0.15, 0], [f.hipL, 0.1, 0], [f.hipR, 0.1, 0], [f.hipL, 0.1, -L1 / 2], [f.hipR, 0.1, -L1 / 2], [f.kneeL, 0.08, 0], [f.kneeR, 0.08, 0], [f.kneeL, 0.07, -ANKLE / 2],
+    [f.kneeR, 0.07, -ANKLE / 2], [f.ankL, 0.06, 0], [f.ankR, 0.06, 0]];
+
+  /* where a man's centre lines are, as he was drawn last */
+  function linesOf(o, L) {
+    o.pelvis.localToWorld(L[0].set(0, 0, 0));
+    o.chest.localToWorld(L[1].set(0, 0.5, 0));
+    L[2].setFromMatrixPosition(o.hipL.matrixWorld);
+    L[3].setFromMatrixPosition(o.kneeL.matrixWorld);
+    L[4].setFromMatrixPosition(o.hipR.matrixWorld);
+    L[5].setFromMatrixPosition(o.kneeR.matrixWorld);
+    L[6].setFromMatrixPosition(o.ankL.matrixWorld);
+    L[7].setFromMatrixPosition(o.ankR.matrixWorld);
+    o.head.localToWorld(L[8].set(0, 0.12, 0));
+  }
+
+  function settle(f, tg, x, z, reach, over, rest, trail) {
     const sc = f.root.scale.y, tryOn = () => {
       f.cur.set(tg);
       applyPose(f);
@@ -638,28 +659,30 @@
       for (const [j, y, r] of [[f.head, 0, 0.17], [f.chest, 0.4, 0.18], [f.pelvis, 0, 0.16], [f.shL, 0, 0.1], [f.shR, 0, 0.1], [f.elL, 0, 0.06], [f.elR, 0, 0.06], [f.kneeL, 0, 0.09], [f.kneeR, 0, 0.09]]) {
         d = Math.max(d, r * sc - j.localToWorld(HAND.set(0, y, 0)).y);
       }
-      if (over) {
+      if (nb) {
         f.pelvis.localToWorld(TRUNK[0].set(0, 0, 0));
         f.chest.localToWorld(TRUNK[1].set(0, 0.5, 0));
-        for (const [i, k, r] of RUNSEG) d = Math.max(d, ((r + 0.17) * sc - 0.02 - segGap(TRUNK[0], TRUNK[1], RUN[i], RUN[k])) * rest);  // rest: 0 at the hit (they meet standing), 1 once they are down
+        for (let b = 0; b < nb; b++) for (const [i, k, r] of trail ? RUNSEG : BODYSEG) {
+          // the helmet only counts for a man on top of a pile: a tackler is meant to have his head beside the runner's
+          d = Math.max(d, ((r + 0.17) * sc - 0.02 - segGap(TRUNK[0], TRUNK[1], BODIES[b][i], BODIES[b][k])) * rest);  // rest: 0 at the hit (they meet standing), 1 once they are down
+          if (nb > 1) for (const [j, rr, along] of PILEPTS(f)) {
+            /* on a pile his helmet and legs have to clear the men under him too, not only his trunk */
+            j.localToWorld(HAND.set(0, along, 0));
+            d = Math.max(d, ((r + rr) * sc - 0.02 - segGap(HAND, HAND, BODIES[b][i], BODIES[b][k])) * rest);
+          }
+        }
       }
       return d;
     };
-    if (over) {
-      /* the runner's centre lines, as he was drawn last */
-      over.pelvis.localToWorld(RUN[0].set(0, 0, 0));
-      over.chest.localToWorld(RUN[1].set(0, 0.5, 0));
-      RUN[2].setFromMatrixPosition(over.hipL.matrixWorld);
-      RUN[3].setFromMatrixPosition(over.kneeL.matrixWorld);
-      RUN[4].setFromMatrixPosition(over.hipR.matrixWorld);
-      RUN[5].setFromMatrixPosition(over.kneeR.matrixWorld);
-      RUN[6].setFromMatrixPosition(over.ankL.matrixWorld);
-      RUN[7].setFromMatrixPosition(over.ankR.matrixWorld);
-    }
+    const list = !over ? [] : Array.isArray(over) ? over.filter(Boolean).slice(0, BODIES.length) : [over];
+    let nb = list.length;
+    list.forEach((o, b) => linesOf(o, BODIES[b]));
     KEEP.set(f.cur);
-    for (let pass = 0; pass < 3; pass++) {
+    const dbg = trail ? (settle.dbg = []) : null;
+    for (let pass = 0; pass < (trail ? 6 : 3); pass++) {
       tryOn();
       const d = under();
+      if (dbg) dbg.push(Math.round(d * 91.44));
       if (d <= 0.002) break;
       tg[PELY] += d / sc;
     }
@@ -669,7 +692,7 @@
       const sh = k ? f.shR : f.shL, el = k ? f.elR : f.elL;
       if (reach) {
         HAND.copy(reach[k]);
-        if (over) for (const [i, j, r] of RUNSEG) {
+        if (nb) for (const [i, j, r] of RUNSEG) {
           /* on the runner, not in him: a hand that would be inside his trunk or a leg is pushed out to the surface */
           SD1.subVectors(RUN[j], RUN[i]);
           SD2.subVectors(HAND, RUN[i]).addScaledVector(SD1, -clamp(SD2.subVectors(HAND, RUN[i]).dot(SD1) / (SD1.dot(SD1) || 1), 0, 1));
@@ -689,7 +712,7 @@
     for (let k = 0; k < 2; k++) {
       const hip = k ? f.hipR : f.hipL;
       HAND.setFromMatrixPosition((k ? f.ankR : f.ankL).matrixWorld);
-      if (!over && HAND.y >= SOLE * sc) continue;
+      if ((!over || trail) && HAND.y >= SOLE * sc) continue;  // trail: a man on top of a pile lets his legs trail behind him
       HAND.y = SOLE * sc;
       HAND.applyMatrix4(inv4);
       legIK(HAND.x - hip.position.x, -(HAND.z - hip.position.z), 0, -(HAND.y - hip.position.y), 0.5);
@@ -701,6 +724,7 @@
       tg[k ? ARY : ALY] = LEG[5];
     }
     over = null;  // solving a limb can push its elbow or knee under: one more look at the grass alone
+    nb = 0;
     tryOn();
     const d = under();
     if (d > 0.002) tg[PELY] += d / sc;
@@ -809,6 +833,22 @@
       tg[k ? ER : EL] = ARM[2];
     }
     f.cur.set(KEEP);
+  }
+
+  /* ---------- the pile ----------
+     When a ball carrier goes down, the defenders who are on top of the play by then (the two nearest, within two yards,
+     not counting the tackler) do not pull up: they dive on, and are drawn lying across the runner and the tackler,
+     their hips lifted until they rest on top of both (and on each other) rather than inside them. The top of the pile
+     gets up first. Chosen once for each play, from where everybody is when the runner is first seen down. */
+  let pileFor = null, pileList = [];
+
+  function pileOf(s) {
+    const ps = s.ps, c = ps.carrier, tk = ps.tackler;
+    if (pileFor === ps) return pileList;
+    pileFor = ps;
+    pileList = (s.P || []).filter(q => q && q !== c && q !== tk && q.team !== c.team && !q.down && !q.fell && !(q.flat > 0) && Math.hypot(q.x - c.x, q.y - c.y) < 2)
+      .sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y)).slice(0, 2);
+    return pileList;
   }
 
   /* ---------- room round a tackle ----------
@@ -923,7 +963,8 @@
     return false;
   }
 
-  /* an official: jog to a spot, watch the ball, and signal how the play ended ('td', 'fd' first down, 'inc' incomplete) */
+  /* an official: jog to a spot, watch the ball, and signal how the play ended ('td', 'fd' first down, 'inc' incomplete,
+     'to' a timeout or the two-minute warning: hands crossing above his head, again and again) */
   function poseRef(f, r, sig, bx, by, dt) {
     const tg = TG;
     tg.fill(0);
@@ -951,7 +992,16 @@
       hx = 0;
       hy = r.fdDir;
     }  // arm straight out toward the line to gain
-      else if (sig === 'inc') {
+      else if (sig === 'to') {
+        const w = Math.sin(time * 7);
+        tg[SLX] = 3.15;
+        tg[SRX] = 3.15;
+        tg[SLZ] = 0.06 + w * 0.26;
+        tg[SRZ] = -0.06 - w * 0.26;
+        tg[EL] = 0.04;
+        tg[ER] = 0.04;
+        tg[CHRX] = 0.04;  // straight arms, crossing at the wrists high above his head
+      } else if (sig === 'inc') {
         const w = Math.sin(time * 8);
         tg[SLX] = 1.1;
         tg[SRX] = 1.1;
@@ -1049,8 +1099,9 @@
     const winding = s.charge >= 0 && carrier && p === ps.qb && !ps.thrown;  // the user is holding a receiver's letter: the power bar is filling
     let hx = null, hy = 0, snap = false, eyes = true, wantX = 0, wantY = 0;  // eyes: his helmet is free to turn to what he is watching; wantX, wantY: how far from the engine's spot a block, or a pile, wants him drawn
     const flat = p.flat > 0 && !p.down && !p.fell;  // run over: on his back for a moment
-    const cd = ps.carrier;
-    if (cd && cd.down && cd !== p && !p.down && !p.fell && !flat && s.figOf && (s.G.state === 'dead' || s.G.state === 'replay')) {
+    const cd = ps.carrier, settled = s.G.state === 'dead' || s.G.state === 'replay';
+    const pileOn = !!cd && cd.down && cd !== p && !p.down && !p.fell && !flat && !!s.figOf && settled && pileOf(s).includes(p);  // diving onto the pile (see pileOf)
+    if (cd && cd.down && cd !== p && !p.down && !p.fell && !flat && !pileOn && s.figOf && settled) {
       /* a tackle has been made and he is still on his feet beside it: stand him clear of the men on the ground (their
          backs, pelvis to helmet, and their legs), so nobody is left standing in the pile */
       PUSH[0] = PUSH[1] = 0;
@@ -1069,15 +1120,15 @@
       wantX = PUSH[0] * (far > most ? most / far : 1);
       wantY = -PUSH[1] * (far > most ? most / far : 1);
     }
-    if (!(p.down || p.fell || flat)) f.fall = 0;
+    if (!(p.down || p.fell || flat || pileOn)) f.fall = 0;
     f.ox = f.oy = 0;  // how far from the engine's spot he is drawn (a tackler closes up on his man)
     tg[PELY] = HIP;
     tg[EL] = 0.25;
     tg[ER] = 0.25;
     tg[CHRX] = -0.05;
 
-    if (p.down || p.fell || flat) {
-      // on the turf
+    if (p.down || p.fell || flat || pileOn) {
+      // on the turf (or on the pile)
       eyes = false;
       if (f.fall === 0) {
         // decide once which way he goes down
@@ -1093,13 +1144,13 @@
             f.fallDir = 1;
             f.fallSide = rel > 0 ? -1 : 1;
           }  // hit from the side: bowled over the other way
-        } else if (p.fell) f.fallDir = 1;  // the tackler lands forward, on his man
+        } else if (p.fell || pileOn) f.fallDir = 1;  // the tackler, and anyone piling on, lands forward on his man
       }
       f.fall = Math.min(1, f.fall + dt / 0.3);
-      const e = f.fall * f.fall * (3 - 2 * f.fall), wrap = p.fell && !p.down && !flat;
+      const e = f.fall * f.fall * (3 - 2 * f.fall), wrap = (p.fell || pileOn) && !p.down && !flat;
       /* After the whistle nobody stays down: up onto a knee, then to his feet. The tackler goes first and the man
          underneath a beat later. */
-      const up = s.G.state === 'dead' && !flat ? clamp(((ps.after || 0) - (p.down ? 0.85 : 0.55)) / 0.75, 0, 1) : 0;
+      const up = s.G.state === 'dead' && !flat ? clamp(((ps.after || 0) - (p.down ? 1.05 : pileOn ? 0.45 : 0.85)) / (pileOn ? 0.5 : 0.75), 0, 1) : 0;  // the top of the pile off first, then the tackler, then the man with the ball
       const tk = wrap && p === ps.tackler && ps.carrier && ps.carrier.down && ps.carrier !== p ? ps.carrier : null;
       let reach = null;
       if (tk) {
@@ -1180,9 +1231,38 @@
         tg[KL] = -0.4;
         tg[HR] = -0.1;
         tg[KR] = -0.15;
+        if (pileOn) {
+          tg[PELRX] = -1.55 * e;  // flat out across the pile
+          tg[HL] = tg[HR] = 0.05;
+          tg[KL] = -0.25;
+          tg[KR] = -0.1;
+        }
       }
-      settle(f, tg, p.x + f.ox, -(p.y + f.oy), reach, tk && s.figOf ? s.figOf(tk) : null, smooth(clamp((f.fall - 0.45) / 0.55, 0, 1)));  // nothing under the turf; a tackler on his man, hands round him
-      if (up > 0) {
+      let onto = tk && s.figOf ? s.figOf(tk) : null;
+      if (pileOn) {
+        /* across the pile: drawn in until his chest is over the runner's, and kept on top of everyone already down */
+        const rf = s.figOf(cd), mine = pileOf(s);
+        if (rf) {
+          rf.chest.localToWorld(HIPS.set(0, 0.3, 0));
+          const off2 = smooth(Math.min(1, up / 0.6)), dx = HIPS.x - p.x, dy = -HIPS.z - p.y, dl = Math.hypot(dx, dy) || 1, pull = Math.max(0, dl - 0.55) * e * (1 - off2);
+          /* getting up he rolls back off the pile, away from its middle (between the runner and the tackler), not through them */
+          const tf = ps.tackler && s.figOf(ps.tackler), mx = tf ? (cd.x + ps.tackler.x) / 2 : cd.x, my = tf ? (cd.y + ps.tackler.y) / 2 : cd.y;
+          let bx = p.x - mx, by = p.y - my;
+          const bl = Math.hypot(bx, by) || 1;
+          bx /= bl;
+          by /= bl;
+          f.ox = dx / dl * pull + bx * 2 * off2;
+          f.oy = dy / dl * pull + by * 2 * off2;
+        }
+        onto = [rf, ps.tackler && s.figOf(ps.tackler), ...mine.slice(0, mine.indexOf(p)).map(q => s.figOf(q))].filter(Boolean);
+        if (onto.length < 2) onto.push(rf);  // always the pile rule (helmet and knees too), even with nobody but the runner down
+      }
+      const sx = pileOn ? f.sx : 0, sy = pileOn ? f.sy : 0;  // where he will really be drawn: a pile man getting up is also being stepped clear
+      settle(f, tg, p.x + f.ox + sx, -(p.y + f.oy + sy), reach, onto, pileOn ? smooth(Math.min(1, f.fall * 2.5)) : smooth(clamp((f.fall - 0.45) / 0.55, 0, 1)), pileOn);  // a man diving onto bodies is held off them from early in the dive  // nothing under the turf; a tackler on his man, hands round him
+      if (up > 0 && pileOn) {
+        const e2 = smooth(Math.max(0, (up - 0.6) / 0.4));  // first he slides back off the pile still lying on it, then onto his feet once he is clear: no kneeling down through the men under him
+        for (let i = 0; i < NPOSE; i++) tg[i] = lerp(tg[i], STAND[i], e2);
+      } else if (up > 0) {
         const a1 = Math.min(1, up * 2), a2 = Math.max(0, up * 2 - 1), e1 = a1 * a1 * (3 - 2 * a1), e2 = a2 * a2 * (3 - 2 * a2);
         for (let i = 0; i < NPOSE; i++) tg[i] = lerp(lerp(tg[i], KNEEL[i], e1), STAND[i], e2);
       }
@@ -3048,20 +3128,38 @@
     const lines = f => [[at(f.pelvis, 0, 0, 0), at(f.chest, 0, 0.5, 0), 0.18], [at(f.hipL, 0, 0, 0), at(f.kneeL, 0, 0, 0), 0.1], [at(f.hipR, 0, 0, 0), at(f.kneeR, 0, 0, 0), 0.1], [at(f.kneeL, 0, 0, 0), at(f.ankL, 0, 0, 0), 0.07],
       [at(f.kneeR, 0, 0, 0), at(f.ankR, 0, 0, 0), 0.07], [at(f.chest, 0, 0.6, 0), at(f.head, 0, 0.12, 0), 0.15]];  // trunk, thighs, shins, and the neck and helmet
     const mine = lines(fc), inside = set => Math.max(0, ...mine.map(([a, b, r]) => Math.max(...set.map(([c, d, r2]) => (r + r2) * sc - segDist(a, b, c, d)))));
-    return { insideRunnerCm: r1(inside(lines(fa))), insideTacklerCm: r1(inside(lines(fb))), movedCm: r1(Math.hypot(fc.sx, fc.sy)) };
+    const NAMES = ['trunk', 'left thigh', 'right thigh', 'left shin', 'right shin', 'helmet'], worst = set => {
+      let w = 0, at2 = '';
+      mine.forEach(([a, b, r], i) => set.forEach(([c, d, r2], j) => {
+        const v = (r + r2) * sc - segDist(a, b, c, d);
+        if (v > w) {
+          w = v;
+          at2 = NAMES[i] + ' in his ' + NAMES[j];
+        }
+      }));
+      return at2;
+    };
+    const low = Math.min(...[fc.head, fc.pelvis, fc.kneeL, fc.kneeR, fc.elL, fc.elR].map(j => at(j, 0, 0, 0).y - 0.08 * sc));
+    const yd = v => Math.round(v * 91.44);
+    const geo = { myPelvis: yd(at(fc.pelvis, 0, 0, 0).y), myChest: yd(at(fc.chest, 0, 0.5, 0).y), hisChest: yd(at(fb.chest, 0, 0.5, 0).y), hisHead: yd(at(fb.head, 0, 0.12, 0).y), runnerChest: yd(at(fa.chest, 0, 0.5, 0).y),
+      trunkToHelmetCm: yd(segDist(at(fc.pelvis, 0, 0, 0), at(fc.chest, 0, 0.5, 0), at(fb.chest, 0, 0.5, 0), at(fb.head, 0, 0.12, 0))), drawnAt: [+fc.root.position.x.toFixed(2), +(-fc.root.position.z).toFixed(2)],
+      tacklerAt: [+fb.root.position.x.toFixed(2), +(-fb.root.position.z).toFixed(2)], runnerAt: [+fa.root.position.x.toFixed(2), +(-fa.root.position.z).toFixed(2)] };
+    geo.solver = settle.dbg;
+    return { geo, worstInTackler: worst(lines(fb)), worstInRunner: worst(lines(fa)), pose: { pely: +fc.cur[PELY].toFixed(2), pelrx: +fc.cur[PELRX].toFixed(2), fall: +fc.fall.toFixed(2), scale: +sc.toFixed(2), off: [+fc.ox.toFixed(2), +fc.oy.toFixed(2)], y: +fc.root.position.y.toFixed(2) }, piled: fc.fall > 0, insideRunnerCm: r1(inside(lines(fa))), insideTacklerCm: r1(inside(lines(fb))), movedCm: r1(Math.hypot(fc.sx, fc.sy)), hipsCm: r1(at(fc.pelvis, 0, 0, 0).y), underTurfCm: r1(Math.max(0, -low)) };
   }
 
   /* every pairing of a tackler from four sides and a bystander from twelve, at three distances: the worst of each number */
   function besideSweep(opts) {
-    const worst = { insideRunnerCm: 0, insideTacklerCm: 0, movedCm: 0 };
-    let n = 0, moved = 0;
+    const worst = { insideRunnerCm: 0, insideTacklerCm: 0, movedCm: 0, underTurfCm: 0 };
+    let n = 0, moved = 0, piled = 0;
     for (const off of [1.1, 1.7, 2.3]) for (const a of [0, 1.57, 3.14, -1.57]) for (let b = -3; b <= 3.1; b += 0.5) {
       const r = besideTest(a, b, Object.assign({ off }, opts));
       n++;
       if (r.movedCm > 0.5) moved++;
+      if (r.piled) piled++;
       for (const k in worst) worst[k] = Math.max(worst[k], r[k]);
     }
-    return Object.assign({ stagings: n, moved }, worst);
+    return Object.assign({ stagings: n, moved, piled }, worst);
   }
 
   /* a block drawn from the side, from above and from behind the blocker, at the engine's distance */

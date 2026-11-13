@@ -276,7 +276,7 @@ def main():
         'PG.VO = ' + body + ';\n')
 
     print(f'recorded {len(fresh)} of {len(todo)} clips this run')
-    for v, name in (('p', 'play-by-play'), ('a', 'analyst'), ('r', 'referee'), ('s', 'stadium announcer')):
+    for v, name in (('p', 'play-by-play'), ('a', 'analyst'), ('r', 'referee'), ('s', 'stadium announcer'), ('q', 'quarterback'), ('d', 'defender'), ('e', 'second defender')):
         rows = [m for m in memo.values() if m['v'] == v]
         if not rows:
             continue

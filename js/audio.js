@@ -1,12 +1,13 @@
 /* Pocket Gridiron: sound engine (second version, 2026-11-12).
-   Every sound but one is made in code with the Web Audio API. The exception is the broadcast booth: two recorded
-   commentators, whose clips (audio/vo.pack) tools/voice.py makes from the script in tools/commentary.json.
+   Every sound is made in code with the Web Audio API except the voices: the broadcast booth, the referee, the stadium
+   announcer and the players on the field are recorded clips (audio/vo.pack), which tools/voice.py makes from the
+   script in tools/commentary.json. No voice is synthesized any more; where a clip is missing, nobody speaks.
    
    PG.audio.play(name, opts)   one-shot effects (whistle, hit, catch, horn, ...); opts.x pans by field position
    PG.audio.crowd.*            the stadium: murmur, roar and applause loops that follow the game, oohs, groans, chants
    PG.audio.music.*            the menu theme: drums, bass, pad and a brass section, sixteen bars
    PG.audio.call(key, opts)    the booth: a play-by-play man and an analyst, one at a time, the crowd dipped under them
-   PG.audio.say(text, urgent)  the device's own speech voice: what the booth falls back to when its clips cannot be had
+   PG.audio.pa(text, opts)     the stadium speakers: the referee and the announcer, recorded
    PG.audio.weather(kind)      a bed of rain (with thunder) or wind under the crowd
    PG.audio.muffle(on)         everything goes dull and distant while the game is paused
    
@@ -260,20 +261,6 @@
     chain(o, g, into);
     o.start(t);
     o.stop(t + dur + 0.02);
-  }
-
-  /* one man's shout or grunt, played live: the same idea with its own mouth and some breath in it */
-  function bark(c, out, t, o) {
-    const g = env(c, t, 0.012, o.amp, o.dur), src = osc(c, 'sawtooth', o.f0, t, o.dur + 0.05), air = gain(c, o.breath === undefined ? 0.2 : o.breath);
-    src.frequency.exponentialRampToValueAtTime(o.f1, t + o.dur);
-    chain(noise(c, 'white', t, o.dur + 0.05), air);
-    VOWEL[o.vowel].forEach((f, k) => {
-      const bp = filter(c, 'bandpass', f * (o.scale || 1), [6, 8, 9][k]);
-      src.connect(bp);
-      air.connect(bp);
-      chain(bp, gain(c, [1, 0.6, 0.3][k]), g);
-    });
-    chain(g, drive(c, 2.5), out);
   }
 
   /* ---------- the crowd, rendered ----------
@@ -573,7 +560,7 @@
       chain(noise(c, 'white', t, dur + 0.1), filter(c, 'bandpass', 3100, 2), gain(c, 0.4), body);
       chain(body, envHold(c, t, 0.014, 0.12, dur, 0.06), out);
     },
-    /* pads: a low thump, the body of two men, a plastic crack, shells clacking, and on the big ones a grunt */
+    /* pads: a low thump, the body of two men, a plastic crack, shells clacking */
     hit(c, out, t, o) {
       const p = power(o, 0.8), k = rnd(0.9, 1.12), mix = gain(c, 1), th = osc(c, 'sine', 150 * k, t, 0.22);
       th.frequency.exponentialRampToValueAtTime(46 * k, t + 0.15);
@@ -582,7 +569,6 @@
       chain(noise(c, 'white', t, 0.14), filter(c, 'bandpass', 760 * k, 0.9), env(c, t, 0.002, 1.5 * p, 0.09), mix);  // the smack: the part a phone speaker can play
       chain(noise(c, 'white', t, 0.07), filter(c, 'bandpass', 2300 * k, 1.1), env(c, t, 0.001, 0.9 * p, 0.04), mix);
       if (p > 0.55) for (const f of [1180, 1730, 2610]) chain(osc(c, 'sine', f * k, t, 0.05), env(c, t, 0.001, 0.09 * p, 0.03), mix);
-      if (p > 0.85) bark(c, mix, t + 0.02, { f0: 125 * k, f1: 88 * k, dur: 0.13, vowel: 'uh', amp: 0.2 * p });
       chain(mix, drive(c, 1.8), gain(c, 0.75), out);
     },
     /* leather into gloves */
@@ -600,9 +586,8 @@
       bp.frequency.exponentialRampToValueAtTime(2500, t + 0.2);
       chain(noise(c, 'white', t, 0.26), bp, env(c, t, 0.04, 0.5, 0.18), out);
     },
-    /* "Hut!": the quarterback's bark, a hard stop on the end of it, then the ball hitting his hands */
+    /* the snap: the ball slapping into the quarterback's hands (his "Hut!" is a recorded voice, see FIELD) */
     snap(c, out, t) {
-      bark(c, out, t, { f0: 172, f1: 122, dur: 0.15, vowel: 'uh', amp: 0.85, breath: 0.3 });
       chain(noise(c, 'white', t + 0.13, 0.03), filter(c, 'highpass', 3500), env(c, t + 0.13, 0.001, 0.14, 0.018), out);
       chain(noise(c, 'white', t + 0.1, 0.05), filter(c, 'bandpass', 1000, 0.8), env(c, t + 0.1, 0.002, 0.3, 0.04), out);
     },
@@ -714,48 +699,12 @@
         chain(noise(c, 'white', at, 0.05), filter(c, 'bandpass', rnd(1100, 2500), 1.2), env(c, at, 0.001, lvl * rnd(0.4, 1), 0.035), pan(c, rnd(-0.8, 0.8)), out);
       }
     },
-    /* the quarterback before the snap: "Rea-dy ... SET!" (the "Hut!" is `snap`) */
-    cadence(c, out, t) {
-      bark(c, out, t, { f0: 152, f1: 140, dur: 0.11, vowel: 'e', amp: 0.16, breath: 0.25 });
-      bark(c, out, t + 0.13, { f0: 144, f1: 130, dur: 0.12, vowel: 'i', amp: 0.14, breath: 0.2 });
-      chain(noise(c, 'white', t + 0.5, 0.08), filter(c, 'highpass', 4500), env(c, t + 0.5, 0.02, 0.1, 0.05), out);
-      bark(c, out, t + 0.57, { f0: 176, f1: 152, dur: 0.13, vowel: 'e', amp: 0.24, breath: 0.3 });
-      chain(noise(c, 'white', t + 0.7, 0.03), filter(c, 'highpass', 3500), env(c, t + 0.7, 0.001, 0.12, 0.018), out);
-    },
-    /* changing the play at the line: two sharp shouts */
-    audible(c, out, t) {
-      for (const at of [0, 0.19]) {
-        chain(noise(c, 'white', t + at, 0.02), filter(c, 'bandpass', 2600, 1.5), env(c, t + at, 0.001, 0.14, 0.012), out);
-        bark(c, out, t + at + 0.012, { f0: 196, f1: 170, dur: 0.11, vowel: 'i', amp: 0.4, breath: 0.25, scale: 1.05 });
-      }
-    },
-    /* the snap: ten big men meet ten big men. Several hits within a tenth of a second across the width of the line, and grunts */
+    /* the snap: ten big men meet ten big men. Several hits within a tenth of a second across the width of the line */
     crash(c, out, t) {
       for (let i = 0; i < 5; i++) {
         const p = pan(c, rnd(-0.6, 0.6)), g = gain(c, 0.6);
         chain(p, g, out);
         SFX.hit(c, p, t + 0.1 + rnd(0, 0.09), { power: rnd(0.3, 0.55) });
-      }
-      for (let i = 0; i < 2; i++) bark(c, out, t + 0.12 + rnd(0, 0.1), { f0: rnd(105, 140), f1: rnd(78, 95), dur: 0.13, vowel: 'uh', amp: 0.1 });
-    },
-    /* The defense before the snap: the middle linebacker calls the strength, somebody down the line answers, a safety
-       checks the coverage. Two or three shouts from different places, shorter and rougher than the quarterback's. */
-    calls(c, out, t) {
-      let at = 0;
-      for (let i = 0, n = 2 + Math.floor(rnd(0, 2)); i < n; i++) {
-        const where = pan(c, rnd(-0.75, 0.75)), f = rnd(118, 178);
-        where.connect(out);
-        bark(c, where, t + at, { f0: f, f1: f * 0.9, dur: rnd(0.09, 0.13), vowel: pickOf(['a', 'o', 'e', 'ae']), amp: rnd(0.22, 0.32), breath: 0.3, scale: 1.04 });
-        if (Math.random() < 0.6) bark(c, where, t + at + 0.13, { f0: f * 0.95, f1: f * 0.8, dur: rnd(0.11, 0.16), vowel: pickOf(['e', 'i', 'a', 'uh']), amp: rnd(0.22, 0.32), breath: 0.3, scale: 1.04 });  // "strong left": two syllables
-        at += rnd(0.24, 0.42);
-      }
-    },
-    /* the defense after a sack or a takeaway: three men whooping, each shout rising */
-    whoop(c, out, t) {
-      for (let i = 0; i < 3; i++) {
-        const where = pan(c, rnd(-0.5, 0.5)), f = rnd(180, 250);
-        where.connect(out);
-        bark(c, where, t + i * rnd(0.12, 0.2), { f0: f, f1: f * 1.25, dur: rnd(0.16, 0.24), vowel: pickOf(['a', 'e', 'o']), amp: rnd(0.22, 0.32), breath: 0.25, scale: 1.08 });
       }
     },
     /* A kicked ball off the upright: leather on aluminium, then the hollow post ringing. A tube fixed at one end rings
@@ -775,10 +724,6 @@
       chain(th, env(c, t, 0.002, 0.35 * p, 0.1), out);
       chain(noise(c, 'white', t, 0.06), filter(c, 'bandpass', 480, 1), env(c, t, 0.002, 0.9 * p, 0.045), out);
       chain(noise(c, 'white', t, 0.04), filter(c, 'bandpass', 1500, 1.2), env(c, t, 0.001, 0.45 * p, 0.03), out);
-    },
-    /* a loose ball: everybody near it shouts at once */
-    shout(c, out, t) {
-      for (let i = 0; i < 4; i++) bark(c, out, t + i * 0.11 + rnd(0, 0.04), { f0: rnd(170, 240), f1: rnd(150, 200), dur: 0.12, vowel: 'a', amp: 0.2, breath: 0.25, scale: 1.1 });
     },
     /* the home team scores: the cannon behind the end zone, then fireworks crackling out */
     boom(c, out, t) {
@@ -823,76 +768,6 @@
 
   function clamp01(v) {
     return v < 0 ? 0 : v > 1.5 ? 1.5 : v;
-  }
-
-  /* ---------- a voice on the stadium speakers ----------
-     Not a recording, and not the phone's speech voice (that one cannot be given an echo). The words are turned, roughly,
-     into the vowels and consonants they are spelled with and spoken through one mouth, then sent down the speakers'
-     route: a band of mid-range, a slap of echo off the far stand, the stadium's reverb. From the seats you never quite
-     catch a referee's words either. You get their rhythm and their tune, the banner on screen says what was called, and
-     the commentator repeats it. */
-  const SPELL = [[/^(ou|ow)/, ['a', 'u']], [/^(ai|ay|ey|ei)/, ['e', 'i']], [/^(ee|ea|ie)/, ['i']], [/^(oo|ue|ew)/, ['u']], [/^(oa|oe)/, ['o']], [/^igh/, ['a', 'i']],
-    [/^a/, ['ae']], [/^e/, ['e']], [/^i/, ['i']], [/^o/, ['o']], [/^u/, ['uh']], [/^y/, ['i']]];
-  const HISS = /^(sh|ch|th|s|f|z|x|h)/, STOP = /^[ptkcqbdgj]/;
-
-  /* text to syllables: [{ v: the vowels the mouth moves through, on: the consonant before ('hiss', 'stop' or ''),
-     coda: the one after the word's last vowel, stress: first syllable of its word, gap: the pause that follows }] */
-  function paWords(text) {
-    const out = [];
-    for (const raw of String(text).toLowerCase().split(/\s+/)) {
-      const word = raw.replace(/[^a-z]/g, ''), gap = /[.!?]$/.test(raw) ? 0.34 : /[,;:]$/.test(raw) ? 0.17 : 0.04, n0 = out.length;
-      let i = 0, onset = '';
-      while (i < word.length) {
-        const rest = word.slice(i);
-        if (rest === 'e' && out.length > n0) break;  // a silent e
-        const m = /^[aeiouy]/.test(rest) && !(rest[0] === 'y' && i === 0) && SPELL.find(x => x[0].test(rest));
-        if (m) {
-          out.push({ v: m[1], on: onset, coda: '', stress: out.length === n0, gap: 0 });
-          onset = '';
-          i += m[0].exec(rest)[0].length;
-        } else {
-          const h = HISS.exec(rest);
-          onset = h ? 'hiss' : STOP.test(rest) ? 'stop' : onset;
-          i += h ? h[0].length : 1;
-        }
-      }
-      if (out.length > n0) {
-        out[out.length - 1].gap = gap;
-        out[out.length - 1].coda = onset;
-      }
-    }
-    return out;
-  }
-
-  /* speak `text` into `out` from time t; returns how long it takes */
-  function paVoice(c, out, t, text) {
-    const syl = paWords(text), path = [], voiced = [], noises = [];
-    if (!syl.length) return 0;
-    let at = 0.02, f = 128;
-    for (const s of syl) {
-      if (s.on) {
-        noises.push([s.on, at]);
-        at += s.on === 'hiss' ? 0.06 : 0.025;
-      }
-      const dur = (s.stress ? 0.17 : 0.12) + (s.v.length > 1 ? 0.07 : 0), last = s.gap > 0.3;
-      path.push([t + at, s.v[0]], [t + at + dur * (s.v.length > 1 ? 0.4 : 0.8), s.v[0]]);
-      if (s.v.length > 1) path.push([t + at + dur * 0.9, s.v[1]]);
-      voiced.push([at, dur, f * (s.stress ? 1.07 : 1), last]);
-      at += dur;
-      if (s.coda) {
-        noises.push([s.coda, at + 0.005]);
-        at += s.coda === 'hiss' ? 0.075 : 0.03;
-      }
-      at += s.gap;
-      f = last ? 128 : Math.max(98, f - 3.5);  // each sentence starts high and sinks, as speech does
-    }
-    const m = mouth(c, out, path, 1, 0);
-    for (const [a, dur, hz0, last] of voiced) syllable(c, m, t + a, dur, hz0 * 1.02, hz0, hz0 * (last ? 0.8 : 0.96), 1.05, 0.025, 0.05);
-    for (const [kind, a] of noises) {
-      if (kind === 'hiss') chain(noise(c, 'white', t + a, 0.08), filter(c, 'bandpass', 3000, 0.9), env(c, t + a, 0.015, 0.11, 0.06), out);
-      else chain(noise(c, 'white', t + a, 0.03), filter(c, 'bandpass', 1700, 1.2), env(c, t + a, 0.001, 0.2, 0.015), out);
-    }
-    return at;
   }
 
   /* ---------- the crowd, live ---------- */
@@ -965,21 +840,20 @@
       this.nodes.out.connect(bus.crowd);
       this.nodes.out.gain.setTargetAtTime(1, t, 0.5);
       this.set(this.level, 0.5);
-      /* small swells and the odd lone voice keep it from sounding like a loop */
+      /* small swells and the odd fan's whistle keep it from sounding like a loop (the lone synthesized shouts that used to be here sounded like a machine) */
       this.timer = setInterval(() => {
         if (!this.nodes || ctx.state !== 'running') return;
         const now = ctx.currentTime, m = crowdMix(this.level);
         this.nodes.bed.gain.setTargetAtTime(m.bed * rnd(0.85, 1.15), now, 0.4);
         const r = Math.random();
-        if (r < 0.05) bark(ctx, bus.crowd, now, { f0: rnd(380, 520), f1: rnd(620, 900), dur: 0.3, vowel: 'u', amp: 0.035, breath: 0.1, scale: 1.2 });  // a whoop
-        else if (r < 0.08) {
+        if (r < 0.03) {
           // a fan's whistle: two rising chirps
           for (const at of [0, 0.16]) {
             const o = osc(ctx, 'sine', 2100, now + at, 0.14);
             o.frequency.exponentialRampToValueAtTime(3200, now + at + 0.1);
             chain(o, env(ctx, now + at, 0.02, 0.02, 0.1), pan(ctx, rnd(-0.9, 0.9)), bus.crowd);
           }
-        } else if (r < 0.1) bark(ctx, bus.crowd, now, { f0: rnd(150, 240), f1: rnd(130, 200), dur: 0.22, vowel: pickOf(['e', 'a', 'o']), amp: 0.03, scale: 1.1 });  // somebody shouting something
+        }
       }, 650);
     },
     /* 0 = a quiet stadium between plays, 1 = everyone on their feet */
@@ -1386,8 +1260,8 @@
      it is first wanted, and the last few dozen stay decoded.
      One of them talks at a time. A bigger call cuts in over a smaller one. An equal one waits its turn, and is dropped
      if its moment passes while it waits. Colour is only said when nobody is talking. The crowd and the band dip under
-     them. If this build has no clips, or they cannot be fetched or read, the same words go to the device's voice for
-     the calls that matter. The two are never mixed: while the clips are still on their way, nothing is said. */
+     them. If this build has no clips, or they cannot be fetched or read, nothing is said: the device's own speech
+     voice, which used to stand in, sounded like a machine. */
   const VO = PG.VO || null;
   const booth = {
     state: VO ? 'idle' : 'none',  // none: this build has no clips; idle: not asked for yet; loading; ready; failed
@@ -1466,10 +1340,7 @@
       if (this.log.length > 600) this.log.shift();
       if (!S.ann || !S.snd || !ctx || ctx.state !== 'running' || wantMusic) return false;
       if (this.state === 'idle') this.load();
-      if (this.state === 'none' || this.state === 'failed') {
-        const clip = pri ? this.take(call) : null;  // the device's voice makes the calls and leaves the colour out
-        return clip ? ann.say(VO.text[clip[0]], pri > 1) : false;
-      }
+      if (this.state === 'none' || this.state === 'failed') return false;  // no clips, no commentary: the device's speech voice sounded like a robot
       if (this.state !== 'ready') return false;
       if (this.cur && pri > this.cur.pri) {
         this.q = this.q.filter(x => x.pri >= pri);  // he cuts in, and what was waiting behind the smaller line goes with it
@@ -1626,12 +1497,41 @@
 
   /* ---------- public ---------- */
 
+  /* Voices on the field: recorded players (the quarterback, two defenders) from the same pack as the booth, out where
+     they are on the field, a little dull and with the stadium on them, under the booth. [call(s), level, how many men] */
+  const FIELD = { cadence: [['f.ready'], 0.5, 1], snap: [['f.hut'], 0.6, 1], audible: [['f.audible'], 0.55, 1], calls: [['f.call', 'f.call2'], 0.42, 2], whoop: [['f.whoop', 'f.whoop2'], 0.5, 2], shout: [['f.ball'], 0.55, 1] };
+
+  function fieldVoice(name, x, delay) {
+    const [calls, lvl, men] = FIELD[name];
+    if (booth.state !== 'ready') return;
+    let at = ctx.currentTime + 0.01 + (delay || 0);
+    for (let i = 0; i < men; i++) {
+      const clip = booth.take(calls[i % calls.length]);
+      if (!clip) continue;
+      const when = at;
+      at += clip[3] * (0.55 + Math.random() * 0.3);  // the second man starts before the first has finished
+      booth.buf(ctx, clip).then(b => {
+        const src = ctx.createBufferSource(), where = x === undefined ? (i ? 0.3 : -0.2) : (x / 53.33 * 2 - 1) * 0.6 + (i ? 0.25 : 0);
+        src.buffer = b;
+        chain(src, filter(ctx, 'lowpass', 4800, 0.5), gain(ctx, lvl), pan(ctx, Math.max(-0.8, Math.min(0.8, where))), bus.sfx);
+        src.start(Math.max(when, ctx.currentTime + 0.01));
+      }, () => {});
+    }
+  }
+
   const NOTED = { doink: 1, calls: 1, whoop: 1 };  // effects worth a line in `asked`, so a scripted game shows they were asked for
 
   /* opts.x: where across the field it happened (it pans); opts.delay: that many seconds from now */
   function play(name, opts) {
     if (NOTED[name]) note(name);
-    if (!ctx || !S.snd || ctx.state !== 'running' || !SFX[name]) return;
+    if (!ctx || !S.snd || ctx.state !== 'running') return;
+    if (FIELD[name]) {
+      try {
+        fieldVoice(name, opts && opts.x, opts && opts.delay);
+      } catch (_) {}
+      if (!SFX[name]) return;
+    }
+    if (!SFX[name]) return;
     try {
       let out = bus[ROUTE[name] || 'sfx'];
       if (opts && opts.x !== undefined) {
@@ -1769,17 +1669,18 @@
     },
     /* The stadium speakers: the referee giving a call (his microphone clicks on first), or the stadium announcer
        (opts.announcer: his channel is always open). opts.clips names the recorded sentences to play ('ref.hold',
-       'ref.yd.10', ...); without them, or before they have loaded, `text` is spoken by the synthesized voice.
+       'ref.yd.10', ...); without them, or before they have loaded, nothing is said (`text` is only logged).
        opts.wait holds it back that many seconds. Returns how long it will take, the wait included, 0 when nothing
        can be heard. */
     pa(text, opts) {
       note('pa: ' + text);
-      if (!ctx || !S.snd || ctx.state !== 'running' || wantMusic) return 0;
+      if (!ctx || !S.snd || ctx.state !== 'running' || (wantMusic && !(opts && opts.anywhere))) return 0;
       const wait = (opts && opts.wait) || 0, t = ctx.currentTime + 0.05 + wait, lead = opts && opts.announcer ? 0 : 0.3;
-      if (lead) SFX.mic(ctx, bus.pa, t);
       const rec = opts && opts.clips ? paClips(opts.clips, t + lead) : 0;
-      if (rec) note('pa clips: ' + opts.clips.join(' + '));
-      return wait + lead + (rec || paVoice(ctx, bus.pa, t + lead, text)) + 0.05;
+      if (!rec) return 0;  // not loaded yet: silence, not the synthesized voice that used to stand in
+      if (lead) SFX.mic(ctx, bus.pa, t);
+      note('pa clips: ' + opts.clips.join(' + '));
+      return wait + lead + rec + 0.05;
     },
     /* a home first down, the way a stadium does it: the announcer starts the sentence and the crowd finishes it */
     firstDown(team, ab) {
@@ -1821,8 +1722,10 @@
     get asked() {
       return asked;
     },
-    say(text, urgent) {
-      return ann.say(text, urgent);
+    /* the device's speech voice is no longer used anywhere: it sounded like a robot. Kept so old callers do nothing. */
+    say(text) {
+      note('say (silent): ' + text);
+      return false;
     },
     /* the booth: ask the commentators for a line (the options are described at booth.say) */
     call(key, o) {
@@ -1895,10 +1798,7 @@
         s.connect(g.crowd);
         s.start(0);
       } else if (name.startsWith('band:')) bandPiece(c, g.stands, 0.02, +name.slice(5));
-      else if (name.startsWith('pa:')) {
-        SFX.mic(c, g.pa, 0.02);
-        paVoice(c, g.pa, 0.32, name.slice(3));
-      } else if (name.startsWith('vo:')) {
+      else if (name.startsWith('vo:')) {
         /* a commentator's line: 'vo:td', take opts.take (the first when not given) */
         const clip = VO && (VO.clips[name.slice(3)] || [])[(opts && opts.take) || 0];
         if (!clip || !(await booth.load())) return null;
@@ -1917,7 +1817,7 @@
       for (const n of Object.keys(STEMS)) out['stem ' + n] = await this.measure('stem:' + n, null, STEMS[n].len);
       out['stem clap'] = await this.measure('stem:clap', null, 5);
       for (const w of [0, 1, 2, 3]) out['band ' + w] = await this.measure('band:' + w, null, w === 3 ? 17.5 : w === 2 ? 9.5 : 4);
-      out['pa call'] = await this.measure('pa:Holding, offense. Ten yard penalty. Replay the down.', null, 5);
+      out['referee'] = await this.measure('vo:ref.hold', null, 2.4);
       if (VO) {
         out['booth aside'] = await this.measure('vo:a.first', null, 2);
         out['booth call'] = await this.measure('vo:pass.good', null, 2.2);

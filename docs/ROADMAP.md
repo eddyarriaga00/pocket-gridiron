@@ -735,6 +735,30 @@ what is next. Update it after every item.
   on the sheet, "Outlaws in the hurry-up · no huddle" as a toast, once a drive. Exhibition, both careers, a career
   season, the drills and a drawn game clean; audit empty at 320x568 (with the no-huddle sheet) and 390x844.
 
+- 21:45 Round 13, from the owner's message at 21:25.
+  Robotic voices. Listed every voice made in code and replaced or removed each: the quarterback's "Ready... set" and
+  "Hut!", his audible, the defense's calls, whoops and "Ball!" are now 26 recorded clips in three new voices
+  (`am_liam` for the quarterback; `am_michael`, and a blend of `am_onyx` and `am_fenrir`, for defenders), played out
+  on the field, panned, dulled above 4.8 kHz, with the stadium's echo, under the booth. The draft is the stadium
+  announcer joining three recorded sentences (pick, team, position; the player's own name cannot be recorded, so it
+  is left out). Removed outright: the device's speech voice (the draft used it, and the booth fell back on it), the
+  synthesized stadium voice (`paVoice`, the stand-in before the clips load), the synthesized shouts and grunts
+  (`bark`), and the crowd's lone synthesized shouts. 438 clips, 3.8 MB. In a minute of muted play the field clips
+  decoded and played with no errors.
+  The pile (`pileOf()` and the pile branch of `poseFor()` in `js/render3d.js`). When the runner is first seen down, the
+  two nearest defenders within two yards (not the tackler) dive on. `settle()` now keeps a man out of a list of
+  bodies (up to four; helmets and his legs count for a man on top) instead of one, with up to six passes. The top
+  man lies flat with his legs trailing, gets off first (from 0.45 s: he slides back two yards away from the middle of
+  the pile, then stands); the tackler gets up from 0.85 s and the runner from 1.05 s. Measured over 104 piles staged
+  from every angle: while lying on it, 3.3 cm inside the men below at the median and 7 cm at worst; from 0.95 s, at
+  most 9 cm. Short of perfect in two places, noted in "Next ideas". The first versions failed in ways worth knowing:
+  the fall timer was reset every frame for anyone not on the ground (so he never fell), the step-clear offset was
+  applied after solving, his feet were pulled to the turf through the men under him, and three passes were not
+  enough. In two drawn games a pile formed on 11 of 24 tackles; looked at in one.
+  Officials: a timeout signal (arms straight up, crossing at the wrists) for timeouts and the two-minute warning.
+  Drawing and sound only: `H.fingerprint()` unchanged; exhibition, both careers, a career season, the drills and a
+  drawn game clean; gait and tackle hooks unchanged; audit empty at 320x568 and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -949,6 +973,18 @@ what is next. Update it after every item.
       hub off the side of a 320-pixel screen (found by the audit now that it reaches a playoff season).
       Still to be judged by ear and in a long career
 
+### Round 13 (the owner at 21:25 on 2026-11-12: "keep going, voices are good for now, remove anything robotic tho,
+### phone is good rn and feels good just improve anything if u do notice something off or such, focus on pile after
+### tackles and small details listed after that")
+- [x] Nothing robotic left: the players' voices recorded (three new voices: the quarterback and two defenders), the draft
+      announced by the recorded stadium announcer, and every synthesized voice and fallback removed (the device's
+      speech voice, the synthesized stadium voice, the synthesized shouts, grunts and lone crowd voices). Where a
+      clip is missing, nobody speaks.
+- [x] The pile: the two nearest defenders within two yards dive onto the runner and the tackler and lie on top of them;
+      the top comes off first. Not perfect: see the log.
+- [x] The officials' timeout signal, for timeouts and the two-minute warning.
+      Still to be judged by ear and in motion
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
 - The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
@@ -958,19 +994,15 @@ Major improvements, biggest first:
 - More booth lines: the score read out at the half and the end. Not done in run 7 on purpose: the natural way, "The
   Outlaws fourteen, the Aviators seven", is a clip for every team and score (about 370 more clips, 3 MB), and
   joining single numbers sounds like a machine. Worth it only if the owner wants it.
-- A pile. Run 5 tried a second man reaching in on a tackle and measured it: the first tackler finishes bent over the
-  runner with his hips most of a yard up and his helmet over the runner's chest, so from every side a second man's
-  back or legs end up in him (10 to 45 cm in every one of 52 stagings). It needs the first tackler to finish flat
-  across the runner's legs, and then men who land on or beside the two of them; `PG.r3d.beside()` and
-  `PG.r3d.besideSweep()` already measure a third man against both bodies.
+- The pile, the rest: a runner bowled over to one side stays propped up (chest at 88 cm against 57 the other way) and
+  the tackler lands high on him, so a pile on that side stacks to two metres; and for about a tenth of a second while
+  the top man slides off, 6 to 9% of piles have a leg through someone. Both measured with `PG.r3d.beside()`.
 - Motion, the rest: more touchdown celebrations than the three there are; reserves on the bench who walk about; a
   ball carrier who looks at the man about to hit him.
 - A real loose-ball scramble instead of an instant recovery.
 - Career: the awards night could have a booth or
   stadium voice reading the winners (one clip per award and per name is too many; per award is not).
-- More NFL details: the officials' signals for a timeout and the two-minute warning (the referee figure already
-  signals touchdowns, first downs and incompletions), a play clock with delay of game, teams changing ends between
-  quarters, a challenge flag.
+- More NFL details: a play clock with delay of game, teams changing ends between quarters, a challenge flag.
 Interface, when no major item fits in a run:
 - Run `tools/audit.js` after every change and keep its report empty.
 - A person on a real phone still has to judge touch feel, the frame rate with close-up models, and the sound.

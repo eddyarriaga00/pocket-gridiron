@@ -252,7 +252,7 @@
     if (!shift) {
       G.cadence = false;  // the quarterback has not called it out yet
       G.dcall = false;  // nor the defense
-      G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc'
+      G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc', 'to' (a timeout, or the two-minute warning)
       if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false, q0: G.q, c0: G.clock };  // a new possession
       G.drive.plays++;
     }
@@ -1813,6 +1813,7 @@
     G.to[t]--;
     G.clock += G.runoff;
     G.runoff = 0;
+    G.sig = 'to';  // the officials signal it
     hudKey = '';
     if (!AUTO && !QUIET) {
       snd('whistle');
@@ -1843,6 +1844,7 @@
     if (G.clock + G.runoff > WARN) G.clock = WARN;  // it ran down to 2:00 between plays: stopped right there
     G.runoff = 0;
     G.warnNow = true;
+    if (G.sig !== 'td') G.sig = 'to';  // the officials give the timeout signal
   }
 
   /* called on the next play-call sheet: the referee, the booth and a banner */

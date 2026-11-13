@@ -582,7 +582,8 @@
   <button class="go" id="camp">Report to camp</button></div>`;
     $('#camp').onclick = () => showHub('up');
     PG.snd('fanfare');
-    if (PG.audio) PG.audio.say(`With pick number ${pick}, the ${full(tm)} select ${C.name}, ${POS[C.pos].label.toLowerCase()}.`, true);
+    if (PG.audio && PG.audio.pa) PG.audio.pa(`With pick number ${pick}, the ${full(tm)} select ${C.name}.`, { announcer: true, anywhere: true, wait: 0.6,
+      clips: ['pa.draft.' + pick, 'pa.select.' + TEAMS[tm].ab].concat(C.pos === 'QB' ? ['pa.qb'] : C.pos === 'WR' ? ['pa.wr'] : []) });  // recorded: the stadium announcer
   }
 
   /* ---------- hub ---------- */

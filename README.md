@@ -54,7 +54,10 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   and it goes to a hall of fame vote; every retired career is kept in the Hall of fame, on the main menu.
 - After every scoring drive, its plays, yards and time. Halftime and the final screen (in every mode) show the
   scoring summary, each score with the drive that made it, and each team's passing, rushing and receiving leaders.
-- A stadium you can hear, all of it made in code: the quarterback's cadence, pads that crack harder the faster the hit,
+- Every voice is recorded, none synthesized: the booth, the referee, the stadium announcer (the draft included), and
+  the players on the field: the quarterback's cadence and "Hut!", the defense calling out the formation, whoops,
+  "Ball! Ball!" on a fumble.
+- A stadium you can hear, the rest of it made in code: pads that crack harder the faster the hit,
   the defense calling out the formation before the quarterback starts and whooping after a sack or a takeaway, a field
   goal that clangs off the upright (in, or out), the ball thudding on the turf,
   a crowd that chants, boos a flag on the home team and builds a wall of noise on third down, the referee's call
@@ -63,8 +66,9 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   sinks, forward, backward or in a sideways shuffle, and linemen crouch with their soles flat on the turf. A defender
   with ground to cover turns and runs, looking back at the quarterback. The quarterback winds up as the power bar fills.
 - A tackle is two men, not one after the other: the tackler bends to the hit with his shoulder at the runner's hip and
-  his arms round him, and they go down together. Anyone left standing beside them steps clear instead of standing in
-  the pile.
+  his arms round him, and they go down together. Defenders who are on top of the play dive on and pile up on the two
+  of them, and the pile comes apart from the top. Anyone else close by steps clear instead of standing in it.
+- The officials signal touchdowns, first downs, incomplete passes, timeouts and the two-minute warning.
 - Everybody watches something. Helmets turn to the ball in the air, to the man carrying it, to the quarterback; a
   receiver looks back for the ball once he is into his route, a quarterback in the pocket goes through his receivers,
   and the reserves on the bench follow the play up and down the field.

@@ -1,10 +1,13 @@
 {
-  "about": "The broadcast booth's script. Every line is original; no real commentator's words, voice or name is used. tools/voice.py records each line with an open speech model (Kokoro, Apache 2.0) and writes the clips to audio/vo.pack and their index to js/vo.js. 'v' is who says it (p: play-by-play, a: analyst, r: the referee on the stadium speakers, s: the stadium announcer), 'e' is how worked up he is (0 calm to 1 the biggest call of the night), 't' the takes the game picks between. A voice is a mix of the model's voices, a speed, where its rumble is cut ('low', in hertz) and how much its top is lifted ('bright', in dB). {team} lines are recorded once for every team and {n} lines once for every number in 'nums' (the first ten, or as many as the line's 'n' says); the game asks for them as key.ATX or key.7.",
+  "about": "The broadcast booth's script. Every line is original; no real commentator's words, voice or name is used. tools/voice.py records each line with an open speech model (Kokoro, Apache 2.0) and writes the clips to audio/vo.pack and their index to js/vo.js. 'v' is who says it (p: play-by-play, a: analyst, r: the referee on the stadium speakers, s: the stadium announcer; q, d and e: players on the field, the quarterback and two defenders), 'e' is how worked up he is (0 calm to 1 the biggest call of the night), 't' the takes the game picks between. A voice is a mix of the model's voices, a speed, where its rumble is cut ('low', in hertz) and how much its top is lifted ('bright', in dB). {team} lines are recorded once for every team and {n} lines once for every number in 'nums' (the first ten, or as many as the line's 'n' says); the game asks for them as key.ATX or key.7.",
   "voices": {
     "p": { "mix": { "am_fenrir": 0.7, "am_eric": 0.3 }, "speed": 1.05, "low": 85, "bright": 0 },
     "a": { "mix": { "am_echo": 0.7, "am_onyx": 0.3 }, "speed": 0.98, "low": 110, "bright": 3 },
     "r": { "mix": { "am_adam": 1.0 }, "speed": 0.94, "low": 120, "bright": 0 },
-    "s": { "mix": { "am_puck": 1.0 }, "speed": 0.86, "low": 100, "bright": 0 }
+    "s": { "mix": { "am_puck": 1.0 }, "speed": 0.86, "low": 100, "bright": 0 },
+    "q": { "mix": { "am_liam": 1.0 }, "speed": 1.0, "low": 110, "bright": 2 },
+    "d": { "mix": { "am_michael": 1.0 }, "speed": 1.08, "low": 110, "bright": 2 },
+    "e": { "mix": { "am_onyx": 0.6, "am_fenrir": 0.4 }, "speed": 1.1, "low": 110, "bright": 2 }
   },
   "teams": { "ATX": "Outlaws", "PDX": "Lumberjacks", "OMA": "Thunder", "SLC": "Summit", "ORL": "Comets", "STL": "Aviators", "HNL": "Tide", "BKN": "Knights" },
   "nums": ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen"],
@@ -151,6 +154,18 @@
     "ref.tox1": { "v": "r", "e": 0.2, "t": ["That's their first timeout."] },
     "ref.tox2": { "v": "r", "e": 0.2, "t": ["That's their second timeout."] },
     "ref.tox3": { "v": "r", "e": 0.2, "t": ["That's their third and final timeout."] },
-    "a.hurry": { "v": "a", "e": 0.35, "t": ["Every second counts now.", "This is where a quarterback earns his money."] }
+    "a.hurry": { "v": "a", "e": 0.35, "t": ["Every second counts now.", "This is where a quarterback earns his money."] },
+    "f.ready": { "v": "q", "e": 0.75, "t": ["Ready... set!", "Blue eighty! Blue eighty! Set!", "Green nineteen! Set!", "Red forty-two! Red forty-two! Set!", "Ready... set!"] },
+    "f.hut": { "v": "q", "e": 0.9, "t": ["Hut!", "Hut!", "Hut, hut!"] },
+    "f.audible": { "v": "q", "e": 0.85, "t": ["Kill! Kill!", "Check! Check!", "Alert! Alert!"] },
+    "f.call": { "v": "d", "e": 0.85, "t": ["Strong right! Strong right!", "Watch the run!", "Pass! Pass!"] },
+    "f.call2": { "v": "e", "e": 0.85, "t": ["Strong left!", "Watch the screen!", "Check, check!"] },
+    "f.whoop": { "v": "d", "e": 0.95, "t": ["Let's go!", "Yeah! Let's go!", "Come on!"] },
+    "f.whoop2": { "v": "e", "e": 0.95, "t": ["Yeah!", "That's what I'm talking about!", "Let's go, baby!"] },
+    "f.ball": { "v": "d", "e": 0.95, "t": ["Ball! Ball!", "Ball's out!", "Get on it!"] },
+    "pa.draft": { "v": "s", "e": 0.5, "n": 8, "t": ["With pick number {n} in the draft..."] },
+    "pa.select": { "v": "s", "e": 0.5, "t": ["The {team} select..."] },
+    "pa.qb": { "v": "s", "e": 0.5, "t": ["a quarterback."] },
+    "pa.wr": { "v": "s", "e": 0.5, "t": ["a wide receiver."] }
   }
 }

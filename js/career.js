@@ -1421,8 +1421,14 @@
       };
       if ($('#potd')) $('#potd').onclick = () => PG.watchPotd(show);
     };
-    show();
-    if (C.phase === 'done' && C.po.finish === 'Champion') PG.banner('Champions!', full(C.team), 3000);
+    if (C.phase === 'done' && C.po.finish === 'Champion') {
+      // the title is won on the field first: the trophy at midfield, then the results
+      if (PG.playScene) PG.playScene('trophy', { season: C.season, name: C.name }, () => {
+        show();
+        PG.banner('Champions!', full(C.team), 3000);
+      });
+      else show();
+    } else show();
   }
 
   PG.career = {

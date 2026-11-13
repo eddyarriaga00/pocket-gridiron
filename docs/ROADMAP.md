@@ -960,6 +960,17 @@ what is next. Update it after every item.
   skip" failed contrast over a white jersey (now on a dark pill). Checked: a QB season with its rival game, careers,
   exhibition, drills clean; fingerprint unchanged; audit empty at 320x568 and 390x844 at the walkout and three moments
   of the face-off, with and without the 34 px strip.
+- 00:43 Cutscenes, 3 of 7: the championship. After the final, when the career wins it (`gameEnd` plays it from the
+  game's 'over' state and the scene now hands back whatever state it found, then the results and awards night): a
+  stage at midfield (a dark deck on a skirt in team colors), a silver cup with handles and a football on the lid held
+  over your head (it follows your helmet each frame), eight teammates round the back and ends of the stage cheering,
+  confetti in four bursts, six fireworks over the stands in team colors (points flying out and falling), the fanfare,
+  booms and the crowd; 8.5 s: circling close, in on the cup, then up over the field. Silver, not gold (the owner's
+  rule). Fixed on the way: teammates first stood between the camera and you (now behind the stage); the fireworks were
+  out of frame and took the flame texture's orange (now lower, behind the stage, on a white spark). Checked: a whole
+  season won game by game to the title, the trophy scene seen in it and the results and awards after it; a scene
+  from the 'over' state returns to it with the scorebug hidden; seasons, careers, drills clean; fingerprint unchanged;
+  audit empty at 320x568 and 390x844 at three moments, with and without the 34 px strip.
 
 ## Morning hand-off
 
@@ -1218,7 +1229,7 @@ what is next. Update it after every item.
 ### "everything u gave work one at a time in order")
 - [x] Game-day walkout (career).
 - [x] Rival face-off before rival games.
-- [ ] Championship trophy.
+- [x] Championship trophy.
 - [ ] Coin toss at midfield.
 - [ ] Draft day stage.
 - [ ] Press conference podium opener.

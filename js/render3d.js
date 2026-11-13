@@ -531,6 +531,18 @@
   function actPose(f, p, tg, s) {
     const a = p.act;
     if (a === 'cheer') return celebrate(f, !!p.lead, tg, p.lead ? 4 : -1, 0);  // the leader roars, the rest jump, clap, wave
+    if (a === 'trophy') {
+      // the trophy over his head in both hands, pumping it up a little, chest out, looking up at it
+      const k = Math.abs(Math.sin(time * 2.6));
+      tg[SLX] = tg[SRX] = 2.85 + k * 0.15;
+      tg[SLZ] = 0.32;
+      tg[SRZ] = -0.32;
+      tg[EL] = tg[ER] = 0.55 - k * 0.2;
+      tg[CHRX] = 0.14;
+      tg[HEADRX] = -0.35;
+      tg[PELY] = HIP + k * 0.03;
+      return false;
+    }
     if (a === 'fold' || a === 'point' || a === 'chest') {
       // standing tall, chin up; arms folded across the chest, or the right arm out at the other man, or a fist to the heart
       const b = Math.sin(time * 1.6 + f.seed) * 0.01;
@@ -561,6 +573,7 @@
   }
 
   let props = null;
+  const CUPAT = new T.Vector3();
   const TUN_X = FW / 2 - 10;  // the tunnel stands off to the left of the goal post, at the back of the end zone
 
   function softTex(stops) {
@@ -608,20 +621,72 @@
       g.add(sp);
       flames.push(sp);
     }
-    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, teamKey: '' };
+    /* the championship: a stage at midfield (a dark deck on a skirt in team colors), a silver cup with a football on
+       the lid, and fireworks over the stadium (each burst a cloud of points flying out and falling) */
+    const stage = new T.Group(), skirt = new T.MeshLambertMaterial({ color: 0xffffff });
+    stage.add(new T.Mesh(new T.BoxGeometry(9.5, 0.45, 5.4).translate(0, 0.225, 0), skirt), new T.Mesh(new T.BoxGeometry(9.2, 0.04, 5.1).translate(0, 0.47, 0), new T.MeshLambertMaterial({ color: 0x1b2333 })));
+    stage.position.set(FW / 2, 0, -50);
+    g.add(stage);
+    const silver = new T.MeshPhongMaterial({ color: 0xd9dee8, specular: 0xffffff, shininess: 90 });
+    const cupG = merge([lathe([[0.3, 0], [0.3, 0.07], [0.2, 0.09], [0.1, 0.17], [0.07, 0.36], [0.09, 0.44], [0.2, 0.52], [0.29, 0.7], [0.31, 0.9], [0.27, 0.95], [0.01, 0.97]], 24),
+      ...[-1, 1].map(sd => new T.TorusGeometry(0.15, 0.025, 6, 16, Math.PI).rotateZ(-sd * Math.PI / 2).translate(sd * 0.3, 0.72, 0)),
+      new T.SphereGeometry(0.11, 14, 10).scale(1, 0.62, 0.62).rotateZ(0.5).translate(0, 1.07, 0)]);  // and a football on the lid
+    const cup = new T.Mesh(cupG, silver);
+    cup.scale.setScalar(1.25);
+    g.add(cup);
+    const sparkTex = softTex([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(255,255,255,0.75)'], [1, 'rgba(255,255,255,0)']]);  // white, so each burst takes its own color
+    const bursts = [...Array(6)].map((_, i) => {
+      const n = 70, geo = new T.BufferGeometry(), dir = new Float32Array(n * 3);
+      geo.setAttribute('position', new T.BufferAttribute(new Float32Array(n * 3), 3));
+      for (let k = 0; k < n; k++) {
+        const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u);
+        dir.set([r * Math.cos(a), u, r * Math.sin(a)], k * 3);
+      }
+      const pts = new T.Points(geo, new T.PointsMaterial({ size: 3.2, map: sparkTex, transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false, color: 0xffffff }));
+      pts.frustumCulled = false;
+      pts.userData = { dir, at: 0.4 + i * 1.2, x: FW / 2 + (i % 2 ? 1 : -1) * (6 + (i % 3) * 9), y: 17 + (i % 3) * 5, z: -50 - 26 - (i % 2) * 8 };  // over the stands behind the stage
+      g.add(pts);
+      return pts;
+    });
+    props = { g, walk: { tun, skin, rim, signC, signTex, smoke, flames }, champ: { stage, skirt, cup, bursts }, teamKey: '' };
   }
 
-  function updateProps(sc, t0) {
+  function updateProps(sc, t0, P) {
     if (!sc) {
       if (props) props.g.visible = false;
       return;
     }
     if (!props) buildProps();
     props.g.visible = true;
-    const W = props.walk, on = sc.kind === 'walkout', t = sc.t;
+    const W = props.walk, on = sc.kind === 'walkout', t = sc.t, Ch = props.champ, champ = sc.kind === 'trophy';
     W.tun.visible = on;
     for (const sp of W.smoke) sp.visible = on;
     for (const sp of W.flames) sp.visible = on;
+    Ch.stage.visible = Ch.cup.visible = champ;
+    for (const b of Ch.bursts) b.visible = champ;
+    if (champ) {
+      Ch.skirt.color.set(t0.c1);
+      // the cup in the hands of the man holding it up: just above his helmet, turning slowly
+      const i = P ? P.findIndex(p => p.act === 'trophy') : -1, f = i >= 0 ? figs[SIDELINE + i] : null;
+      if (f) {
+        f.head.getWorldPosition(CUPAT);
+        Ch.cup.position.set(CUPAT.x, CUPAT.y + 0.42, CUPAT.z);
+        Ch.cup.rotation.y = t * 0.6;
+      }
+      const cols = [t0.c1, t0.c2, '#ffffff', '#9ad1ff'];
+      Ch.bursts.forEach((b, k) => {
+        const d = b.userData, u = (t - d.at) / 1.9, pos = b.geometry.attributes.position;
+        if (u <= 0 || u >= 1) {
+          b.material.opacity = 0;
+          return;
+        }
+        b.material.color.set(cols[k % cols.length]);
+        const r = 9 * Math.sqrt(u), fall = 6 * u * u;
+        for (let n = 0; n < pos.count; n++) pos.setXYZ(n, d.x + d.dir[n * 3] * r, d.y + d.dir[n * 3 + 1] * r - fall, d.z + d.dir[n * 3 + 2] * r);
+        pos.needsUpdate = true;
+        b.material.opacity = Math.min(1, u * 10) * (1 - u);
+      });
+    }
     if (!on) return;
     if (props.teamKey !== t0.ab) {
       props.teamKey = t0.ab;
@@ -658,6 +723,19 @@
 
   /* the camera for each scene: where it stands (v3) and what it looks at (v3b), from the scene's clock */
   const SCENECAM = {
+    trophy(sc, P, v3, v3b) {
+      const t = sc.t, me = sc.me || P[0], a = -0.7 + t * 0.16;
+      if (t < 3) {
+        v3.set(me.x + Math.sin(a) * 7, 2.3, -me.y + Math.cos(a) * 7);  // low, close, circling the stage
+        v3b.set(me.x, 3.1, -me.y);
+      } else if (t < 6) {
+        v3.set(me.x + Math.sin(a) * 5, 3.2, -me.y + Math.cos(a) * 5);  // in on the trophy
+        v3b.set(me.x, 3.9, -me.y);
+      } else {
+        v3.set(me.x + Math.sin(a) * 26, 15, -me.y + Math.cos(a) * 26);  // up over the field, the fireworks over the stands
+        v3b.set(me.x, 6, -me.y);
+      }
+    },
     faceoff(sc, P, v3, v3b) {
       const t = sc.t, me = sc.me || P[0], him = sc.him || P[1], mx = (me.x + him.x) / 2, y = me.y;
       if (t < 2.2) {
@@ -2173,7 +2251,7 @@
     easePose(f, tg, f.snap || snap ? (f.snap ? 1 : 1 - Math.exp(-dt * 60)) : 1 - Math.exp(-dt * 28), striding, dt);
     f.snap = false;
     applyPose(f);
-    f.root.position.set(p.x + f.ox, 0, -(p.y + f.oy));
+    f.root.position.set(p.x + f.ox, p.lift || 0, -(p.y + f.oy));  // lift: a cutscene's actor standing on a stage
     f.root.rotation.y = f.heading;
   }
 
@@ -2868,7 +2946,7 @@
       boardKey = '';
       setTeams(t0, t1);
     }
-    updateProps(s.scene || null, t0);
+    updateProps(s.scene || null, t0, P);
     /* the second and fourth quarters are played the other way round (see ends) */
     endsWant = G.state !== 'menu' && !G.drill && G.q % 2 === 0 ? 1 : 0;
     if (endsWant !== ends) {

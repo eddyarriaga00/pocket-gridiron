@@ -234,7 +234,7 @@
   function playScene(kind, o, then) {
     const S = SCENES[kind];
     if (!S || !cutsOn()) return then();
-    const sc = { kind, t: 0, dur: S.dur, then, cues: (S.cues || []).slice(), o: o || {} };
+    const sc = { kind, t: 0, dur: S.dur, then, cues: (S.cues || []).slice(), o: o || {}, prev: G.state === 'over' ? 'over' : 'dead' };
     G.scene = sc;
     G.state = 'scene';
     P = S.setup(sc) || [];
@@ -279,9 +279,9 @@
     G.scene = null;
     P = [];
     ps = null;
-    G.state = 'dead';
+    G.state = sc.prev;
     scr.innerHTML = '';
-    $('#hud').hidden = false;
+    $('#hud').hidden = sc.prev === 'over';
     cam.snap = true;
     sc.then();
   }
@@ -355,6 +355,49 @@
         sc.me.act = 'chest';
         if (PG.audio) PG.audio.crowd.cheer(0.9, 2.5);
       }],
+    ],
+  };
+
+  /* The championship: a stage at midfield in team colors, the trophy over your head (render3d.js holds it in your
+     hands), your teammates around the stage, confetti and fireworks, the fanfare and the crowd. */
+  SCENES.trophy = {
+    dur: 8.5,
+    setup(sc) {
+      const t = TEAMS[G.tm[0]], o = sc.o, role = G.lock || 'QB', me = rosterMan(0, role, 0);
+      me.x = FW / 2;
+      me.y = 50;
+      me.face = Math.PI;  // facing the near sideline and the camera
+      me.act = 'trophy';
+      me.lift = 0.45;  // on the stage
+      if (o.name) me.name = o.name;
+      const others = ['RB', 'X', 'Z', 'TE', 'LT', 'C', 'S', 'RG'].map((role, k) => {
+        const p = rosterMan(0, role, k + 1), a = Math.PI * (0.06 + 0.88 * (k / 7)), r = 4.2 + (k % 2) * 0.7;
+        p.x = FW / 2 + Math.cos(a) * r * 1.45;  // round the back and the ends of the stage, so the camera in front sees you
+        p.y = 50 + Math.sin(a) * r * 0.9 + 0.6;
+        p.face = Math.atan2(-(me.x - p.x), me.y - p.y);  // turned to you
+        p.act = 'cheer';
+        return p;
+      });
+      sc.me = me;
+      sc.cap = `<small>Season ${o.season || ''} · champions</small><b>The ${esc(t.name)} win the title</b>${G.lock ? `<span>#${me.num} ${esc(me.name)} lifts the trophy</span>` : ''}`;
+      return [me, ...others];
+    },
+    cues: [
+      [0.1, () => {
+        snd('fanfare');
+        if (PG.audio) PG.audio.crowd.cheer(1.4, 6);
+        confetti(0);
+      }],
+      [2.4, () => {
+        snd('boom');
+        confetti(0);
+      }],
+      [4.6, () => {
+        snd('boom');
+        if (PG.audio) PG.audio.crowd.cheer(1.2, 4);
+        confetti(0);
+      }],
+      [6.6, () => confetti(0)],
     ],
   };
   const esc = x => String(x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -5005,7 +5048,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, CELEBS, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
+    startGame, showMenu, toMenu, banner, toast, snd, playScene, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
     boot() {
       resize();
       setGfx(SET.gfx !== '2d');

@@ -87,6 +87,8 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   behind you, the announcer's welcome and the crowd going up, the camera from inside the mouth out to the field.
   A rival game then cuts to midfield: you and your rival face to face, his trash talk (and your callout, if you made
   one) on the caption; he points at you, you answer with a fist to your chest.
+  Winning the title puts you on a stage at midfield with a silver cup over your head, your teammates round the stage,
+  confetti and fireworks, before the results.
 - Media day, the week of a rival game: one question about him from the hub, answered like the podium's, and a callout
   made there is settled in that game. The booth knows about your callout: it opens the game talking about it, cheers
   when your side scores to back it up, calls it shaky when you trail late, and settles it at the final whistle.

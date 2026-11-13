@@ -70,6 +70,9 @@ what is next. Update it after every item.
    `{ how: 'diag' }`, `{ who: 'ref' }` and `{ who: 'crew' }`) should report a slide of about 2 cm or less and a sink
    of under half a centimetre; `PG.r3d.tackle(0)` (and 1.57, 3.14) should report hands within 10 cm of the runner,
    nothing inside him and nothing under the turf, and `PG.r3d.tackleStrip(0)` draws that tackle as a row of frames;
+   `PG.r3d.catchTest('leap')` (and `'stretch'`) measures a staged catch at the moment of the ball (the leap: hips up
+   about half a hip height, feet off the turf, arms near straight up; the stretch: arms forward, a lean of about 30
+   degrees) and `PG.r3d.catchStrip('leap')` draws it from the side;
    `PG.r3d.poseOf(i)` gives the pose player i is drawn in, for checking that a state reaches the figure; `PG.r3d.strip(8)` returns an image of one stride from the side
    (put it in an `<img>` and look at it). `PG.r3d.eyes()` should report the helmet within about 5 degrees of the ball
    carrier out to 90 degrees off his line, short of him beyond that, and not turned at all when he is behind;
@@ -1070,6 +1073,21 @@ what is next. Update it after every item.
   banks, the field in perspective, a spiral with its trail; rendered with the system's qlmanage, no download). Checked:
   fingerprint unchanged, careers, a QB season, exhibition, drills, audit empty at 320x568 and 390x844 with and without
   the 34 px strip, no console errors.
+- 02:06 Automatic run, animations (Round 21, item 3, in part): the catch. Taken ahead of the old "Next ideas" because
+  those three wait on the owner (the voice model download, the score lines) or were judged too big for a run (the pile
+  solver), and the owner named animations and models as what he wants next. In `poseFor` (render3d.js only, so play
+  and the fingerprint are untouched): a receiver whose ball comes down with a defender within 1.8 yards of the spot
+  goes up for it in its last 0.42 s, both arms high and knees drawn up, takes it at the top and lands over 0.3 s
+  (`f.leap`); the defender beside the spot goes up with him; a ball coming down 0.9 to 2.6 yards off his line with
+  nobody near gets a stretch, the chest turned and out over the front foot, arms long, the hips a little lower. The
+  first try never left the ground: on a deep ball the pass comes from behind, the old catch code calls that over the
+  shoulder, and the leap had been kept to the other kind; a contested ball is fought for either way, so now it leaps.
+  New test hooks `PG.r3d.catchTest(kind)` and `catchStrip(kind)` stage it: at the catch the leap has the hips up 0.5 of
+  a hip height, the lower foot 89 cm off the turf (field scale) and the arms at 172 degrees; the stretch has the arms
+  at 98 degrees and a 30 degree lean; both land back at standing height. In two drawn computer games, 4 of 109 passes
+  came down as a leap and 4 as a stretch (before widening the contest from 1.6 to 1.8 yards). Checked: fingerprint
+  unchanged, gait slide 1 cm at 5 and 8 yd/s with no sinking, a whole drawn game with every pose finite, careers,
+  exhibition, drills, audit empty at 320x568 and 390x844, no console errors.
 
 ## Morning hand-off
 
@@ -1358,7 +1376,8 @@ Ordered by what a phone would notice most:
    sliding at any speed, not only the eight sampled ones `PG.r3d.gait` measures).
 3. Football-specific motions: three, five and seven step drops, a throwing motion with follow-through, a catch reaching
    for the ball (high point, diving, a toe tap at the sideline), stances for linemen and receivers, a form tackle as a
-   paired animation (tackler and runner keyed to each other), a stiff arm that reaches.
+   paired animation (tackler and runner keyed to each other), a stiff arm that reaches. Done (02:06 on 2026-11-13): the
+   high point (a leap for a contested ball, the defender going up too) and the stretch for a ball off his line.
 4. Equipment detail: facemask bars, helmet decals and numbers, visors, sleeves, gloves, towels, cleats; jersey cloth
    shading (a normal map made in a shader), grass stains as a game goes on.
 5. Faces and hair under the helmet in close-ups and cutscenes (the cutscenes already show hair and a cap).
@@ -1375,6 +1394,10 @@ Ordered by what a phone would notice most:
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
+- Animations and models, the owner's priority (the Round 21 plan above), one piece a run: next the quarterback's three,
+  five and seven step drops (today he jogs back to a spot), then the toe tap at the sideline, a stiff arm that reaches,
+  the form tackle as a paired animation, facemask bars and helmet numbers; the skinned body last, as its own project.
+  Each piece is checked with a staged test hook and a strip, like `catchTest` and `catchStrip`.
 - The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
   sound now is still unjudged). If they are still too calm, the next step is a more expressive open speech model with
   an excitement control: a multi-gigabyte download, which needs his say-so first. Voices are lines in

@@ -1953,6 +1953,8 @@
   function poseFor(f, p, s, dt) {
     const tg = TG, ps = s.ps;
     tg.fill(0);
+    f.leap = Math.max(0, (f.leap || 0) - dt / 0.3);  // a jump for the ball comes back down over about a third of a second
+    let stretch = 0;  // reaching out for a ball off his line: how far into the lunge
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
     /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
        ground actually covered. That keeps the feet moving at the pace of the turf instead of skating over it. */
@@ -2504,11 +2506,44 @@
           tg[ER] = 0.35;
           tg[CHRY] = over ? 0 : clamp(rel, -1.1, 1.1);
           tg[HEADRX] = over ? 0.4 : clamp(elev * 0.7, -0.05, 0.45);
-        } else if (p.team !== ps.offTeam && a.T - a.t < 0.32 && Math.hypot(p.x - a.x1, p.y - a.y1) < 2.4) {
-          // a defender at the catch point gets a hand up
+          /* Contested (a defender within 1.8 yards of where it comes down): he goes up for it, both arms high,
+             and takes it at the top of the jump, then lands and runs. Off target (it comes down a yard or more off his
+             line, with nobody near): he stretches for it, chest out over the front foot and arms long toward the ball. */
+          const left = a.T - a.t, cx = a.x1 - p.x, cy = a.y1 - p.y, miss = Math.hypot(cx, cy);
+          let fight = 99;
+          for (const o of s.P || []) if (o.team !== p.team && !o.down) fight = Math.min(fight, Math.hypot(o.x - a.x1, o.y - a.y1));
+          if (fight < 1.8 && left < 0.42) {  // over the shoulder too: a deep ball with a man on him is fought for in the air
+            const up = Math.sin(clamp(1 - left / 0.42, 0, 1) * Math.PI / 2);
+            f.leap = Math.max(f.leap, up);
+            tg[SLX] = tg[SRX] = lerp(reach, 3.0, up);
+            tg[EL] = tg[ER] = lerp(0.35, 0.1, up);
+            tg[SLZ] = 0.1;
+            tg[SRZ] = -0.1;
+            tg[CHRY] *= 1 - up;
+            tg[CHRX] = 0.12 * up;
+            tg[HEADRX] = lerp(tg[HEADRX], 0.5, up);
+          } else if (!over && miss > 0.9 && miss < 2.6 && left < 0.36) {
+            stretch = smooth(1 - left / 0.36);
+            let rl = Math.atan2(-cx, cy) - f.heading;
+            rl = Math.atan2(Math.sin(rl), Math.cos(rl));
+            tg[CHRY] = clamp(rl, -1.1, 1.1);
+            tg[CHRX] = lerp(tg[CHRX], -0.55, stretch);
+            tg[SLX] = tg[SRX] = lerp(reach, 1.6, stretch);
+            tg[EL] = tg[ER] = lerp(0.35, 0.04, stretch);
+            tg[HEADRX] = lerp(tg[HEADRX], -0.05, stretch);
+          }
+        } else if (p.team !== ps.offTeam && a.T - a.t < 0.42 && Math.hypot(p.x - a.x1, p.y - a.y1) < 2.4) {
+          // a defender at the catch point gets a hand up; right on it, he goes up with the receiver
+          const near = Math.hypot(p.x - a.x1, p.y - a.y1);
           tg[SRX] = 2.75;
           tg[ER] = 0.15;
           tg[HEADRX] = 0.35;
+          if (near < 1.5) {
+            const up = Math.sin(clamp(1 - (a.T - a.t) / 0.42, 0, 1) * Math.PI / 2) * 0.85;
+            f.leap = Math.max(f.leap, up);
+            tg[SLX] = lerp(tg[SLX], 2.5, up);
+            tg[EL] = 0.25;
+          }
         }
       }
       if (p.juke > 0 && !(p.spinT > 0)) tg[PELRZ] = clamp(-p.vx * Math.cos(f.heading) * 0.06, -0.4, 0.4);
@@ -2534,6 +2569,7 @@
         tg[SRX] = 1.4 + Math.sin(time * 28) * 0.45;
         tg[ER] = 0.4;
       }  // swiping at the ball
+      if (stretch > 0) tg[PELY] -= 0.12 * stretch;  // lower into the lunge
       if (p.hurdle > 0) {
         // lead leg up and over, trail leg tucked
         const up = Math.sin(clamp(1 - p.hurdle / 0.5, 0, 1) * Math.PI);
@@ -2543,6 +2579,15 @@
         tg[HR] = -0.5;
         tg[KR] = -1.5;
         tg[CHRX] = -0.3;
+        snap = true;
+      } else if (f.leap > 0.03) {
+        // off the ground for the ball: knees drawn up under him, one more than the other, toes down
+        const up = f.leap;
+        tg[PELY] = HIP + 0.5 * up;
+        tg[HL] = 0.65 * up;
+        tg[KL] = -1.25 * up;
+        tg[HR] = 0.2 * up;
+        tg[KR] = -0.75 * up;
         snap = true;
       } else if (gait) {
         /* last, so the legs reach the turf from wherever the hips have ended up (lower when he drops a shoulder) */
@@ -3961,6 +4006,80 @@
     return cv.toDataURL('image/png');
   }
 
+  /* ---------- test hooks for the catch ----------
+     A receiver running up the field at seven yards a second with a pass coming down to him: 'leap', a defender a step
+     behind him at the catch point; 'stretch', the ball a yard and a half wide of his line and nobody near. catchTest()
+     measures the jump and the reach at the moment of the catch; catchStrip() draws it from the side, frame by frame. */
+  function catchRun(kind, fa, fb, until) {
+    const dt = 1 / 120, FL = 1.1, wide = kind === 'stretch', v = new T.Vector3();  // FL: the ball's time in the air
+    const rec = { x: 26, y: 30, vx: 0, vy: 7, role: 'WR', team: 0, rn: 'go' }, def = { x: 26.7, y: 29.2, vx: 0, vy: 7, role: 'CB1', team: 1, asg: 'man' };
+    const land = { x: 26 + (wide ? 1.6 : 0), y: 40 + (wide ? 0.5 : 0) }, from = { x: 26, y: 18 };
+    const ps = { carrier: null, air: null, mode: 'pass', offTeam: 0, runner: null, los: 20, qb: from, recs: [rec], thrown: true, t: 2, tackler: null };
+    const s = { ps, P: wide ? [rec] : [rec, def], G: { state: 'live' }, pre: false, live: true, dir: 1, celeb: null, charge: -1 };
+    for (const f of [fa, fb]) {
+      f.snap = true;
+      f.fall = 0;
+      f.gaitT = 0;
+      f.ph = 0;
+      f.leap = 0;
+      f.heading = 0;
+    }
+    const m = { hipRise: 0, footClear: 0, arms: 0, lean: 0 };
+    for (let t = -FL; t <= until + 1e-9; t += dt) {
+      rec.y = 40 + 7 * t;
+      def.y = rec.y - 0.8;
+      if (t < 0) {
+        const u = (t + FL) / FL;
+        ps.air = { x0: from.x, y0: from.y, x1: land.x, y1: land.y, t: t + FL, T: FL, h: 5, target: rec, x: lerp(from.x, land.x, u), y: lerp(from.y, land.y, u), z: 1.8 + 5 * 4 * u * (1 - u) * 0.6 };
+      } else {
+        ps.air = null;
+        ps.carrier = rec;
+        ps.caught = true;
+      }
+      poseFor(fa, rec, s, dt);
+      if (!wide) poseFor(fb, def, s, dt);
+      if (Math.abs(t) < dt / 2 || (t > -dt && t <= 0)) {
+        // the moment of the catch
+        fa.root.updateMatrixWorld(true);
+        m.hipRise = fa.cur[PELY] - HIP;
+        m.footClear = Math.min(fa.ankL.localToWorld(v.set(0, -SOLE, 0.06)).y, fa.ankR.localToWorld(v.set(0, -SOLE, 0.06)).y);
+        m.arms = (fa.cur[SLX] + fa.cur[SRX]) / 2;
+        m.lean = fa.cur[CHRX] + fa.cur[PELRX];
+      }
+    }
+    fb.root.visible = !wide;
+    return m;
+  }
+
+  function catchTest(kind) {
+    const ar = arenaOf(), m = catchRun(kind || 'leap', ar.a.f, ar.b.f, 0.6), r = x => Math.round(x * 100) / 100;
+    ar.b.f.root.visible = true;
+    const settled = ar.a.f.cur[PELY] - HIP, ok = Object.values(ar.a.f.cur).every(Number.isFinite);
+    return { kind: kind || 'leap', hipRiseAtCatch: r(m.hipRise), lowestFootAtCatchCm: Math.round(m.footClear * 91.44), armsDeg: Math.round(m.arms * 57.3), leanDeg: Math.round(m.lean * 57.3), hipAfterLanding: r(settled), finite: ok };
+  }
+
+  function catchStrip(kind, opts) {
+    if (!renderer) return null;
+    const o = opts || {}, ar = arenaOf(), times = o.times || [-0.36, -0.24, -0.12, -0.04, 0, 0.12, 0.24, 0.4], cell = o.cell || 260, cv = document.createElement('canvas'), teams = PG.TEAMS || [{ c1: '#c0392b', c2: '#f1f1f1' }];
+    cv.width = cell * times.length;
+    cv.height = Math.round(cell * ar.ph / ar.pw);
+    const x = cv.getContext('2d');
+    x.fillStyle = '#0d1524';
+    x.fillRect(0, 0, cv.width, cv.height);
+    dress(ar.a, teams[0], true, 81);
+    dress(ar.b, teams[1] || teams[0], false, 24);
+    times.forEach((t, i) => {
+      catchRun(kind || 'leap', ar.a.f, ar.b.f, t);
+      const mx = ar.a.f.root.position.x, mz = ar.a.f.root.position.z;
+      ar.floor.position.set(mx, 0, mz);
+      ar.cam.position.set(mx + 12, 2.4, mz + 0.01);  // from the side: he runs right to left
+      ar.cam.lookAt(mx, 1.4, mz);
+      shoot(ar, x, i * cell, 0, cell);
+    });
+    ar.b.f.root.visible = true;
+    return cv.toDataURL('image/png');
+  }
+
   /* ---------- test hooks for eyes, blocks and the men beside a tackle ----------
      eyesTest(): a defender running up the field with the ball carrier at each of a set of angles round him; how far
      the helmet ends up from pointing at the carrier. blockTest(): a guard and a tackle locked up at a given distance;
@@ -4226,6 +4345,7 @@
     blockStrip, eyesStrip,  // test hooks: a block, and a man watching the ball, drawn as rows of pictures
     eyes: eyesTest, block: blockTest, beside: besideTest, besideSweep,  // test hooks: where a helmet points, where a blocker's hands are, whether a man beside a tackle is standing in it
     tackle: tackleTest, tackleStrip,  // test hooks: measure a staged tackle, and draw it as a row of frames
+    catchTest, catchStrip,  // and a staged catch: 'leap' (contested) or 'stretch' (off target)
     /* test hook: the pose player i is drawn in now (the joint angles in the order of the pose layout), and a few of his figure's states */
     bench() {
       // test hook: where each reserve on the bench is, his place, and his stride

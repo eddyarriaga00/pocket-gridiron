@@ -67,6 +67,8 @@ plays offline too)
   computer runs half its plays to the other side. In a two-game test career the coach called 29 different plays in 33
   snaps (it was 18 in 42), never the same play twice in a row.
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
+- Catches look like catches: a receiver with a defender on him goes up for the ball, arms high, and takes it at the top
+  of the jump (the defender goes up with him), and a ball thrown off his line gets a stretch, chest out and arms long.
 - Kick with a swipe: field goals, punts and your kickoffs. The swipe's angle is the aim and its length and speed the
   power: a straight, strong swipe splits the uprights, a soft kickoff stays in play. The timing bar still works.
 - With the ball: Sprint, Juke, Spin, Power (truck a tackler in front of you, stiff-arm one beside you) and Hurdle.

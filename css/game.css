@@ -312,6 +312,12 @@ tr.me td{color:var(--acc);font-weight:700}
 .gl li.tot{border-bottom:0;font-weight:700;padding-top:9px}
 .gl li.tot b{color:var(--acc);font-size:15px}
 .note{margin:10px 0 0;color:var(--mute);font-size:11.5px;line-height:1.5}
+/* halftime and final: the scoring summary and the leaders */
+.sumh{margin:14px 0 0;text-align:left;color:var(--mute);font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.gl.sum{margin-top:4px;text-align:left}
+.gl.sum li{align-items:baseline}
+.gl.sum i{font-style:normal;font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.06em;color:var(--mute);margin-right:3px}
+.gl.sum small{display:block;color:var(--mute);font-size:11px;margin-top:1px}
 .stack{display:flex;flex-direction:column;gap:8px;margin-top:16px}
 #potd{height:auto;min-height:38px;padding:5px 10px}
 #potd small{font-size:11px}

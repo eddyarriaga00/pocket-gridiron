@@ -221,7 +221,7 @@ def takes(script):
                 for ab, name in script['teams'].items():
                     yield f'{key}.{ab}', f'{cid}_{ab}', t.replace('{team}', name), ln
             elif '{n}' in t:
-                for n, word in enumerate(script['nums'], 1):
+                for n, word in enumerate(script['nums'][:ln.get('n', 10)], 1):
                     yield f'{key}.{n}', f'{cid}_{n}', t.replace('{n}', word), ln
             else:
                 yield key, cid, t, ln
@@ -276,8 +276,10 @@ def main():
         'PG.VO = ' + body + ';\n')
 
     print(f'recorded {len(fresh)} of {len(todo)} clips this run')
-    for v, name in (('p', 'play-by-play'), ('a', 'analyst')):
+    for v, name in (('p', 'play-by-play'), ('a', 'analyst'), ('r', 'referee'), ('s', 'stadium announcer')):
         rows = [m for m in memo.values() if m['v'] == v]
+        if not rows:
+            continue
         d = np.array([m['secs'] for m in rows])
         calm, hot = [m for m in rows if m['e'] < 0.4], [m for m in rows if m['e'] >= 0.8]
         mid = lambda ms, k: np.median([m[k] for m in ms if m[k]]) if ms else float('nan')

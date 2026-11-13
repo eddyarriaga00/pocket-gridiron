@@ -35,9 +35,13 @@ build step: HTML, CSS, JavaScript, and GLSL shaders through three.js. All teams 
   four kinds of flag (false start, offside, holding, pass interference) that Settings can switch off. Rain and snow make the ball harder to catch and hold.
 - Instant replays of big plays, a flyover before kickoff, three officials who signal, a player of the game.
 - A broadcast booth: a play-by-play man and an analyst call the game ("Third and six." ... "He goes deep!" ...
-  "Touchdown, Outlaws!" ... "You can't draw it up any better than that."). About 270 recorded lines, every one written
-  for this game and spoken by an open speech model; the big calls cut in over the small talk, and the crowd sits under
-  them. Settings can turn the commentary off.
+  "Touchdown, Outlaws!" ... "You can't draw it up any better than that."), and sum up scoring drives ("Twelve plays on
+  the drive."). The referee announces penalties over the stadium speakers ("Holding, offense. Ten yard penalty.
+  Repeat third down.") and the stadium announcer leads the crowd's "FIRST DOWN!". 346 recorded lines, every one
+  written for this game and spoken by an open speech model; the big calls cut in over the small talk, and the crowd
+  sits under them. Settings can turn the commentary off; the referee and the announcer are part of the stadium.
+- After every scoring drive, its plays, yards and time. Halftime and the final screen (in every mode) show the
+  scoring summary, each score with the drive that made it, and each team's passing, rushing and receiving leaders.
 - A stadium you can hear, all of it made in code: the quarterback's cadence, pads that crack harder the faster the hit,
   the defense calling out the formation before the quarterback starts and whooping after a sack or a takeaway, a field
   goal that clangs off the upright (in, or out), the ball thudding on the turf,
@@ -91,7 +95,7 @@ js/audio.js             the sound engine: synthesized effects, a crowd built fro
                         stadium speakers, a marching band, music, weather, and the booth that plays the recorded
                         commentators (the device's speech voice is only their stand-in when the clips cannot be had)
 js/vo.js                the index of the commentators' clips (written by tools/voice.py)
-audio/vo.pack           the clips themselves, end to end in one file (about 2.3 MB of AAC)
+audio/vo.pack           the clips themselves, end to end in one file (about 3 MB of AAC)
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode
 js/season.js            Season mode

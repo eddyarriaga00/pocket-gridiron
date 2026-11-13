@@ -151,7 +151,7 @@
     const lock = o.lock || null, first = o.mode && o.mode !== 'exh' && rnd() < 0.5 ? 1 : 0;  // exhibition always opens with the user receiving
     G = { state: 'dead', mode: o.mode || 'exh', tm: [o.a, o.b], ros: [o.ros0 || mkRoster(o.a, 0, o.ovr && o.ovr[0]), mkRoster(o.b, [-6, 0, 5][o.diff ?? 1], o.ovr && o.ovr[1])],
       score: [0, 0], q: 1, ql: o.ql || 180, diff: o.diff ?? 1, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
-      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
+      sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
     if (lock && o.hero) G.ros[0][lock] = o.hero;
     /* fum: fumble chance multiplier, cat: catch chance multiplier, kick: how much harder a field goal is */
@@ -238,7 +238,7 @@
       G.cadence = false;  // the quarterback has not called it out yet
       G.dcall = false;  // nor the defense
       G.sig = null;  // what the officials signal after the play: 'td', 'fd', 'inc'
-      if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false };  // a new possession
+      if (!G.drive || G.drive.team !== G.poss || G.drive.done) G.drive = { team: G.poss, plays: 0, y0: G.los, done: false, q0: G.q, c0: G.clock };  // a new possession
       G.drive.plays++;
     }
     const off = G.poss, dir = off === 0 ? 1 : -1, op = G.op, dp = G.dp, bx = G.bx, los = G.los, fl = G.flip ? -1 : 1;
@@ -1419,6 +1419,10 @@
       scr.innerHTML = '';
       const ok = rnd() < 0.96;
       if (ok) G.score[t]++;
+      if (G.lastScore) {
+        G.lastScore.score = G.score.slice();
+        G.lastScore.text += ok ? ' (kick good)' : ' (kick missed)';
+      }
       snd(ok ? 'chime' : 'whistle');
       toast(ok ? 'Extra point is good' : 'Extra point missed');
       vo(ok ? 'xp.good' : 'xp.miss');
@@ -1442,6 +1446,10 @@
   function finishTry(kind) {
     const off = ps.offTeam, c = ps.carrier, good = kind === 'td' && !!c && c.team === off;
     if (good) G.score[off] += 2;
+    if (G.lastScore) {
+      G.lastScore.score = G.score.slice();
+      G.lastScore.text += good ? ' (two-point try good)' : ' (two-point try failed)';
+    }
     G.try2 = null;
     for (const p of P) {
       p.eng = null;
@@ -1512,8 +1520,56 @@
     };
   }
 
+  /* ---------- the scoring log ----------
+     Every score, with the drive that made it: kept for the halftime and final screens, the drive summary and the
+     booth. Bookkeeping only: it draws nothing from the game's generator. */
+  const clockTxt = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec) % 60).padStart(2, '0')}`;
+
+  /* the drive that is on the field now, summed up: plays, yards from where it started to endY, game time used */
+  function driveNow(team, endY) {
+    const d = G.drive;
+    if (!d || d.team !== team || !d.plays) return null;
+    const yds = Math.round(team === 0 ? endY - d.y0 : d.y0 - endY), secs = Math.max(0, ((G.q - (d.q0 || G.q)) * G.ql) + (d.c0 === undefined ? G.clock : d.c0) - G.clock);
+    return { plays: d.plays, yds, secs };
+  }
+
+  function logScore(team, kind, text, drive) {
+    if (!G.scores) G.scores = [];
+    const e = { q: Math.min(G.q, 5), team, kind, text, drive, score: G.score.slice() };
+    G.scores.push(e);
+    return e;
+  }
+
+  function scoringHtml(list) {
+    if (!list || !list.length) return '';
+    return `<h4 class="sumh">Scoring</h4><ul class="gl sum">${list.map(e => `<li><span><i>${e.q > 4 ? 'OT' : 'Q' + e.q}</i> ${ab(e.team)} ${e.kind === 'TD' ? 'touchdown' : e.kind === 'FG' ? 'field goal' : 'safety'} · ${e.text}${e.drive ? `<small>${e.drive.plays} play${e.drive.plays === 1 ? '' : 's'}, ${e.drive.yds} yards, ${clockTxt(e.drive.secs)}</small>` : ''}</span><b>${e.score[0]} – ${e.score[1]}</b></li>`).join('')}</ul>`;
+  }
+
+  /* the best passer, runner and receiver on each side so far, from the box score of the snaps that were played */
+  function leadersHtml() {
+    const box = Object.values(G.box || {}), rows = [];
+    const best = (t, k, min) => box.filter(b => b.team === t && (b[k] || 0) > min).sort((a, b) => (b[k] || 0) - (a[k] || 0))[0];
+    for (const [label, k, f] of [['Passing', 'pyd', b => `${b.comp || 0}/${b.att || 0} · ${b.pyd} yds${b.ptd ? ` · ${b.ptd} TD` : ''}`], ['Rushing', 'ryd', b => `${b.car || 0} car · ${b.ryd} yds`], ['Receiving', 'recyd', b => `${b.rec || 0} rec · ${b.recyd} yds`]]) {
+      for (const t of [0, 1]) {
+        const b = best(t, k, 0);
+        if (b) rows.push(`<li><span><i>${ab(t)}</i> ${label} · ${b.name}</span><b>${f(b)}</b></li>`);
+      }
+    }
+    return rows.length ? `<h4 class="sumh">Leaders</h4><ul class="gl sum">${rows.join('')}</ul>` : '';
+  }
+
+  let goalLine = 0;  // test hook: plays ruled a touchdown because the man was brought down already in the end zone
+
   function finish(kind, arg) {
     if (G.state !== 'live' && G.state !== 'kicka') return;
+    /* Brought down, or out of bounds, already in the end zone he is attacking: that is a touchdown. The tackle check
+       runs before the goal-line check in each step, so a catch in the end zone with a defender on the receiver, or a
+       runner hit as he crossed, used to be spotted at the one-yard line and called a first down. */
+    const cc = ps && ps.carrier;
+    if ((kind === 'tackle' || kind === 'oob') && cc && P.includes(cc) && (cc.team === 0 ? cc.y >= 100 : cc.y <= 0)) {
+      kind = 'td';
+      goalLine++;
+    }
     if (G.try2 != null) return finishTry(kind);
     /* holding: now and then a good gain comes back. Ten yards from the old spot and the down is replayed. */
     if (flagsOn() && (kind === 'tackle' || kind === 'oob' || kind === 'td') && ps.mode !== 'ko' && ps.mode !== 'kick' && !ps.turnover && !ps.fum) {
@@ -1555,6 +1611,12 @@
       big = 'Touchdown!';
       G.sig = 'td';
       sub = tname(t) + (ps.mode === 'ko' ? (ps.punt ? ' · punt return' : ' · kick return') : '') + tryTxt;
+      {
+        const gain = Math.round(((t === 0 ? 100 : 0) - los) * dir), nm = c.name || 'him';
+        const how = ps.mode === 'ko' ? `${ps.punt ? 'Punt' : 'Kickoff'} return, ${nm}` : t !== off ? `${ps.fum ? 'Fumble' : 'Interception'} return, ${nm}`
+          : ps.caught ? `${gain}-yd pass${ps.passer && ps.passer !== c ? ` from ${ps.passer.name}` : ''} to ${nm}` : `${gain}-yd run, ${nm}`;
+        G.lastScore = logScore(t, 'TD', how + (tryRes ? ` (${{ 'xp.good': 'kick good', 'xp.miss': 'kick missed', 'two.good': 'two-point try good', 'two.miss': 'two-point try failed' }[tryRes]})` : ''), t === off && ps.mode !== 'ko' ? driveNow(off, t === 0 ? 100 : 0) : null);
+      }
       score = true;
       if (ps.mode === 'ko') {
         /* a return: no yards from scrimmage, nobody's turnover */
@@ -1567,10 +1629,7 @@
         }
       }
       credit(c, 'td', 1);
-      if (t === off && ps.mode !== 'ko' && G.drive && !AUTO) {
-        const d = G.drive, yd = Math.round(off === 0 ? 100 - d.y0 : d.y0);
-        setTimeout(() => toast(`Drive: ${d.plays} play${d.plays === 1 ? '' : 's'}, ${yd} yards`), 900);
-      }
+      if (t === off && ps.mode !== 'ko' && !AUTO) driveCard('Touchdown drive', G.lastScore.drive);
       G.celeb = { team: t, who: c };
       kickoff(1 - t);
       confetti(t);
@@ -1619,6 +1678,7 @@
         big = 'Safety!';
         sub = tname(1 - off) + ' +2';
         score = true;
+        logScore(1 - off, 'SAF', `${c.name || 'Ball carrier'} downed in the end zone`, null);
         react(1 - off, 1.2, 3);
         setBall(1 - off, off === 0 ? 65 : 35, FW / 2);
       } else {
@@ -1644,7 +1704,7 @@
             snd('chime');
             if (gi < 15) react(0, 0.45, 1.8);
             /* the ones that matter (a third or fourth down made, or a good gain) get the stadium announcer, and the crowd finishing his sentence */
-            if (!AUTO && !QUIET && !G.drill && PG.audio && (dn >= 3 || gi >= 8)) PG.audio.firstDown(TEAMS[G.tm[0]].name);
+            if (!AUTO && !QUIET && !G.drill && PG.audio && (dn >= 3 || gi >= 8)) PG.audio.firstDown(TEAMS[G.tm[0]].name, TEAMS[G.tm[0]].ab);
           }
         } else {
           G.down++;
@@ -1661,6 +1721,8 @@
         big = 'It’s good!';
         G.sig = 'td';
         sub = `${d}-yard field goal` + (ps.kick.post ? ' · in off the upright' : '');
+        G.lastScore = logScore(off, 'FG', `${d}-yd field goal${ps.kick.post ? ', off the upright' : ''}`, driveNow(off, los));
+        if (!AUTO) driveCard('Field goal drive', G.lastScore.drive);
         score = true;
         kickoff(1 - off);
         if (off === 0) snd('chime');
@@ -1765,9 +1827,11 @@
      ("ten yard penalty"), because the speakers' voice works from spelling. */
   const NUMS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 
-  function refCall(text, team, size) {
+  const REF = { 'False start': 'ref.false', Offside: 'ref.offside', Holding: 'ref.hold', 'Pass interference': 'ref.pi' };
+
+  function refCall(text, team, size, clips) {
     if (AUTO || QUIET || !PG.audio) return;
-    const a = PG.audio, len = a.pa(text.replace(/\d+/g, n => NUMS[+n] || n), { wait: G.drill ? 0 : 0.9 });  // the booth sees the flag first, then the referee has the floor
+    const a = PG.audio, len = a.pa(text.replace(/\d+/g, n => NUMS[+n] || n), { wait: G.drill ? 0 : 0.9, clips });  // the booth sees the flag first, then the referee has the floor
     vo('flag');
     a.crowd.ooh(0.35);  // a flag is down, and nobody knows on whom yet
     setTimeout(() => {
@@ -1803,7 +1867,9 @@
     G.deadT = 2.1;
     banner('Flag', `${name}, ${tname(team)} · ${text}`, 1900);
     snd('whistle');
-    refCall(`${name}, ${team === off ? 'offense' : 'defense'}. ${first ? 'Automatic first down' : text.replace(',', ' penalty.').replace('yards', 'yard')}.`, team, 0.7);
+    const yd = parseInt(text, 10);
+    refCall(`${name}, ${team === off ? 'offense' : 'defense'}. ${first ? 'Automatic first down' : text.replace(',', ' penalty.').replace('yards', 'yard')}.`, team, 0.7,
+      [REF[name], first ? 'ref.auto' : 'ref.yd.' + yd, first ? null : 'ref.rep' + G.down].filter(Boolean));
     hudKey = '';
     updHud();
   }
@@ -1823,7 +1889,8 @@
     G.deadT = 1.9;
     banner('Flag', `${name}, ${tname(team)} · ${yd} yard${yd === 1 ? '' : 's'}`, 1700);
     snd('whistle');
-    refCall(`${name}, ${onOff ? 'offense' : 'defense'}. ${yd} yard penalty. ${G.down === 1 && G.togo === 10 ? 'First down' : 'Replay the down'}.`, team, 0.55);
+    const fresh = G.down === 1 && G.togo === 10;
+    refCall(`${name}, ${onOff ? 'offense' : 'defense'}. ${yd} yard penalty. ${fresh ? 'First down' : 'Replay the down'}.`, team, 0.55, [REF[name], 'ref.yd.' + yd, fresh ? 'ref.first' : 'ref.rep' + G.down]);
     updHud();
   }
 
@@ -2025,7 +2092,7 @@
       analyst('a.final', 0.8, { big: true, ttl: 10 });
     }
     if (!AUTO && !G.drill && PG.milestones) PG.milestones.game({ us: G.score[0], them: G.score[1], stats: G.stats, ot: G.ot, diff: G.diff, weather: G.env && G.env.weather });
-    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), drill: G.drill });
+    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), scoringHtml: scoringHtml(G.scores), drill: G.drill });
     else showFinal();
   }
 
@@ -2972,6 +3039,17 @@
     vo(call, Object.assign({ pri: 0, keep: true, ttl: 7 }, o));
   }
 
+  /* after a scoring drive: how long it was, some of the time, and the analyst on why it worked */
+  function voDrive(team, colour) {
+    const d = G.lastScore && G.lastScore.team === team ? G.lastScore.drive : null;
+    if (!d) return analyst(colour, 0.6, { big: true, ttl: 8 });
+    const long = d.plays >= 10 || d.secs >= 240, quick = d.plays <= 3;
+    if (long && chance(0.6)) vo('drive.long', { ttl: 9 });
+    else if (quick && chance(0.6)) vo('drive.quick', { ttl: 9 });
+    else if (d.plays <= 16 && chance(0.5)) vo('drive.plays.' + d.plays, { ttl: 9 });
+    analyst(long ? 'a.drive' : quick ? 'a.quick' : colour, 0.65, { big: true, ttl: 10 });
+  }
+
   /* after points: what they did to the game. s0 is the score before the play that brought them. */
   function voScore(t, s0) {
     if (!s0) return;
@@ -3027,7 +3105,7 @@
     if (kind === 'td') {
       const back = ko || t !== off;  // a return, or the defense's score
       vo(back && chance(0.6) ? 'td.return' : chance(0.45) ? 'td.team.' + tab(t) : 'td', { pri: 2 });
-      if (!back) analyst('a.td', 0.75, { big: true, ttl: 8 });
+      if (!back) voDrive(off, 'a.td');
       if (good) {
         if (good !== 'xp.good') vo(good, { ttl: 10 });  // the routine extra point goes without saying
         voScore(t, s0);
@@ -3050,8 +3128,10 @@
       vo('safety', { pri: 2 });
       voScore(1 - off, s0);
     } else if (kind === 'fg') {
-      vo(good ? 'fg.good' : 'fg.miss', { pri: 2 });
-      analyst(good ? 'a.fggood' : 'a.fgmiss', 0.4, { big: true });
+      const post = ps.kick && ps.kick.post;
+      vo(post ? (good ? 'fg.post.good' : 'fg.post.miss') : good ? 'fg.good' : 'fg.miss', { pri: 2 });
+      if (good) voDrive(off, 'a.fggood');
+      else analyst('a.fgmiss', 0.4, { big: true });
       if (good) voScore(off, s0);
     } else if (kind === 'kotb' || big === 'Touchback') vo('touchback', { pri: 0 });
     else if (kind === 'punt') {
@@ -3080,6 +3160,15 @@
       else if (call === 'pass.over') analyst('a.miss', G.down === 4 ? 0.4 : 0.15);
       else if (G.down === 4) analyst('a.stop', 0.3);
     }
+  }
+
+  /* A scoring drive, summed up on screen a moment after the score: plays, yards, time. */
+  function driveCard(title, d) {
+    if (!d || G.drill) return;
+    setTimeout(() => {
+      if (!G.ros || G.state === 'menu' || G.state === 'over') return;
+      toast(`${title} · ${d.plays} play${d.plays === 1 ? '' : 's'} · ${d.yds} yards · ${clockTxt(d.secs)}`);
+    }, 1700);
   }
 
   /* the home crowd is on the user's side: it cheers what is good for team 0 and groans at the rest */
@@ -3644,8 +3733,9 @@
     if (!AUTO && !QUIET && PG.audio) PG.audio.halftime(true);  // the band takes the field
     vo(G.score[0] > G.score[1] ? 'half.lead' : G.score[0] < G.score[1] ? 'half.trail' : 'half.tie', { pri: 2 });
     analyst('a.half', 0.7, { big: true, ttl: 10 });
+    const fh = (G.scores || []).filter(e => e.q <= 2);
     scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>Halftime</b><span>${tname(G.poss)} get the ball</span></div><div class="sc">${G.score[0]} – ${G.score[1]}</div>
-  ${statTable()}${G.lineFn?`<p class="note">You: ${G.lineFn(G.my)}</p>`:''}<button class="go" id="h2">Second half</button></div>`;
+  ${statTable()}${G.lineFn?`<p class="note">You: ${G.lineFn(G.my)}</p>`:''}${scoringHtml(fh) || '<p class="note">No points in the first half.</p>'}${leadersHtml()}<button class="go" id="h2">Second half</button></div>`;
     $('#h2').onclick = startCall;
   }
 
@@ -3655,7 +3745,7 @@
     scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>${tie?'Final · tie':won?'You win':'Final'}</b><span>${G.ot?'Overtime':''}</span></div>
   <div class="sc">${s[0]} – ${s[1]}</div>
   <table class="st"><tr><th>${ab(0)}</th><th></th><th>${ab(1)}</th></tr>${row('Pass yards',x=>x.pass)}${row('Rush yards',x=>x.rush)}${row('Comp / att',x=>x.comp+' / '+x.att)}${row('Turnovers',x=>x.to)}</table>
-  ${potgHtml()}${potdHtml()}<button class="go" id="again">Back to menu</button></div>`;
+  ${potgHtml()}${potdHtml()}${scoringHtml(G.scores)}${leadersHtml()}<button class="go" id="again">Back to menu</button></div>`;
     $('#again').onclick = showMenu;
     if ($('#potd')) $('#potd').onclick = () => watchPotd(showFinal);
   }
@@ -4377,6 +4467,9 @@
       },
       get P() {
         return P;
+      },
+      get goalLine() {
+        return goalLine;
       }
     }
   });

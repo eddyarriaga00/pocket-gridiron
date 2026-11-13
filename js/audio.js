@@ -1534,6 +1534,33 @@
     },
   };
 
+  /* Recorded lines for the stadium speakers (the referee, the stadium announcer), one after another down the
+     speakers' route from time t. They come out of the same pack as the booth. Returns how long it will take, or 0
+     when the clips cannot be had right now (the caller then falls back to the synthesized voice). */
+  const PA_VO = 1.5;
+
+  function paClips(keys, t) {
+    if (booth.state !== 'ready' || !VO || !keys || !keys.length) return 0;
+    const clips = keys.map(k => booth.take(k));
+    if (clips.some(c => !c)) return 0;
+    let at = 0;
+    const starts = clips.map(c => {
+      const s = at;
+      at += c[3] + 0.12;  // a breath between sentences
+      return s;
+    });
+    Promise.all(clips.map(c => booth.buf(ctx, c))).then(bufs => {
+      const t0 = Math.max(t, ctx.currentTime + 0.02);
+      bufs.forEach((b, i) => {
+        const src = ctx.createBufferSource();
+        src.buffer = b;
+        chain(src, gain(ctx, PA_VO), bus.pa);
+        src.start(t0 + starts[i]);
+      });
+    }, () => {});
+    return at - 0.12;
+  }
+
   /* nobody speaks: the game is paused, hidden, back in the menus, or the sound was switched off */
   const quiet = () => {
     ann.hush();
@@ -1632,7 +1659,7 @@
       else crowd.start();
       weatherBed.apply();
       ann.prime();
-      if (S.ann && S.snd) booth.load();  // the commentators' clips come down behind the menus
+      if (S.snd) booth.load();  // the recorded voices (booth, referee, announcer) come down behind the menus
     } catch (_) {}
   }
 
@@ -1741,22 +1768,26 @@
       weatherBed.apply();
     },
     /* The stadium speakers: the referee giving a call (his microphone clicks on first), or the stadium announcer
-       (opts.announcer: his channel is always open). opts.wait holds it back that many seconds. Returns how long it
-       will take, the wait included, 0 when nothing can be heard. */
+       (opts.announcer: his channel is always open). opts.clips names the recorded sentences to play ('ref.hold',
+       'ref.yd.10', ...); without them, or before they have loaded, `text` is spoken by the synthesized voice.
+       opts.wait holds it back that many seconds. Returns how long it will take, the wait included, 0 when nothing
+       can be heard. */
     pa(text, opts) {
       note('pa: ' + text);
       if (!ctx || !S.snd || ctx.state !== 'running' || wantMusic) return 0;
       const wait = (opts && opts.wait) || 0, t = ctx.currentTime + 0.05 + wait, lead = opts && opts.announcer ? 0 : 0.3;
       if (lead) SFX.mic(ctx, bus.pa, t);
-      return wait + lead + paVoice(ctx, bus.pa, t + lead, text) + 0.05;
+      const rec = opts && opts.clips ? paClips(opts.clips, t + lead) : 0;
+      if (rec) note('pa clips: ' + opts.clips.join(' + '));
+      return wait + lead + (rec || paVoice(ctx, bus.pa, t + lead, text)) + 0.05;
     },
     /* a home first down, the way a stadium does it: the announcer starts the sentence and the crowd finishes it */
-    firstDown(team) {
+    firstDown(team, ab) {
       const live = !!ctx && ctx.state === 'running', t = live ? ctx.currentTime : 0;
       if (live && t - (this.fdAt || -99) < 20) return false;  // not every time: it is a treat, not a tic
       this.fdAt = t;
       note('firstdown');
-      const len = this.pa('And that is another ' + team, { announcer: true });
+      const len = this.pa('And that is another ' + team, { announcer: true, clips: ab ? ['pa.first.' + ab] : null });
       if (len) crowd.stem('firstdown', 0.9, t + len + 0.12);
       return true;
     },
@@ -1836,7 +1867,7 @@
         quiet();
       } else if (!wantMusic) crowd.start();
       if (!S.ann) quiet();
-      else if (S.snd) booth.load();
+      if (S.snd) booth.load();
       weatherBed.apply();
       if (!S.mus) music.stop();
       else if (wantMusic) music.start();
@@ -1871,10 +1902,11 @@
         /* a commentator's line: 'vo:td', take opts.take (the first when not given) */
         const clip = VO && (VO.clips[name.slice(3)] || [])[(opts && opts.take) || 0];
         if (!clip || !(await booth.load())) return null;
-        const src = c.createBufferSource();
+        const src = c.createBufferSource(), spk = /^vo:(ref|pa)\./.test(name);
         src.buffer = await booth.buf(c, clip);
-        chain(src, gain(c, name.startsWith('vo:a.') ? ANALYST : 1), g.booth);
-        src.start(0.02);
+        if (spk) SFX.mic(c, g.pa, 0.02);
+        chain(src, gain(c, spk ? PA_VO : name.startsWith('vo:a.') ? ANALYST : 1), spk ? g.pa : g.booth);  // the referee and the announcer go down the speakers' route
+        src.start(spk ? 0.32 : 0.02);
       } else SFX[name](c, g[ROUTE[name] || 'sfx'], 0.02, opts);
       return stats(await rendered(c));
     },

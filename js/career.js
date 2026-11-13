@@ -844,7 +844,7 @@
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
-  ${r.potgHtml || ''}${r.potdHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
+  ${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">Continue</button></div>`;
       $('#rc').onclick = () => {
         PG.toMenu();

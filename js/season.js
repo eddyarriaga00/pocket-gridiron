@@ -238,7 +238,7 @@
     const show = () => {
       // drawn again after watching the play of the game
       scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>${won ? 'Victory' : res === 'T' ? 'Tie game' : 'Final'}</b><span>${wk} vs ${TEAMS[opp].ab}</span></div>
-        <div class="sc">${us} – ${them}</div>${table}${r.potgHtml || ''}${r.potdHtml || ''}
+        <div class="sc">${us} – ${them}</div>${table}${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}
         ${fin ? `<p class="note">${fin === 'Champion' ? 'Champions. The title is yours.' : 'Season over: ' + fin.toLowerCase() + '.'}</p>` : ''}
         <button class="go" id="rc">Continue</button></div>`;
       $('#rc').onclick = () => {

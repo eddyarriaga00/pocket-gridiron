@@ -643,6 +643,34 @@ what is next. Update it after every item.
   both careers, the drills and a drawn game (3,412 frames) clean, audit empty at 320x568 and 390x844, no console
   errors.
 
+- 19:35 Round 11, from the owner's message at 19:15.
+  The bug: he threw for what should have been a touchdown and got a first down. In each step the game checks the
+  tacklers before it checks the goal line, so a receiver who caught the ball in the end zone with a defender on him,
+  or a runner hit as he crossed, was ruled down at his spot, which `setBall` clamps to the one-yard line, and the
+  chains moved: "First down" on the one. `finish()` now rules a carrier down in the end zone he attacks a
+  touchdown. Staged six times (a receiver half a yard into the end zone, a defender on him): six touchdowns, five
+  of which were tackles before. In simulated play it happens about once every seven games (3 in 20). It changes
+  play, but the seeded fingerprint game never reaches it, so `H.fingerprint()` is unchanged; `H.sim` in range.
+  Voices: measured the pitch movement of twelve candidates on excited and on analyst lines. Play-by-play is now 70%
+  `am_fenrir` and 30% `am_eric` (12.4 semitones of movement, was 10.2); the analyst 70% `am_echo` and 30% `am_onyx`
+  (10.5, was 7.8, still the deep voice at about 100 Hz). New: the referee (`am_adam`, the most even delivery, 0.94
+  speed) and the stadium announcer (`am_puck`, the most theatrical, 0.86). 346 clips (was 273), 3.0 MB, none
+  flagged by the syllable check. The referee's call is three recorded sentences, chosen by the game ("False start,
+  offense." / "Five yard penalty." / "Repeat third down."); the announcer's "And that is another... Outlaws..." for
+  each team, with the crowd's "FIRST DOWN!" after it. Both go down the stadium-speaker route after the microphone
+  click, at -19 to -20 dB RMS (the synthesized voice was -23.5). The pack now loads whenever sound is on, not only
+  with the commentary, since the referee and the announcer are part of the stadium.
+  Drives: each drive keeps its quarter and clock at its first snap; every score goes into a log with the drive
+  (plays, yards to the goal line or the kick's spot, game time). The booth follows a scoring drive with its length,
+  "a long, patient march" (ten plays or four minutes) or "quick strike" (three plays or fewer), and the analyst
+  on why. A toast shows the drive a moment after the score. Halftime and every final screen (exhibition, season,
+  career) list the scores with their drives, and each team's passing, rushing and receiving leaders from the box
+  score. Looked at on a 390x844 screen.
+  Checked: every one of 450 lines asked for in three exhibitions and two careers exists; `H.fingerprint()`
+  unchanged; exhibition, both careers, a career season, the drills and a drawn game clean; audit empty at 320x568
+  and 390x844. The console again showed "The AudioContext encountered an error from the audio device" during long
+  frozen loops in the hidden pane; the context was still running afterwards.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -813,23 +841,28 @@ what is next. Update it after every item.
       says: the model does not shout, so the big calls are lifted by processing (a little faster and higher, brighter,
       louder) and will still be calmer than a real announcer's.
 
+### Round 11 (the owner at 19:15 on 2026-11-12: "one thing was that i threw for a first down in red zone /
+### touchdown area and i guess it didn't register, work on improving the voices yes you can go do not hold it no
+### more, add drive summaries and half time things, work hard")
+- [x] The touchdown that was not: a ball carrier brought down, or pushed out, already in the end zone he attacks is
+      now a touchdown. Before, the tackle check ran first and spotted him at the one-yard line as a first down.
+- [x] The referee and the stadium announcer recorded like the booth (a third and a fourth voice), sentence by
+      sentence, down the stadium-speaker route; the synthesized voice is only their stand-in before the clips load.
+- [x] Livelier commentators: new voice blends chosen by measured pitch movement, more takes for the common calls,
+      lines for a kick off the upright and for scoring drives.
+- [x] Drive summaries after every scoring drive; halftime and final screens with the scoring summary and leaders,
+      in exhibition, season and career.
+      Still to be judged by ear and on a phone
+
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 Major improvements, biggest first:
-- The booth, after the owner has listened (do not start before his verdict). If the voices are right but too calm:
-  a more expressive open speech model with an excitement control would give real shouted calls, but it is a
-  multi-gigabyte download with a machine-learning runtime, so it needs his say-so first. If a voice is wrong: the
-  voices are two lines in `tools/commentary.json` (a mix of the model's 54 voices, a speed, two tone settings), and
-  the whole booth re-records in about five minutes. More lines are cheap (about 9 kB each): player positions ("the
-  quarterback keeps it himself"), drive summaries, the score read out at the half and the end, which needs numbers
-  recorded and joined.
-- The referee and the stadium announcer are still the synthesized voice from the speakers. With the booth recorded,
-  they are now the most artificial voices in the game: record them the same way (a third voice, played down the
-  stadium-speaker route), sentence by sentence so "Holding, offense." + "Ten yard penalty." + "Replay the down."
-  join at the full stops. WAITING: the owner was asked at 18:34 on 2026-11-12 whether to do this now or after he has
-  judged the booth by ear, and has not answered. An automatic run does not take it until he has (it was put to him
-  as his call); it needs no download.
-- The booth has no line for a kick off the upright ("Off the upright... and it's good!"); record it with the next
-  batch of lines (it needs the owner's verdict on the voices first, see the top item).
+- The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
+  sound now is still unjudged). If they are still too calm, the next step is a more expressive open speech model with
+  an excitement control: a multi-gigabyte download, which needs his say-so first. Voices are lines in
+  `tools/commentary.json`; the whole booth re-records in about six minutes.
+- More booth lines: player positions ("the quarterback keeps it himself"), the score read out at the half and the end
+  (numbers recorded and joined), the stadium announcer's welcome before kickoff.
+- Presentation: replays from a second angle.
 - A pile. Run 5 tried a second man reaching in on a tackle and measured it: the first tackler finishes bent over the
   runner with his hips most of a yard up and his helmet over the runner's chest, so from every side a second man's
   back or legs end up in him (10 to 45 cm in every one of 52 stagings). It needs the first tackler to finish flat
@@ -841,7 +874,6 @@ Major improvements, biggest first:
 - A two-minute drill: no-huddle after a first down late in a half, with the clock running and the sheet opening faster.
 - Career: an awards night at the end of the season, age and decline over a long career, a hall of fame screen that
   keeps retired players, a rival who talks back.
-- Presentation: a drive summary after each score, a halftime stat screen with leaders, replays from a second angle.
 Interface, when no major item fits in a run:
 - Run `tools/audit.js` after every change and keep its report empty.
 - A person on a real phone still has to judge touch feel, the frame rate with close-up models, and the sound.

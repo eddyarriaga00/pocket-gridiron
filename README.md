@@ -114,8 +114,9 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - On defense: Switch, Dive, Hit (a hit stick that can jar the ball loose) and Strip.
 - Punt returns you play, with fair catches and muffs. Fumbles you can dive on, or scoop up and run back, interceptions, sacks, safeties, overtime, timeouts, two-point tries, onside kicks, and
   flags that Settings can switch off: false start, offside, illegal formation and holding; pass interference at the
-  spot; roughing the passer and unnecessary roughness (fifteen yards from where the play ended, and an automatic
-  first down); intentional grounding when the ball is thrown away from inside the pocket (loss of down); and the free
+  spot; roughing the passer, unnecessary roughness and a facemask (fifteen yards from where the play ended, and an
+  automatic first down); defensive holding (five yards and a first down, declined when the play did better);
+  intentional grounding when the ball is thrown away from inside the pocket (loss of down); and the free
   play, when a defender jumps at the snap and the play goes on: afterwards you choose, take five yards and the down
   again, or keep what the play gained (the game only asks when it is a real choice). Rain and snow make the ball
   harder to catch and hold.
@@ -236,6 +237,7 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 |---|---|---|---|
 | Move | Drag anywhere on the field | Arrows / WASD | Left stick or d-pad |
 | Snap, ready, kick | The large button | Space | A |
+| Throw it away (as quarterback) | Away | Z | LB |
 | Pass (as quarterback) | Hold a lettered receiver or its button: a green bar fills with power. Let go to throw (a quick tap is a lob, a full bar a bullet) | 1–5 | Each receiver wears a button's letter: A, B, X, Y or RB (hold, let go) |
 | Call for the ball (career receiver) | Call | C | A |
 | Sprint | Hold Sprint | Space | RT (R2) |

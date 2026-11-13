@@ -152,6 +152,8 @@
     "ref.decl": { "v": "r", "e": 0.2, "t": ["The penalty is declined."] },
     "ref.ground": { "v": "r", "e": 0.2, "t": ["Intentional grounding, offense."] },
     "ref.lod": { "v": "r", "e": 0.2, "t": ["Loss of down."] },
+    "ref.face": { "v": "r", "e": 0.2, "t": ["Facemask, defense."] },
+    "ref.dhold": { "v": "r", "e": 0.2, "t": ["Holding, defense."] },
     "ref.yd": { "v": "r", "e": 0.2, "t": ["{n} yard penalty."] },
     "ref.auto": { "v": "r", "e": 0.2, "t": ["Automatic first down."] },
     "ref.first": { "v": "r", "e": 0.2, "t": ["First down."] },

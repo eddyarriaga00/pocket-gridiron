@@ -1277,6 +1277,18 @@ what is next. Update it after every item.
   careers (QB and WR), exhibition, drills, audit empty at 320x568 and 390x844 and on the staged question, no console
   errors. A test that forced Math.random to a constant hung the page (a booth take picker loops until it draws a
   different take): never stub Math.random to a constant in this game.
+- 08:38 By hand (the owner, awake: "keep working hard"): the rest of the penalties. Facemask: 1.2% of tackles on an
+  offensive ball carrier, enforced like roughing (`lateFoul`). Defensive holding: 1.5% of throws to a receiver
+  (`ps.dhold`, the state kept at the throw): five yards from the old spot and an automatic first down with the play
+  wiped from the stats, or declined when the play was a touchdown or a first down farther on (`defHold`). A
+  throw-away for the user's quarterback: an Away button on the pass pad (Z, controller LB) throws it out of bounds;
+  from inside the tackle box it can be flagged for grounding like the computer's. Two referee lines recorded
+  ("Facemask, defense.", "Holding, defense."), none flagged. Measured in three quarters of 15 minutes: facemask 2,
+  defensive holding 1, roughing 2, grounding 1 (the test's own throw-away from the pocket), illegal formation 1, a
+  free play 1. Checked: fingerprint unchanged, careers (QB and WR), exhibition, drills, audit empty at 320x568 and
+  390x844 with the pane in front (run in a background tab its timers stall and a fading banner is reported on every
+  screen), a drawn game with every pose finite; the console showed one three.js "getUniforms" error during the
+  audit's viewport switch (a lost graphics context in the test pane; none in a drawn game after a reload).
 
 ## Morning hand-off
 
@@ -1592,11 +1604,7 @@ game marks; "primetime", "Player of the Week" and the like are plain words, not 
 
 ### Next ideas (nothing here is started; the automatic loop works from the top)
 NFL and Madden, for a career first (Round 24), biggest that fits a run first:
-- More penalties, the rest (roughing, unnecessary roughness, grounding, illegal formation and the free play with
-  accept or decline are done, 08:34): defensive holding (five yards and a first down, which the offense declines after a
-  long gain: a second accept-or-decline), a facemask on a tackle, roughing the kicker, and a throw-away control for
-  the user's quarterback (grounding is called on the computer's throw-aways only, since yours always go to a
-  receiver).
+- Roughing the kicker (fifteen yards and a first down on a punt or a field goal), the last of the penalties list.
 - Injuries: a player shaken up for a play or a series, the trainer's cart for the worst; a rare short absence for you
   in a career ("questionable" on the next-game card); an injury report for the opponent.
 - An all-star game after the season for the best players of each conference (you, when you are one): a playable

@@ -1385,6 +1385,7 @@
       T = d / 20;
     }
     ps.air = { x0: q.x, y0: q.y, x1: tx, y1: ty, t: 0, T, h: (1.2 + d * 0.11) * hf, target: r, x: q.x, y: q.y, z: 1.8, dist: d };
+    if (r && watched() && !ps.free && Math.random() < 0.015) ps.dhold = freeSnap();  // a defender had a fistful of jersey downfield
     ps.rel = { q, t: ps.t };  // the release: a rusher who arrives in the next half second may hit him late (see tick)
     if (!r && watched() && Math.abs(q.x - ps.bx) < 4 && (q.y - ps.los) * G.dir < 0 && Math.random() < 0.35) ps.ground = q.y;  // thrown away from inside the pocket, nobody near it: grounding, when the officials see it  // he arrives as the ball leaves, and drives him into the turf
     if (!AUTO && !QUIET && PG.audio && d >= 24 && T >= 0.95) PG.audio.crowd.swell(T, q.team === 0 ? 0.6 : 0.42);  // a long ball: the stadium draws breath until it comes down
@@ -2368,7 +2369,35 @@
     if (!p0 || p0.flagged || G.state !== 'dead' || (p0.mode !== 'pass' && p0.mode !== 'run')) return;  // a flag during the play already decided it (holding, interference)
     if (p0.free) freePlay(p0, s0);
     else if (p0.ground !== undefined) grounding(p0, s0);
+    else if (p0.dhold) defHold(p0, s0);
     else if (p0.lateFlag) lateFoul(p0, s0);
+  }
+
+  /* defensive holding: five yards from the old spot and a first down, unless the play did better (a touchdown, or a
+     first down farther on): then the offense declines it */
+  function defHold(p0, s0) {
+    const S = p0.dhold, off = p0.offTeam, dir = off === 0 ? 1 : -1;
+    const kept = G.poss === off && G.score[1 - off] === s0[1 - off] && G.pendKO == null, td = G.score[off] > s0[off];
+    const room = off === 0 ? 100 - S.los : S.los, yd = Math.min(5, Math.max(1, Math.floor(room / 2)));
+    if (td || (kept && G.down === 1 && (G.los - S.los) * dir >= yd)) {
+      banner('Flag declined', `Holding, ${tname(1 - off)} · the play stands`, 1700);
+      G.deadT = Math.max(G.deadT, 1.8);
+      if (PG.audio) PG.audio.pa('Holding, defense. The penalty is declined.', { wait: 0.6, clips: ['ref.dhold', 'ref.decl'] });
+      return;
+    }
+    Object.assign(G, { los: S.los, bx: S.bx, down: S.down, togo: S.togo, fd: S.fd, poss: S.poss, score: S.score, stats: JSON.parse(S.stats), my: JSON.parse(S.my), box: JSON.parse(S.box), pendKO: S.pendKO, pat: S.pat });
+    if (G.scores) G.scores.length = S.nScores;
+    setBall(off, S.los + dir * yd, S.bx);
+    G.sig = 'fd';
+    G.last = 'Holding, defense';
+    G.rp = false;
+    G.state = 'dead';
+    G.deadT = 2.3;
+    banner('Flag', `Holding, ${tname(1 - off)} · ${yd} yards, automatic first down`, 2000);
+    snd('whistle');
+    refCall(`Holding, defense. ${yd} yard penalty. Automatic first down.`, 1 - off, 0.6, ['ref.dhold', 'ref.yd.' + yd, 'ref.auto']);
+    hudKey = '';
+    updHud();
   }
 
   /* intentional grounding: the down is lost, and the ball goes back to where he threw it, or ten yards, the farther */
@@ -2407,6 +2436,7 @@
       }
     }
     const off = ps.offTeam, dir = G.dir, c = ps.carrier, los = ps.los, me = QUIET ? null : G.me;
+    if (kind === 'tackle' && c && c.team === off && !ps.turnover && !ps.lateFlag && ps.tackler && watched() && Math.random() < 0.012) ps.lateFlag = 'Facemask';  // a hand in the bars on the way down
     if (kind === 'oob' && c && c.team === off && !ps.turnover && !ps.lateFlag && watched() && P.some(o => o.team !== off && !o.down && hyp(o.x - c.x, o.y - c.y) < 1.4) && Math.random() < 0.1) ps.lateFlag = 'Unnecessary roughness';  // a shove after he is out
     G.chg = null;  // a throw still being wound up dies with the play
     let big = '', sub = '', stop = false, score = false, rpGain = 0, tryRes = '';
@@ -2744,7 +2774,7 @@
      ("ten yard penalty"), because the speakers' voice works from spelling. */
   const NUMS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 
-  const REF = { 'False start': 'ref.false', Offside: 'ref.offside', Holding: 'ref.hold', 'Pass interference': 'ref.pi', 'Roughing the passer': 'ref.rough', 'Unnecessary roughness': 'ref.unr', 'Illegal formation': 'ref.illf' };
+  const REF = { 'False start': 'ref.false', Offside: 'ref.offside', Holding: 'ref.hold', 'Pass interference': 'ref.pi', 'Roughing the passer': 'ref.rough', 'Unnecessary roughness': 'ref.unr', 'Illegal formation': 'ref.illf', Facemask: 'ref.face' };
 
   function refCall(text, team, size, clips) {
     if (AUTO || QUIET || !PG.audio) return;
@@ -4005,6 +4035,15 @@
     if (k === 'switch' && G.state === 'pre' && G.poss === 1 && !G.lock) return switchDef();
     if (G.state !== 'live') return;
     const c = ps.carrier;
+    if (k === 'away') {
+      if (canPass()) {
+        const q = ps.qb;
+        G.chg = null;
+        throwTo(null, { x: q.x < FW / 2 ? -3 : FW + 3, y: q.y + G.dir * 9 });
+        toast('Thrown away');
+      }
+      return;
+    }
     if (k === 'num') {
       if (canPass()) startCharge(n);
       else if (userOnD()) {
@@ -4059,7 +4098,7 @@
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
     offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
@@ -4112,9 +4151,12 @@
       }
     } else if (kind === 'ready') B('READY', 'big', () => act('main'));
     else if (kind === 'kick') B('KICK', 'big', () => act('main'));
-    else if (kind === 'pass') ps.recs.forEach((r, i) => {
-      B(r.let, 'rc', () => startCharge(i), () => endCharge(i)).style.background = r.col;  // hold to build power, let go to throw
-    });
+    else if (kind === 'pass') {
+      ps.recs.forEach((r, i) => {
+        B(r.let, 'rc', () => startCharge(i), () => endCharge(i)).style.background = r.col;  // hold to build power, let go to throw
+      });
+      B('Away', '', () => act('away'));  // nobody open: throw it out of bounds (from inside the pocket it may be grounding)
+    }
     else if (kind === 'carry') {
       spr();
       B('Juke', '', () => act('juke'));
@@ -4180,6 +4222,7 @@
     if (e.code === 'KeyC') act('call');
     if (e.code === 'KeyG') act('hard');
     if (e.code === 'KeyM') act('motion');
+    if (e.code === 'KeyZ') act('away');
     if (e.code === 'Minus' || e.code === 'BracketLeft') zoomBy(-1);
     if (e.code === 'Equal' || e.code === 'BracketRight') zoomBy(1);
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
@@ -4399,6 +4442,7 @@
         if (hit(b)) act('num', i);
         if (rel(b)) endCharge(i);
       });
+      if (hit(GB.LB)) act('away');
       return;
     }
     const map = GMAP[G.pad] || {};

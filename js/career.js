@@ -673,7 +673,7 @@
     return socHead(0) + `<p class="note">Big games, big moments and what you say at the podium move your following. Hype fades a little every week unless you keep giving people something to talk about.</p>`
       + `<div class="xp"><span>Talk record</span><b>${so.backed} backed up \u00b7 ${so.ate} eaten</b></div>` + calloutHtml() + offerHtml() + dealsHtml()
       + (so.quotes.length ? `<h2>On the record</h2><ul class="quotes">${so.quotes.slice(0, 4).map(q => `<li><span class="tone t-${q.tone}">${PG.media.TONE[q.tone] || q.tone}</span>\u201c${esc(q.q)}\u201d<small>${esc(q.wk)}</small></li>`).join('')}</ul>` : '')
-      + (so.feed.length ? `<h2>Your mentions</h2>` + feedHtml(so.feed) : '<p class="note">Play a game and the internet will have something to say.</p>');
+      + (so.feed.length ? `<h2>Your mentions</h2>` + feedHtml(so.feed) : `<p class="note">${C.log.length ? 'Your mentions start with your next game.' : 'Play a game and the internet will have something to say.'}</p>`);
   }
 
   /* ---------- endorsements ----------

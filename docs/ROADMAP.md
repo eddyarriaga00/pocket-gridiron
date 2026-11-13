@@ -888,6 +888,19 @@ what is next. Update it after every item.
   line logged in place across five games. Fingerprint unchanged; careers, a QB season, drills clean; audit empty at
   320x568 (with a Comets career) and 390x844, including the hub, Social tab with an offer, and media day. (This entry
   went up in a second commit: the first one's log script failed on a brace.)
+- 23:44 Sizing on the phone (the owner, with a screenshot of the career hub's Social tab from his iPhone: "sizing is a
+  little off on mobile"). The app frame stopped at the bottom safe area (`#app{bottom:env(safe-area-inset-bottom)}`),
+  so on a phone with a home indicator every scrolling page ended above a dead band and the last button (Retire) was
+  cut off there. Now the frame runs to the bottom of the screen and what sits at the bottom keeps clear of the strip
+  with `--sb` (the inset): the controls (`#deck`), the play-call and result sheets, the end of every menu, the
+  feed's sticky Continue; `html` is painted the app's dark so nothing shows black. The sheets count their padding
+  inside their height limit now (`box-sizing:border-box`; with the inset, the career result sheet otherwise covered
+  the pause and zoom buttons at 320x568). The celebration picker was words floating in a tall box (its buttons had
+  no fill and 14 px gaps); now 36 px buttons with a fill, 8 px apart, the same 44 px touch pitch. Long fan names
+  and handles wrap instead of being cut. A career begun before the media existed said "Play a game..." after games;
+  now "Your mentions start with your next game." The pane cannot show a real safe area, so every audit was run twice
+  more with `--sb` set to 34 px (an iPhone's strip): empty at 320x568 and 390x844 both ways, as were exhibition,
+  season, career and camp; fingerprint unchanged. On the phone itself it is still to be seen.
 
 ## Morning hand-off
 

@@ -13,11 +13,15 @@
   --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 html,body{height:100%;margin:0}
+/* --sb: the phone's bottom safe area (the home-indicator strip). The app runs to the bottom of the screen; what sits
+   at the bottom (the controls, the play-call sheet, the end of a scrolling page) keeps clear of the strip with it. */
+:root{--sb:env(safe-area-inset-bottom,0px)}
+html{background:var(--bg)}   /* any part of the screen the app does not cover is the app's dark, never black */
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.4;overflow:hidden;overscroll-behavior:none;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 .menu,.sheet{scrollbar-width:thin;scrollbar-color:var(--line) transparent}   /* a slim bar on a desktop; phones draw their own and hide it */
-#app{position:fixed;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);left:50%;transform:translateX(-50%);
+#app{position:fixed;top:env(safe-area-inset-top,0px);bottom:0;left:50%;transform:translateX(-50%);
   width:min(100vw,62vh);overflow:hidden;background:#0c1322;touch-action:none}
 #gl,#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 button{position:relative;font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation}
@@ -83,7 +87,7 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 /* The bottom of the game screen is one grid, so nothing in it can sit on anything else at any width: the kick meter
    or the power bar across the top, the tip box and the play card beside the thumb pad, and the play tag along the
    bottom edge. The tag's row keeps its height when the tag is hidden, so the buttons never shift. */
-#deck{position:absolute;left:10px;right:10px;bottom:8px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto 24px;grid-template-areas:"top top" "bl pad" "tag tag";gap:8px;align-items:end;pointer-events:none}
+#deck{position:absolute;left:10px;right:10px;bottom:calc(8px + var(--sb));display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto 24px;grid-template-areas:"top top" "bl pad" "tag tag";gap:8px;align-items:end;pointer-events:none}
 .lefty #deck{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"top top" "pad bl" "tag tag"}
 /* tips and the pre-snap assignment card */
 #bl{grid-area:bl;justify-self:start;max-width:min(100%,250px);display:flex;flex-direction:column;align-items:flex-start;gap:6px}
@@ -132,7 +136,7 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .dlg{width:100%;max-width:290px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
 .dlg h3{margin:0 0 4px;font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.05em;text-transform:uppercase}
 .dlg p{margin:0 0 4px;color:var(--mute);font-size:13px;line-height:1.45}
-.sheet{max-height:66%;overflow-y:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:12px 12px 16px;touch-action:pan-y;box-shadow:0 -14px 30px rgba(0,0,0,.35)}
+.sheet{box-sizing:border-box;max-height:66%;overflow-y:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:12px 12px calc(16px + var(--sb));touch-action:pan-y;box-shadow:0 -14px 30px rgba(0,0,0,.35)}
 .shd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;font-family:var(--display)}
 .shd b{font-size:14px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .shd span{color:var(--mute);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;text-align:right}
@@ -141,8 +145,10 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 /* filled accent is for the one primary action on a screen; a selected option gets the accent outline */
 .tabs button.on,.seg button.on{background:var(--panel3);color:var(--acc);box-shadow:inset 0 0 0 1.5px var(--acc)}
 .sheet .tabs,.sheet .seg{background:var(--bg)}
-.seg.wrap{flex-wrap:wrap;row-gap:14px;padding:7px 3px}
-.seg.wrap button{flex:1 0 30%;font-size:10px}  /* rows 14px apart: each button's 44px touch area stops where the next row's begins */
+.seg.wrap{flex-wrap:wrap;gap:8px 5px;padding:5px}
+.seg.wrap button{flex:1 0 30%;height:36px;font-size:10px;background:var(--panel3);color:var(--ink)}
+.seg.wrap button.on{background:var(--panel3);color:var(--acc)}
+.seg.wrap button::after{inset:-4px 0}  /* 36px buttons 44px apart: each touch area ends where the next row's begins */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .card{position:relative;display:flex;flex-direction:column;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:9px;overflow:hidden;padding:0 0 7px;min-width:0}
 .card:active{border-color:var(--acc)}
@@ -156,7 +162,7 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 /* The stadium shows through a dark scrim. It is thinnest behind the title, and that part scrolls away with the title
    (attachment: local), so small gray text never ends up over a floodlight. Screens that are mostly reading (.read) get a
    heavier scrim from the top; the measured contrast of all of it is in tools/audit.js. */
-.menu{height:100%;box-sizing:border-box;overflow-y:auto;background:linear-gradient(rgba(6,10,19,.56),rgba(6,10,19,.9) 130px,rgba(6,10,19,.95)) local;padding:30px 18px 26px;touch-action:pan-y}
+.menu{height:100%;box-sizing:border-box;overflow-y:auto;background:linear-gradient(rgba(6,10,19,.56),rgba(6,10,19,.9) 130px,rgba(6,10,19,.95)) local;padding:30px 18px 26px;touch-action:pan-y;padding-bottom:calc(26px + var(--sb))}
 .menu.read{background:linear-gradient(rgba(6,10,19,.84),rgba(6,10,19,.92) 130px,rgba(6,10,19,.95)) local}
 .menu.solid{background:var(--bg);padding-top:14px}
 .menu h1{margin:0;font-family:var(--display);font-stretch:112%;font-weight:800;font-size:38px;line-height:.98;letter-spacing:-.01em;text-transform:uppercase;text-wrap:balance}
@@ -393,8 +399,8 @@ tr.me td{color:var(--acc);font-weight:700}
 .post{display:flex;min-width:0;gap:9px;padding:10px 11px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
 .post .pbody{min-width:0;flex:1}
 .post .phd{display:flex;flex-wrap:wrap;align-items:center;gap:0 5px;font-size:13px;line-height:1.3}
-.post .phd b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-.post .phd span{color:var(--mute);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.post .phd b{overflow-wrap:anywhere}
+.post .phd span{color:var(--mute);font-size:11.5px;overflow-wrap:anywhere}   /* a long name or handle wraps; nothing is cut */
 .post .bio{font-size:11px;color:var(--mute)}
 .post p{margin:4px 0 6px;font-size:13.5px;line-height:1.42;color:var(--ink);overflow-wrap:anywhere}
 .post .pmeta{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:11px;color:var(--mute)}
@@ -410,7 +416,7 @@ tr.me td{color:var(--acc);font-weight:700}
 .post.trend{display:block;border-color:rgba(76,154,255,.45)}
 .post.trend b{display:block;font-family:var(--display);font-weight:800;font-size:16px;color:var(--acc)}
 .post.trend small{color:var(--mute);font-size:11.5px}
-.feed .go{position:sticky;bottom:0;box-shadow:0 -10px 18px var(--bg)}
+.feed .go{position:sticky;bottom:var(--sb);box-shadow:0 -10px 18px var(--bg)}
 .offer{margin:10px 0;padding:11px 12px;border-radius:11px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c)}
 .offer small{display:block;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .offer b{display:block;margin:2px 0 1px;font-family:var(--display);font-weight:800;font-size:16px}

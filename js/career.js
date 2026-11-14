@@ -1805,13 +1805,15 @@
     const show = () => {
       // drawn again after watching the play of the game
       scr.innerHTML = `<div class="sheet" style="max-height:80%"><div class="shd"><b>${won?'Victory':res==='T'?'Tie game':'Final'}</b><span>${wk} · ${us}–${them} vs ${team(opp).ab}</span></div>
-  <div class="nx" style="margin-top:0"><small>Your game · grade ${grade}</small><h4>${line(m)}</h4><p style="margin:4px 0 0">${esc(C.news)}</p></div>
+  <div class="rs"><i class="${won?'w':res==='T'?'t':'l'}"><small>Grade</small>${grade}</i><div><b>${us}–${them} <em>${won?'Win':res==='T'?'Tie':'Loss'}</em></b><span>${line(m)}</span></div></div>
+  <div class="trk" style="margin-top:6px"><span><b>+${fmt(xp)}</b> XP earned</span><span><b>${C.trust}</b> coach trust (${dTrust>=0?'+':''}${dTrust})</span></div>
+  <p class="rsn">${esc(C.news)}</p>
   ${callRes?`<p class="callout ${callRes.backed?'ok':'no'}"><small>${callRes.backed?'You backed it up':'You ate your words'}</small>\u201c${esc(callRes.quote)}\u201d</p>`:''}
   <ul class="gl">${gl.map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span><b>${g.ok?'+'+GOAL_XP:'0'}</b></li>`).join('')}
   ${items.map(([l,v])=>`<li><span>${l}</span><b>+${fmt(v)}</b></li>`).join('')}
   <li class="tot"><span>XP earned</span><b>+${fmt(xp)}</b></li></ul>
   ${newHighs.length?`<p class="note hi">New career high${newHighs.length>1?'s':''}: ${newHighs.join(', ')}.</p>`:''}
-  ${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}<p class="note">Coach trust ${C.trust} (${dTrust>=0?'+':''}${dTrust}).${moved}${retNote}</p>${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
+  ${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}${moved||retNote?`<p class="note">${(moved+retNote).trim()}</p>`:''}${trophies.length?`<p class="note">Trophy earned: ${trophies.join(', ')}.</p>`:''}
   <button class="go" id="rc">To the podium</button></div>`;
       $('#rc').onclick = () => {
         PG.toMenu();

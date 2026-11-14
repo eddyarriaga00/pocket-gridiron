@@ -1736,6 +1736,13 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   mid-way; 13 the pause sheet (score, switches for sound and commentary); 14 How to play laid out as cards with a
   small picture each; 15 training camp's results (stars and the rep list) made visual.
 
+- Change 11 (03:25), the career's post-game result: it opens with the grade as a badge (in the accent color for a
+  win), the score with Win, Loss or Tie, and your line, then two chips (XP earned, coach trust and its change), then
+  the news line; the goal ticks and the XP list follow as before (`.rs`, `.rsn`). The trust sentence that was at the
+  foot is the chip now. Audit empty at 320x568 and 390x844; fingerprint unchanged; careers clean. Confetti seen over
+  a loss in the test still is the test's own leftover (confetti only falls on drawn frames), not the game.
+  Next: 12 a random bug sweep through whole careers with slots.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

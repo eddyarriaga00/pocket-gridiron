@@ -487,6 +487,16 @@ tr.me td{color:var(--acc);font-weight:700}
 .itabs svg{width:15px;height:15px;fill:currentColor}
 .itabs span{font-size:10px;letter-spacing:.04em}
 /* a line of explanation, folded: tap the summary to read it */
+/* the career's post-game result: the grade as a badge, the score and your line beside it */
+.rs{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.rs i{flex:none;display:grid;place-items:center;align-content:center;width:58px;height:58px;border-radius:14px;background:var(--panel3);font:800 22px/1 var(--display);font-style:normal}
+.rs i small{font:700 10px var(--display);letter-spacing:.08em;text-transform:uppercase;opacity:.75;margin-bottom:2px}
+.rs i.w{background:var(--acc);color:var(--acc-ink)}
+.rs i.l{background:#5a2f38;color:#ffc9cf}
+.rs b{display:block;font:800 20px/1.15 var(--display);font-variant-numeric:tabular-nums}
+.rs b em{font-style:normal;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-left:4px}
+.rs span{display:block;margin-top:2px;font-size:12.5px;color:var(--mute);line-height:1.35}
+.rsn{margin:8px 2px 0;font-size:12.5px;line-height:1.45}
 .trk{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .trk span{padding:6px 10px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-size:11.5px;color:var(--mute)}
 .trk b{color:var(--ink);font-family:var(--display)}

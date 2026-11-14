@@ -115,6 +115,8 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   with them: Fast forward (F, or A on a controller) runs at three times the speed and is remembered; Skip drive (K, or
   B) goes straight to the drive's result. On fourth down, when your coach sends out the punt or field goal unit, a
   sheet lets you kick it or go for it; a quarterback then picks the play.
+  While you watch, the card beside the buttons counts the drive ("NJ drive · play 3 · 6 yards"), and on a drive you
+  sit out the backup is on the field under his own name and number.
 - Kick with a swipe: field goals, extra points, punts and your kickoffs, in a career too (your team's kicks are yours to
   make whatever your position). The swipe's angle is the aim and its length and speed the power: a straight, strong
   swipe splits the uprights, a soft kickoff stays in play. A kickoff has the same timing bar as a field goal: stop it in the green for a deep kick. The timing bar still works. The extra point is a real kick

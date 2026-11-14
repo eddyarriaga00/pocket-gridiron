@@ -163,7 +163,11 @@
       score: [0, 0], q: 1, ql: o.ql || 180, diff: o.diff ?? 1, clock: o.ql || 180, stats: [0, 1].map(() => ({ pass: 0, rush: 0, comp: 0, att: 0, to: 0 })), stam: 1, pad: null, deadT: 0, ot: false, final: false,
       sel: null, me: null, preT: 0, meter: 0, lock, lockSide: lock ? (OFFR.includes(lock) ? 'off' : 'def') : null, first, drill: o.drill ? { n: o.drill, left: o.drill, side: o.side || (lock && !OFFR.includes(lock) ? 'def' : 'off'), script: o.script || null, dcall: o.dcall || null, title: o.title || 'Practice', reps: [] } : null, lineFn: o.line || null, goalsFn: o.goals || null, mustWin: !!o.mustWin, home: o.away ? 1 : 0, kr: !!o.kr && !!lock, liveP: null, prime: !!o.prime, around: o.around || null, highs: o.highs || null, onEnd: o.onEnd || null, onQuit: o.onQuit || null, paused: false, last: '', box: {}, scores: [], lastScore: null, drive: null, potd: null, hl: null, rpEnd: null, pat: null, try2: null, introT: 0, to: [3, 3], runoff: 0, share: o.share === undefined ? 1 : o.share, possN: 0, benchN: -1, sit: false, env: o.env || { time: SET.tod || 'night', weather: SET.wx || 'clear' },
       my: { att: 0, comp: 0, pyd: 0, ptd: 0, pint: 0, car: 0, ryd: 0, rtd: 0, rec: 0, recyd: 0, rectd: 0, tgt: 0, tkl: 0, sack: 0, int: 0, pbu: 0 } };
-    if (lock && o.hero) G.ros[0][lock] = o.hero;
+    if (lock && o.hero) {
+      G.bench = { ...G.ros[0][lock] };  // the man the roster had there: he plays the drives the coach sits you out for
+      if (G.bench.num === o.hero.num) G.bench.num = (o.hero.num % 98) + 1;
+      G.ros[0][lock] = o.hero;
+    }
     G.callout = o.callout || null;
     bcHide();  // a career player's callout of this opponent ('trash' or 'guarantee'): the booth knows
     G.heroCeleb = o.hero && o.hero.celeb >= 0 ? o.hero.celeb : -1;  // a career player's own touchdown celebration
@@ -827,6 +831,11 @@
       r.asg = 'ret';
       ps.ret = r;
       if (r.team === 0 && G.lock && G.kr) asHero(r);
+    }
+    if (G.lock && G.sit && G.bench && off === 0 && !kick && G.share < 1 && !G.drill) {
+      // a drive you sit out: the backup is the one on the field, under his own name and number
+      const b = P.find(p => p.team === 0 && p.role === G.lock), h = G.bench;
+      if (b) Object.assign(b, { spd: h.spd, rt: h.rt, num: h.num, name: h.name }, h.x || {});
     }
     G.me = G.lock && !kick && !(G.watch && G.wd && G.wd.own) ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : ps.ret && ps.ret.hero ? ps.ret : null;
     G.sel = G.lock ? G.me : off === 1 ? (selRole && d[selRole]) || d.MLB : null;
@@ -3910,6 +3919,12 @@
      to be, and shows the result. A punt you are back deep for, and your own team's kicks, are still yours. */
   const watching = () => !!G.watch && !G.me && !AUTO && (G.state === 'pre' || G.state === 'live' || G.state === 'kicka' || (G.state === 'dead' && !!G.wd && G.wd.n === G.possN && G.pendKO == null && G.pat == null));  // not once the drive is over
 
+  /* how far the drive being watched has come: " · play 4 · 32 yards" */
+  function watchLine() {
+    const d = G.drive, yd = d && d.team === G.poss ? Math.round((G.los - d.y0) * (G.poss === 0 ? 1 : -1)) : 0;
+    return ` · play ${G.wd ? G.wd.plays : 1}${yd ? ` · ${yd} yard${Math.abs(yd) === 1 ? '' : 's'}` : ''}`;
+  }
+
   function watchPlay(sit) {
     if (!G.wd || G.wd.n !== G.possN) G.wd = { n: G.possN, t: G.poss, s0: G.score.slice(), plays: 0, own: !!sit };
     G.wd.plays++;
@@ -3973,7 +3988,7 @@
 
   function briefTxt() {
     const me = G.me;
-    if (G.watch && !me && !AUTO) return ps && ps.mode === 'kick' && G.poss === 0 ? '' : G.wd && G.wd.own ? '<b>On the sideline</b><span>The coach has the backup in for this drive.</span>' : '<b>Your defense is on</b><span>You are watching this drive.</span>';
+    if (G.watch && !me && !AUTO) return ps && ps.mode === 'kick' && G.poss === 0 ? '' : G.wd && G.wd.own ? `<b>On the sideline</b><span>${G.bench ? '#' + G.bench.num + ' ' + G.bench.name : 'The backup'} is in for this drive${watchLine()}</span>` : `<b>Your defense is on</b><span>${ab(G.poss)} drive${watchLine()}</span>`;
     if (G.drill && G.drill.script && !AUTO) {
       const s = drillStep();
       return `<b>${s.h || (G.poss === 0 ? G.op.n : 'Defense')}</b><span>${s.say}</span>`;
@@ -4269,11 +4284,11 @@
 
   const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
-    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
+    offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', watch: 'You watch the plays you are not on the field for. Fast fwd runs them at three times the speed; Skip drive goes straight to the result.', watchK: 'Their kickoff, with your returner back deep. Skip starts your offense from the touchback spot.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
 
   function tip(kind) {
-    const el = $('#tip'), t = TIPS[kind];
+    const el = $('#tip'), t = TIPS[kind] || TIPS[String(kind).replace(/F$/, '')];  // the watch pad's tip is the same with fast forward on
     clearTimeout(tipT);
     /* a tip shows the first two times its buttons come up; in a camp drill it shows once per drill, whatever has been
        seen before, and after that the coaching card has the corner to itself */

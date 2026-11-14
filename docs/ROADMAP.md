@@ -1392,6 +1392,15 @@ what is next. Update it after every item.
   started within seconds of real time and never get to finish. It did not happen with `PG.SET.snd = false` and
   `PG.SET.ann = false` (48 games), or in short runs with sound on. Long stepped runs should turn sound off first.
 
+- 2026-11-14 00:30. The owner: "keep improving". Three things on the watched drives, nothing new elsewhere.
+  (1) On a drive the coach sat you out for, the man on the field still carried your name and number, in the booth's
+  calls and the box score too: `startGame` now keeps the roster's own player at your position as `G.bench`, and
+  `setupPlay` puts him in for those drives. (2) The card beside the watch buttons counts the drive (`watchLine`):
+  whose it is, the play number and the yards so far; on the sideline it names the backup. (3) The watch pad has its
+  two first-time tips (the drive buttons, and the kickoff's Skip), shown with fast forward on as well. Checked:
+  fingerprint unchanged; six watched career games with no error and never your name on the field while sitting;
+  careers, exhibition, drills; audit empty at 320x568, 375x812 and 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

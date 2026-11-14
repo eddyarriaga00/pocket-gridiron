@@ -3816,7 +3816,7 @@
     const gameOn = G.state !== 'menu' && G.state !== 'over' && G.state !== 'intro' && G.state !== 'scene', now = !!ps && G.state !== 'dead', way = (now ? ps.offTeam : G.poss) === 0 ? 1 : -1;
     const toGain = clamp(now ? ps.fd : G.fd, 0, 100), kick = (!!ps && ps.mode === 'ko') || G.pendKO != null;
     updateCrew(gameOn, kick ? null : [toGain, toGain - way * 10, now ? ps.los : G.los], dt);
-    const active = ps && G.state !== 'menu' ? (G.state === 'scene' ? SIDELINE + MAXP : CAP) : SIDELINE;
+    const active = ps && G.state !== 'menu' ? (G.state === 'scene' ? SIDELINE + Math.min(MAXP, P.length) : CAP) : SIDELINE;  // a cutscene draws its own actors and the benches: the empty player slots after them are not sent to the card at all
     for (const p of parts) {
       p.mesh.count = active * p.joints.length;
       p.mesh.instanceMatrix.needsUpdate = true;

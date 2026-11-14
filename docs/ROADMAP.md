@@ -1719,6 +1719,23 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   left alone. A rain game drawn every 30 steps gave no shader warning or error; fingerprint unchanged; audit empty.
   Next: 10 in a cutscene, lighter bench figures; then the stock-take.
 
+- Change 10 (03:15), lighter cutscenes: a cutscene sent all 22 player slots to the graphics card in the close-up
+  model even when it had seven actors (the empty slots were shrunk to nothing, but their vertices were still
+  worked out). It now sends only its actors and the benches (`active` in `render`). Triangles in a frame: coin toss
+  535,932 to 345,782; walkout 397,688 with 11 actors; halftime 254,372; final whistle 435,248. All four seen in
+  stills, the referee and both lines of captains present. Fingerprint unchanged; audit empty.
+- STOCK-TAKE after ten (03:20). Since the last one: team bars on the halftime and final sheets, a clean bug sweep of
+  Exhibition and Season, Settings as cards and switches, the rain reflection fixed, lighter cutscenes. Outside the
+  loop: nothing new. Weakest now, by eye: (a) the career's post-game screens (result, grade, goals, XP) are lists
+  of text; (b) the play-call sheet and the in-game pause sheet have had no visual pass; (c) the seasons after the
+  first (awards night, offseason, contract offers, a trade, retirement and the hall) have had no random bug sweep
+  since the hub was rebuilt and careers got slots; (d) training camp's result screens; (e) How to play is a wall of
+  text.
+  Next five: 11 the career's post-game result as a visual summary (grade badge, goals ticked, XP bar); 12 a random
+  bug sweep through whole careers with slots: seasons, awards, offers, trades, retirement, switching careers
+  mid-way; 13 the pause sheet (score, switches for sound and commentary); 14 How to play laid out as cards with a
+  small picture each; 15 training camp's results (stars and the rep list) made visual.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

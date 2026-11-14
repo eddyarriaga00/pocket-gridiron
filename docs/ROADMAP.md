@@ -1766,6 +1766,13 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   `HOW_ICON`, `HOW_KEYS`, `HOW_PAD`, `.hw`, `.kc`, `.hwj`). Audit empty at 320x568 and 390x844; fingerprint unchanged.
   Next: 15 training camp's results; then the third stock-take.
 
+- Change 15 (04:10), training camp: the camp screen has a nine-dot star meter and each drill is a card with a
+  picture and its best result; a drill's card numbers the steps and shows the three star marks as tiles; the result
+  screen has large stars over a bar that fills to the score with a tick at each mark, and the reps are numbered rows
+  with a green or gray disc (`marksBar`, `dIcon`, `.mkb`, `.rps`, `.cmt`, `.mk3`, `.stp`). Audit empty at 320x568 and
+  390x844; fingerprint unchanged. The result screen was checked by the audit only, not looked at in a still.
+  NOT done: the third stock-take (the session's usage limit was reached). Do it first on the next run.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

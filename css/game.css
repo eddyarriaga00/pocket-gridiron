@@ -732,3 +732,39 @@ tr.me td{color:var(--acc);font-weight:700}
 .kc{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:12px;color:var(--mute);line-height:1.25}
 .kc kbd{flex:none;min-width:26px;padding:3px 6px;border-radius:6px;background:var(--panel3);border:1px solid var(--line);border-bottom-width:2px;color:var(--ink);font:800 10.5px var(--display);letter-spacing:.04em;text-align:center;white-space:nowrap}
 .kch{margin:12px 0 6px;font:700 10px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+
+/* training camp: stars over a bar with the three marks, numbered reps, drill cards with a picture */
+.campst.big{display:grid;justify-items:center;gap:8px;margin:2px 0 6px;text-align:center}
+.campst.big .stars{font-size:34px;letter-spacing:6px;line-height:1}
+.mkb{width:100%;padding:0 4px}
+.mkt{position:relative;height:8px;border-radius:4px;background:var(--panel3)}
+.mkt i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--acc)}
+.mkt u{position:absolute;top:-3px;width:2px;height:14px;margin-left:-1px;border-radius:1px;background:var(--mute)}
+.mkt u.on{background:var(--ink)}
+.mkl{position:relative;height:16px;margin-top:4px}
+.mkl span{position:absolute;transform:translateX(-50%);font:700 10px var(--display);color:var(--mute);font-variant-numeric:tabular-nums}
+.mkl span.on{color:var(--ink)}
+.rps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:5px}
+.rps li{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:var(--panel2);font-size:12px}
+.rps li i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font:800 10px var(--display);font-style:normal;background:var(--panel3);color:var(--mute)}
+.rps li.ok i{background:var(--good);color:#06130c}
+.rps li.no{color:var(--mute)}
+.rps li b{font:700 11.5px var(--display);text-align:right;font-variant-numeric:tabular-nums}
+.cmt{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:var(--panel2)}
+.cmt div{display:flex;gap:10px}
+.cmt span{display:flex;gap:4px}
+.cmt u{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--mute);text-decoration:none}
+.cmt u.on{background:var(--acc);border-color:var(--acc)}
+.cmt b{font:800 18px var(--display);font-variant-numeric:tabular-nums}
+.cmt small{font-size:11px;color:var(--mute);font-weight:700}
+.mode.cmd{grid-template-columns:34px 1fr auto}
+.mode.cmd .dic{position:static;transform:none;grid-column:1;grid-row:1/3;display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--panel3);color:var(--acc)}
+.dic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.stp{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.stp li{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;color:var(--mute);font-size:12.5px;line-height:1.5}
+.stp li i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--panel3);color:var(--ink);font:800 10px var(--display);font-style:normal}
+.mk3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mk3 div{display:grid;justify-items:center;gap:4px;padding:10px 4px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-align:center}
+.mk3 div.on{border-color:var(--acc)}
+.mk3 .stars{font-size:14px}
+.mk3 b{font:700 10.5px var(--display);letter-spacing:.02em;line-height:1.3}

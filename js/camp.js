@@ -41,6 +41,17 @@
       chip: (r, n) => `Tackles ${count(r, x => x.tkl)} / ${n}`,
       rep: x => [x.tkl > 0, (x.tkl === 2 ? 'Your tackle' : x.tkl === 1 ? 'In on the tackle' : x.takeaway ? 'Takeaway' : x.td ? 'Touchdown' : 'A teammate got there first') + ' · ' + gainTxt(x.gain)] }
   ];
+  /* the score against the three marks: a bar that fills to the score with a tick at each star's mark */
+  const marksBar = (d, score) => {
+    const top = Math.max(d.marks[2], score, 1) * 1.08, pc = v => Math.max(0, Math.min(100, v / top * 100)).toFixed(1);
+    return `<div class="mkb" role="img" aria-label="${d.markTxt(Math.max(0, score))}"><div class="mkt"><i style="width:${pc(score)}%"></i>${d.marks.map(m => `<u class="${score >= m ? 'on' : ''}" style="left:${pc(m)}%"></u>`).join('')}</div><div class="mkl">${d.marks.map((m, i) => `<span class="${score >= m ? 'on' : ''}" style="left:${pc(m)}%">${m}</span>`).join('')}</div></div>`;
+  };
+  const DRILL_ICON = {
+    pass: '<ellipse cx="12" cy="12" rx="9" ry="5.5" transform="rotate(-35 12 12)"/><path d="M9.5 14.5l5-5"/>',
+    run: '<path d="M4 12h12M11 6l6 6-6 6"/>',
+    tackle: '<path d="M12 3l8 3v6c0 4.5-3.5 7.5-8 9-4.5-1.5-8-4.5-8-9V6z"/>'
+  };
+  const dIcon = d => `<i class="dic"><svg viewBox="0 0 24 24" aria-hidden="true">${DRILL_ICON[d.id]}</svg></i>`;
   const starsFor = (d, score) => count(d.marks, m => score >= m);
   const bestStars = d => S.best[d.id] ? S.best[d.id].stars : 0;
   const totalStars = () => sum(DRILLS, bestStars);
@@ -50,7 +61,8 @@
     const n = totalStars();
     scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Training camp</h1>
   <p class="tag">Three short drills, five plays each. Earn up to three stars in every one.</p>
-  ${DRILLS.map(d=>`<button class="mode" data-d="${d.id}"><b>${d.name}</b><span>${d.what}</span>${starsHtml(bestStars(d))}</button>`).join('')}
+  <div class="cmt" role="img" aria-label="${n} of 9 stars"><div>${DRILLS.map(d=>`<span>${[0,1,2].map(i=>`<u class="${i<bestStars(d)?'on':''}"></u>`).join('')}</span>`).join('')}</div><b>${n}<small> / 9</small></b></div>
+  ${DRILLS.map(d=>`<button class="mode cmd" data-d="${d.id}">${dIcon(d)}<b>${d.name}</b><span>${S.best[d.id]?S.best[d.id].text:d.what}</span>${starsHtml(bestStars(d))}</button>`).join('')}
   <p class="note">${n===9?'Nine stars out of nine. You are ready for anything.':n?`${n} of 9 stars so far.`:'Nothing here counts against you. Repeat a drill as often as you like.'}</p></div>`;
     $('#bk').onclick = PG.showMenu;
     for (const b of scr.querySelectorAll('[data-d]')) b.onclick = () => card(DRILLS.find(d => d.id === b.dataset.d));
@@ -60,8 +72,8 @@
   function card(d) {
     const b = S.best[d.id];
     scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Training camp</button><h1 class="sm">${d.name}</h1><p class="tag">${d.what}</p>
-  <h2>How</h2><ul class="how">${d.how.map(t=>`<li>${t}</li>`).join('')}</ul>
-  <h2>Stars</h2><ul class="gl">${d.marks.map((m,i)=>`<li><span>${starsHtml(i+1)}</span><b>${d.markTxt(m)}</b></li>`).join('')}</ul>
+  <h2>How</h2><ol class="stp">${d.how.map((t,i)=>`<li><i>${i+1}</i><span>${t}</span></li>`).join('')}</ol>
+  <h2>Stars</h2><div class="mk3">${d.marks.map((m,i)=>`<div class="${b&&b.stars>i?'on':''}">${starsHtml(i+1)}<b>${d.markTxt(m)}</b></div>`).join('')}</div>
   ${b?`<p class="note">Your best: ${b.text}.</p>`:''}<button class="go" id="go">Start drill</button></div>`;
     $('#bk').onclick = open;
     $('#go').onclick = () => start(d);
@@ -83,8 +95,8 @@
     if (PG.milestones && DRILLS.every(x => bestStars(x) > 0)) PG.milestones.earn('camp');
     if (stars) PG.snd(stars === 3 ? 'fanfare' : 'chime');
     scr.innerHTML = `<div class="sheet"><div class="shd"><b>${d.name} drill</b><span>${text}</span></div>
-  <div class="campst">${starsHtml(stars)}<span>${stars===3?'Three stars. Nothing left to prove here.':stars?`${d.markTxt(nextMark)} for the next star.`:`${d.markTxt(nextMark)} earns the first star.`}${best&&was?' A new best.':''}</span></div>
-  <ul class="gl">${reps.map(x=>{const[ok,t]=d.rep(x);return`<li class="${ok?'ok':'no'}"><span>${x.play}</span><b>${t}</b></li>`}).join('')}</ul>
+  <div class="campst big">${starsHtml(stars)}${marksBar(d, score)}<span>${stars===3?'Three stars. Nothing left to prove here.':stars?`${d.markTxt(nextMark)} for the next star.`:`${d.markTxt(nextMark)} earns the first star.`}${best&&was?' A new best.':''}</span></div>
+  <ol class="rps">${reps.map((x,i)=>{const[ok,t]=d.rep(x);return`<li class="${ok?'ok':'no'}"><i>${i+1}</i><span>${x.play}</span><b>${t}</b></li>`}).join('')}</ol>
   <button class="go" id="nx">${nx?'Next: '+nx.name:'Back to camp'}</button><div class="row2"><button class="btn2" id="ag">Try again</button><button class="btn2" id="cm">${nx?'Camp':'Menu'}</button></div></div>`;
     $('#nx').onclick = () => nx ? start(nx) : open();
     $('#ag').onclick = () => start(d);

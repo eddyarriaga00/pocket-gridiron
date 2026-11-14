@@ -1804,6 +1804,32 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 19 a bug sweep of rare endings across random teams, QB and WR; 20 a second mobile measurement; then the
   fourth stock-take.
 
+- Change 19 (05:10), a bug sweep of rare endings, nothing in the game changed. A rougher test player was written
+  for it, `tools/chaos.js` (`X.exh(n, ql)`, `X.career(pos, n)`): it goes for it on fourth down, tries for two, kicks
+  onside, challenges, calls time out, declines free plays, picks random cards from every tab, ties the score late in
+  the fourth quarter so overtime is played, and after every step checks that the line of scrimmage, clock, distance,
+  score and every player's position are still numbers. Run: 25 exhibition games on random teams, times and weather
+  (1, 2 and 3 minute quarters, three of them with every opponent drive watched) and 28 career games as QB and WR on
+  random teams. Seen: 21 overtimes, 22 two-point tries, 30 fourth-down tries, 4 challenges, 127 time outs, about 470
+  random cards. No errors, no game that failed to end, no bad numbers. Not reached: an onside kick and a declined
+  free play (both need a rare situation the test did not meet). One false alarm: careers that ended tied with no
+  overtime were the test tying a game that was already over; the test now leaves a finished game alone.
+- Change 20 (05:15), a second mobile measurement, nothing changed. Load: the page's own files are 1,025 kB, 324 kB
+  compressed (up 21 kB and 6 kB since change 5, from the interface work), plus the 4.2 MB common voice pack after the
+  page is up. Drawing at 390x844 on this Mac, one exhibition half: before the snap and in play 108 to 208 draws and
+  about 340,000 triangles (2.2 to 2.7 ms a frame); cutscenes 108 to 126 draws and 253,000 to 346,000 triangles (down
+  from 537,000 before change 10); the instant replay 97 to 179 draws but 612,000 triangles, the heaviest moment left.
+- Fourth stock-take (05:15), after twenty changes. Changes 16 to 20: the halftime and final sheets, scoring and
+  leader rows, exhibition set-up pictures, the rare-endings sweep (clean) and the measurement. The interface pass is
+  complete: every screen has been redrawn or checked today. Weakest now: (a) the instant replay sends the close-up
+  model for all 22 players (612,000 triangles) when the camera is on two or three of them; (b) the on-field picture
+  has had one check today (change 9) and the players, sidelines and crowd none; (c) the play-call sheet and the
+  in-game HUD chips have not been looked at for clutter; (d) season mode's playoff bracket and the league screens
+  were only audited, not looked at.
+  Next five: 21 the replay's close-up models only for players near the ball; 22 a look at the players and sideline
+  in stills, day and night, fixing what is off; 23 the play-call sheet at 320 wide; 24 the playoff bracket and
+  league screens in stills; 25 a bug sweep of season mode through the playoffs; then the fifth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

@@ -1038,7 +1038,7 @@
     return `<div class="sprof" style="--c:${t.c1}"><span class="av" style="--c:${t.c1};color:${PG.inkOn(t.c1)}${PG.inkOn(t.c1) === '#fff' ? '' : ';text-shadow:none'}">${esc(L.slice(0, 2).toUpperCase())}</span><div><b>${esc(C.name)}${ver ? '<i class="ver" aria-label="verified"></i>' : ''}</b><span>@${esc(L.toLowerCase())}${C.num} · ${esc(t.name)} ${C.pos} #${C.num}</span></div></div>
   <div class="sstats"><div><b>${short(so.fol)}</b><span>Followers</span></div><div><b>${so.hype}</b><span>Hype</span></div><div><b>${so.backed}–${so.ate}</b><span>Callouts</span></div><div><b>${deals.length}</b><span>Partners</span></div></div>
   <div class="hypebar"><i style="width:${so.hype}%"></i></div>
-  <div class="hypek"><span style="left:25%">25 · partners stay</span><span style="left:55%">55 · offers come</span></div>
+  <div class="hypek"><span style="left:25%" aria-label="At 25 hype partners stay">25 · partners</span><span style="left:55%" aria-label="At 55 hype offers come">55 · offers</span></div>
   ${folTrend(so)}
   ${calloutHtml()}${offerHtml()}
   ${so.posted !== pracKey() ? `<div class="spost"><small>Post something \u00b7 once a week</small><div class="seg wrap"><button data-sp="fans">Thank the fans</button><button data-sp="hype">${C.phase === 'done' ? 'Stay hungry' : 'Hype the next game'}</button><button data-sp="mate">Shout out a teammate</button></div></div>` : ''}
@@ -1521,7 +1521,7 @@
     let lookOpen = false;  // and so is the player's look
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
-  <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
+  <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${C.pos} · age ${age()}<br>${full(C.team)} · Season ${C.season}</p><div class="pcc"><span>${esc(C.arch)}</span><span>${rank()}</span>${C.rings?`<span>${C.rings} title${C.rings>1?'s':''}</span>`:''}${C.awards&&C.awards.length?`<span>${C.awards.length} honor${C.awards.length>1?'s':''}</span>`:''}</div></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
   <div class="xp2"><div><span>To spend</span><b>${fmt(C.xp)} XP</b></div><div><span>Contract</span><b class="dl">${deal().left>0?`${money(deal().pay)} · ${deal().left} of ${deal().years} left`:'Up for renewal'}</b></div></div>
   ${trustHtml()}
   ${C.ageNote && C.week === 0 && C.phase === 'reg' ? `<p class="note">${esc(C.ageNote)}</p>` : ''}

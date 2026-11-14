@@ -1886,6 +1886,17 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 27 the career hub's five tabs in stills; 28 toasts, banners and broadcast cards at 320 wide; 29 an onside
   kick forced and watched through; 30 whole receiver careers with the rough test player; then the sixth stock-take.
 
+- Change 27 (07:30), the career hub's tabs in stills at 320 wide, after a three-game test career. Four small faults
+  fixed: (1) the header's one long line ran to four lines; it is now "#9 · QB · age 22", the team and season, and
+  chips for the archetype, depth-chart place, titles and honors (`.pcc`); (2) on the Social tab the two notes under
+  the hype bar ran into each other ("partners stay|55"): they read "25 · partners" and "55 · offers"; (3) the label
+  "Followers" was 4 pixels wider than its tile: the four tiles have a little more room; (4) dark team colors
+  (navy, black) were invisible as dots on the standings cards and score chips: the dots have a faint ring. Upgrade,
+  Season and Stats read correctly and were left alone. Audit empty at 320x568 and 390x844 over menus, career,
+  season and exhibition; fingerprint unchanged.
+  Next: 28 toasts, banners and broadcast cards at 320 wide; 29 an onside kick forced and watched through; 30 whole
+  receiver careers with the rough test player; then the sixth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

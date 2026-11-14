@@ -647,10 +647,10 @@ tr.me td{color:var(--acc);font-weight:700}
 .sprof .av{width:46px;height:46px;font-size:15px}
 .sprof b{display:flex;align-items:center;gap:5px;font-family:var(--display);font-weight:800;font-size:17px;line-height:1.2;overflow-wrap:anywhere}
 .sprof span:not(.av){display:block;font-size:12px;color:var(--mute);overflow-wrap:anywhere}
-.sstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;text-align:center}
-.sstats div{padding:8px 2px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.sstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;text-align:center}
+.sstats div{padding:8px 0;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
 .sstats b{display:block;font-family:var(--display);font-weight:800;font-size:17px;line-height:1.1}
-.sstats span{display:block;margin-top:2px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.sstats span{display:block;margin-top:2px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.01em;text-transform:uppercase;color:var(--mute)}
 .hypebar{height:4px;margin:8px 0 2px;border-radius:2px;background:var(--panel3);overflow:hidden}
 .hypebar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--sticks))}
 .seg.stab{margin-top:12px}
@@ -800,3 +800,10 @@ tr.me td{color:var(--acc);font-weight:700}
 .gm span em{flex:none;font:800 10px var(--display);font-style:normal;color:var(--mute);font-variant-numeric:tabular-nums}
 .gm span.out i{opacity:.4}
 .gm span.tbd{font:700 10px var(--display);letter-spacing:.1em}
+
+/* career header: archetype, depth-chart place, titles and honors as chips under the name */
+.pcc{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.pcc span{padding:2px 7px;border-radius:999px;background:var(--panel3);font:700 10px var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
+
+/* team color dots: a faint ring, so a dark team color still shows on the dark card */
+.dvc p i,.arl span i{box-shadow:0 0 0 1px rgba(255,255,255,.32)}

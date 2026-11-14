@@ -1522,6 +1522,17 @@ what is next. Update it after every item.
   a whole receiver season with every drive watched; careers, exhibition, drills; audit empty at 320x568 and 390x844
   with the look card open, the composer, and the four Social tabs.
 
+- 2026-11-14 10:00. The owner: "improve more things add more details". Two, drawn only. (1) A towel: a new optional
+  body part (`towel` in `PART_DEFS` and `GEO`, on the pelvis, shown through `f.extra` like the caps and hair) and a
+  Towel row in Your look (none, white, black, the team's colors, red, blue, pink). The first version sat inside the
+  hips and showed as a sliver; it was moved out. Seen on the hub card and on the field. (2) The toe tap: a pass
+  coming down within 2.2 yards of a sideline has the receiver get both feet down together on the field side, up on
+  his toes with the heels lifted, leaning out over the line (`f.tap`, set in the catch and blended over his stride
+  for a third of a second; `PG.r3d.tapOf(i)` reads it). One in a watched game, seen in a still. Also confirmed, with
+  nothing to change: the look already follows the player into the walkout scene, since the actor is made from the
+  same roster entry. Checked: fingerprint unchanged; gait, tackle, block and both staged catches as before; careers,
+  exhibition, drills; audit empty at 320x568 and 390x844 with the longer look card.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

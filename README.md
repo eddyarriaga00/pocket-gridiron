@@ -110,8 +110,8 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - Catches look like catches: a receiver with a defender on him goes up for the ball, arms high, and takes it at the top
   of the jump (the defender goes up with him), and a ball thrown off his line gets a stretch, chest out and arms long.
-- Your look: the career hub has a card for your player's skin tone, gloves, cleats, socks, visor, facemask and arm
-  bands, worn over the team's kit on the field and on your card. Social: post once a week (thank the fans, hype the
+- Your look: the career hub has a card for your player's skin tone, gloves, cleats, socks, visor, facemask, arm
+  bands and a towel at the belt, worn over the team's kit on the field and on your card. Social: post once a week (thank the fans, hype the
   next game, or shout out a teammate) and read the week's direct messages from home, your agent, a teammate and,
   in rivalry week, your rival.
 - Pass protection: before the snap on a pass, Protect (O, or LT) steps through Base, Slide left, Slide right and
@@ -123,7 +123,7 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   the play where he is, with no hit, no fumble and no injury.
 - The quarterback drops back the way one does: half turned, the ball up at his back shoulder, in crossover steps
   (three from the shotgun, five from under center, seven on play action), then sets his feet to throw. A stiff arm
-  goes to the nearest tackler, with whichever hand is on his side. After the whistle a teammate points upfield for
+  goes to the nearest tackler, with whichever hand is on his side. A catch at the sideline is taken with a toe tap. After the whistle a teammate points upfield for
   a first down, a defender waves off a pass he broke up, another flexes after a sack, and a quarterback reading the
   field pats the ball.
 - In a career you watch the snaps you are not on the field for: the other team's drives, their kickoffs to your

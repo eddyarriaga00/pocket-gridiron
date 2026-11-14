@@ -238,6 +238,8 @@
     foreArm: mkForeArm(10),
     wrist: new T.CylinderGeometry(0.053, 0.049, 0.055, 10).translate(0, -0.215, 0),
     hand: new T.SphereGeometry(0.064, 8, 6).scale(1, 1.15, 0.85).translate(0, -0.3, 0),
+    /* a towel tucked into the front of the belt, hanging over one thigh (a career player's own choice: optional) */
+    towel: merge([new T.BoxGeometry(0.1, 0.05, 0.05).translate(0.08, -0.03, -0.2), new T.BoxGeometry(0.09, 0.22, 0.016).translate(0.08, -0.15, -0.222)]),
     /* a stripe down both sides of the thigh, following its taper */
     pantStripe: merge([Math.PI / 2, Math.PI * 1.5].map(a => lathe(THIGH.map(([r, y]) => [r + 0.004, y]), 3, a - 0.2, 0.4))),
     thigh: mkThigh(12, false),
@@ -328,7 +330,7 @@
   /* [name, joints it follows, color key, what body type scales it ('body', 'limb' or nothing), casts a shadow] */
   const PART_DEFS = [
     ['torso', ['chest'], 'jersey', 'body', 1], ['pads', ['chest'], 'jersey', 'body', 1], ['neck', ['chest'], 'skin'],
-    ['hips', ['pelvis'], 'pants', 'body', 1],
+    ['hips', ['pelvis'], 'pants', 'body', 1], ['towel', ['pelvis'], 'towel', 'body', 0, 1],
     ['helmet', ['head'], 'helmet', '', 1], ['ear', ['head'], 'visor'], ['face', ['head'], 'skin'], ['skull', ['head'], 'skin', '', 0, 1], ['hair', ['head'], 'helmet', '', 0, 1], ['brim', ['head'], 'helmet', '', 0, 1], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
     ['upperArm', ['shL', 'shR'], 'skin', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
     ['foreArm', ['elL', 'elR'], 'skin', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
@@ -571,14 +573,14 @@
   }
 
   function colorFigure(i, c) {
-    for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setColorAt(i * p.joints.length + k, col.set(c[p.color]));
+    for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setColorAt(i * p.joints.length + k, col.set(c[p.color] || '#f1f1f1'));
   }
 
   /* A career player's own look (C.look in career.js): his skin tone, and his own choice of gloves, cleats, socks,
      visor, facemask and bands over the team's kit. 'kit' (or nothing) leaves a piece as the team wears it; 'team' and
      'team2' are the team's two colors. Bands 'none' takes the sleeve and wrist bands off. No yellow in the list. */
   const LOOK_HEX = { white: '#f1f1f1', black: '#17191e', grey: '#aeb6c2', silver: '#d3dae4', clear: '#9db3c7', dark: '#14161c', red: '#c2362f', blue: '#2d6cdf', green: '#1f9d6b', orange: '#e8742a', pink: '#e0569a', purple: '#7c3aed' };
-  const LOOK_HIDE = new Set(['sleeve', 'wrist']);
+  const LOOK_HIDE = new Set(['sleeve', 'wrist']), TOWEL_ON = new Set(['towel']);
 
   function lookColors(c, look, t) {
     if (!look) return c;
@@ -586,6 +588,7 @@
     if (look.skin >= 0 && SKIN[look.skin]) o.skin = SKIN[look.skin];
     for (const k of ['glove', 'shoe', 'sock', 'visor', 'mask', 'trim']) if (look[k] && look[k] !== 'kit' && hex(look[k])) o[k] = hex(look[k]);
     if (look.glove === 'bare') o.glove = o.skin;
+    o.towel = hex(look.towel) || '#f1f1f1';
     return o;
   }
 
@@ -2023,6 +2026,7 @@
     const tg = TG, ps = s.ps;
     tg.fill(0);
     f.leap = Math.max(0, (f.leap || 0) - dt / 0.3);  // a jump for the ball comes back down over about a third of a second
+    f.tap = Math.max(0, (f.tap || 0) - dt / 0.35);  // a toe tap at the sideline, the same
     let stretch = 0;  // reaching out for a ball off his line: how far into the lunge
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
     /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
@@ -2625,6 +2629,11 @@
              and takes it at the top of the jump, then lands and runs. Off target (it comes down a yard or more off his
              line, with nobody near): he stretches for it, chest out over the front foot and arms long toward the ball. */
           const left = a.T - a.t, cx = a.x1 - p.x, cy = a.y1 - p.y, miss = Math.hypot(cx, cy);
+          if (Math.min(a.x1, FW - a.x1) < 2.2 && left < 0.3) {
+            // coming down within two yards of the sideline: he gets his toes down in bounds as he takes it (see below)
+            f.tap = Math.max(f.tap, smooth(1 - left / 0.3));
+            f.tapSide = a.x1 < FW / 2 ? -1 : 1;
+          }
           let fight = 99;
           for (const o of s.P || []) if (o.team !== p.team && !o.down) fight = Math.min(fight, Math.hypot(o.x - a.x1, o.y - a.y1));
           if (fight < 1.8 && left < 0.42) {  // over the shoulder too: a deep ball with a man on him is fought for in the air
@@ -2800,6 +2809,18 @@
           tg[k ? ARY : ALY] = LEG[5];
         }
       } else plant(tg);  // standing still: on the turf, not a centimetre in it
+      if (f.tap > 0.05 && !(p.hurdle > 0) && !(f.leap > 0.03)) {
+        /* the toe tap: both feet together on the field side, up on the toes with the heels lifted, and the body
+           leaning out over the sideline. Blended over his stride by how far into it he is. */
+        const e = f.tap, s = Math.sign(f.tapSide * Math.cos(f.heading)) || 1;  // the sideline is to his right (1) or his left (-1)
+        tg[PELY] = lerp(tg[PELY], 0.97, e);
+        tg[PELRZ] = lerp(tg[PELRZ], -0.3 * s, e);
+        for (let k = 0; k < 2; k++) {
+          legIK(-s * 0.1 + (k ? 0.05 : -0.05), k ? -0.04 : 0.06, SOLE + TOE * Math.sin(0.9) * 0.5, tg[PELY], 0.9);
+          const I = k ? [HR, KR, AR, HRZ, ARZ, ARY] : [HL, KL, AL, HLZ, ALZ, ALY];
+          for (let j = 0; j < 6; j++) tg[I[j]] = lerp(tg[I[j]], LEG[j], e);
+        }
+      }
     }
     /* A forward lean comes partly from the hips: the seat goes back and the jersey stays tucked in,
        instead of the chest folding over a level pelvis. The thighs counter-rotate so the feet stay put. */
@@ -3639,7 +3660,7 @@
       }
       if (fresh) {
         f.hide = p.suit || p.hoodie ? BARE_HIDE : p.ref ? REF_HIDE : p.look && p.look.trim === 'none' ? LOOK_HIDE : null;
-        f.extra = p.hoodie ? CAP_ON : p.suit ? HAIR_ON : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
+        f.extra = p.hoodie ? CAP_ON : p.suit ? HAIR_ON : p.look && p.look.towel && p.look.towel !== 'kit' ? TOWEL_ON : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
         setBuild(f, p.ref || p.suit ? BUILD.ref : p.hoodie ? BUILD.qb : buildOf(p.role));
         const home = p.team === 0, kit = p.team === (G.home || 0), c = p.hoodie ? HOOD(t0) : p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : lookColors(teamColors(home ? t0 : t1, kit, SKIN[(p.num * 7 + i) % SKIN.length]), p.look, home ? t0 : t1);  // kit: home colors for the home side, white for the visitors
         colorFigure(SIDELINE + i, c);
@@ -3973,6 +3994,7 @@
     for (const name in st.meshes) for (const m of st.meshes[name]) {
       m.material.color.set(c[m.userData.color]);
       if (LOOK_HIDE.has(name)) m.visible = !(look && look.trim === 'none');
+      if (name === 'towel') m.visible = !!(look && look.towel && look.towel !== 'kit');
     }
     st.f.num.material = numberMaterial(num, c.number);
   }
@@ -4634,6 +4656,11 @@
       f.root.updateMatrixWorld(true);
       const h = (k ? f.elR : f.elL).localToWorld(new T.Vector3(0, -0.3, 0)), c = f.chest.localToWorld(new T.Vector3(0, 0.45, 0));
       return { hand: [h.x, -h.z, h.y], chest: [c.x, -c.z, c.y] };
+    },
+    /* test hook: how far into a toe tap player i is (0 to 1) */
+    tapOf(i) {
+      const f = figs[SIDELINE + i];
+      return f ? f.tap || 0 : 0;
     },
     gait: gaitTest, strip,  // test hooks: measure a run, and draw one stride as a row of side views
     cheer(v) {

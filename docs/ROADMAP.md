@@ -1752,6 +1752,13 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   of inviting a first career (`summary()`). Audit empty at 320x568; fingerprint unchanged.
   Next: 13 the pause sheet; 14 How to play as cards; 15 training camp's results; then the stock-take.
 
+- Change 13 (03:40), the pause sheet: it opens with where the game stands, drawn as a scoreboard (both badges, the
+  score, each side's time outs as dots, the quarter and clock between them, down and distance under), or the drill's
+  name and reps left in a drill; Sound and Commentary are switches in one card instead of two "Sound: on" buttons
+  (`pauseTop`, `sw`, `.pzs`, `.tod`). Resume, the goals list and Leave as before. Switches and the leave dialog
+  exercised; audit empty at 320x568 and 390x844; fingerprint unchanged.
+  Next: 14 How to play as cards with a small picture each; 15 training camp's results; then the third stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

@@ -5463,6 +5463,18 @@
     CONF.length = 0;
   }
 
+  /* the top of the pause sheet: where the game stands, as on a scoreboard (badges, score, time outs left as dots,
+     the quarter and clock between them, down and distance under). A drill shows its name and the reps left. */
+  function pauseTop() {
+    if (G.drill) return `<div class="pzs"><em>${esc(G.drill.title)} · ${G.drill.left} of ${G.drill.n} ${G.drill.left === 1 ? 'rep' : 'reps'} left</em></div>`;
+    const s = Math.max(0, Math.ceil(G.clock)), side = t => {
+      const tm = TEAMS[G.tm[t]], to = G.to ? G.to[t] : 0;
+      return `<div class="mt${t === 0 ? ' me' : ''}"><i style="--c:${tm.c1};color:${inkOn(tm.c1)}">${tm.ab}</i><b>${G.score[t]}</b><span class="tod" aria-label="${to} time outs left">${[0, 1, 2].map(i => `<u class="${i < to ? 'on' : ''}"></u>`).join('')}</span></div>`;
+    };
+    return `<div class="pzs"><div class="mu">${side(0)}<div class="mv">${G.ot ? 'OT' : 'Q' + Math.min(4, G.q)}<b>${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</b></div>${side(1)}</div>${G.dnTxt ? `<em>${esc(G.dnTxt)}</em>` : ''}</div>`;
+  }
+  const sw = (id, label, on) => `<div class="opt"><span>${label}</span><button class="tog${on ? ' on' : ''}" id="${id}" role="switch" aria-checked="${!!on}" aria-label="${label}"><b>${on ? 'On' : 'Off'}</b><i></i></button></div>`;
+
   function openPause() {
     if (!G.ros || G.state === 'over' || G.paused) return;
     G.paused = true;
@@ -5472,7 +5484,7 @@
     const draw = sure => {
       ov.innerHTML = sure
         ? `<div class="dlg"><h3>${G.drill?'Leave drill?':'Leave game?'}</h3><p>${G.drill?'This drill will not count. You can start it again.':G.mode!=='exh'?'This game will not count. You can play it again.':'Your progress in this game will be lost.'}</p><button class="btn2 warn" id="pq2">${G.drill?'Leave drill':'Leave game'}</button><button class="btn2" id="pk">Keep playing</button></div>`
-        : `<div class="dlg"><h3>Paused</h3>${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><button class="btn2" id="psn">Sound: ${SET.snd?'on':'off'}</button><button class="btn2" id="pan">Commentary: ${SET.ann!==false?'on':'off'}</button><button class="btn2 warn" id="pq">${G.drill?'Leave drill':'Leave game'}</button></div>`;
+        : `<div class="dlg"><h3>Paused</h3>${pauseTop()}${G.goalsFn?`<ul class="gl" style="margin:0 0 6px">${G.goalsFn(G.my).map(g=>`<li class="${g.ok?'ok':'no'}"><span>${g.d}</span></li>`).join('')}</ul>`:''}<button class="go sm" id="pr">Resume</button><div class="grp pzg">${sw('psn','Sound',SET.snd)}${sw('pan','Commentary',SET.ann!==false)}</div><button class="btn2 warn" id="pq">${G.drill?'Leave drill':'Leave game'}</button></div>`;
       const on = (id, f) => {
         const el = $('#' + id);
         if (el) el.onclick = f;

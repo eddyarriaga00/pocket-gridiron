@@ -706,3 +706,15 @@ tr.me td{color:var(--acc);font-weight:700}
 .scene .cap small{color:#aab6cc}
 .scene>small{color:#c3ccdc;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .scene>small{align-self:center;padding:3px 10px;border-radius:10px;background:rgba(6,10,19,.78)}
+
+/* pause sheet: the score as on a scoreboard, then switches */
+.pzs{display:grid;gap:6px;margin:0 0 2px}
+.pzs .mu{margin:0}
+.pzs .mu .mt b{font-size:22px;line-height:1}
+.pzs .mv{display:grid;justify-items:center;gap:2px}
+.pzs .mv b{font:800 15px var(--display);letter-spacing:.02em;color:var(--ink);font-variant-numeric:tabular-nums}
+.pzs em{font-style:normal;text-align:center;font-size:12px;color:var(--mute)}
+.tod{display:flex;gap:3px}
+.tod u{width:6px;height:6px;border-radius:50%;border:1px solid var(--mute);text-decoration:none}
+.tod u.on{background:var(--ink);border-color:var(--ink)}
+.pzg{background:var(--panel2)}

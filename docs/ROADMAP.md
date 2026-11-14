@@ -1457,6 +1457,22 @@ what is next. Update it after every item.
   pose and no error; careers, exhibition, drills; audit empty on the career and exhibition games at 390x844. Seen as
   three small stills, not in motion.
 
+- 2026-11-14 05:00. The owner: "research what madden has and add more things from it". Read up on the current
+  game's feature list and controls (its career mode's short-term goals, relationships and trade requests; on the
+  field: pump fake, quarterback slide, pass protection slides and max protect, hot routes, fake snap). Already here
+  under our own names: hot routes, the hard count, motion, the throw-away, trade requests, coach trust, game goals.
+  Built now, as plain football and with no names or marks taken: (1) the pump fake (`pumpFake`, Pump on the pass
+  pad, B on the keyboard, LT on a controller): 0.42 seconds in which he cannot throw; it is sold to the shortest
+  route, and zone defenders near that receiver may drive on him for about half a second (`d.fakeT`, `ps.fake`,
+  `zoneAI`), good coverage men less often; once every second and a half; the computer never pumps. (2) the
+  quarterback's slide (`qbSlide`, pad kind `carryq` with Slide where Hurdle was, N, controller Y): past the line he
+  gives himself up, the ball is dead there, with no fumble and no chance of being shaken up. Drawn in `poseFor` (the
+  arm cocks and comes back; he goes down on his back). In a staged test eight pumps drew six bites, a throw was
+  refused during the pump and allowed after, and a slide four yards past the line ended the play there. Checked:
+  fingerprint unchanged; careers, exhibition, drills; audit empty at 320x568 and 390x844 with the new buttons.
+  Not built from the list: pass protection calls (slide left or right, max protect), which need the line's blocking
+  assignments reworked; relationships with teammates and fans.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

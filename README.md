@@ -110,6 +110,9 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - Catches look like catches: a receiver with a defender on him goes up for the ball, arms high, and takes it at the top
   of the jump (the defender goes up with him), and a ball thrown off his line gets a stretch, chest out and arms long.
+- Pump fake: Pump on the passing pad (B, or LT on a controller) fakes a throw; zone defenders near the short route
+  may bite and leave the man behind them open. Quarterback slide: past the line of scrimmage, Slide (N, or Y) ends
+  the play where he is, with no hit, no fumble and no injury.
 - The quarterback drops back the way one does: half turned, the ball up at his back shoulder, in crossover steps
   (three from the shotgun, five from under center, seven on play action), then sets his feet to throw. A stiff arm
   goes to the nearest tackler, with whichever hand is on his side. After the whistle a teammate points upfield for

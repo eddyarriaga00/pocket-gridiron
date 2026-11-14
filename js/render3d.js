@@ -2084,6 +2084,7 @@
             f.fallSide = rel > 0 ? -1 : 1;
           }  // hit from the side: bowled over the other way
         } else if (p.fell || pileOn) f.fallDir = 1;  // the tackler, and anyone piling on, lands forward on his man
+        else if (p.slide) f.fallDir = -1;  // a quarterback's slide: onto his back, feet first
       }
       f.fall = Math.min(1, f.fall + dt / 0.3);
       const e = f.fall * f.fall * (3 - 2 * f.fall), wrap = (p.fell || pileOn) && !p.down && !flat;
@@ -2558,6 +2559,17 @@
             tg[SLZ] = 0.2;
             tg[SRZ] = -0.2;
           }  // arms make a pocket
+      }
+      if (p.pump > 0 && !winding && inPocket) {
+        /* the pump fake: the ball goes back by his ear, the arm starts forward, and he pulls it down again */
+        const e = Math.sin(clamp(1 - p.pump / 0.42, 0, 1) * Math.PI);
+        tg[SRX] = lerp(tg[SRX], 2.9, e);
+        tg[ER] = lerp(tg[ER], 1.3, e);
+        tg[SRZ] = lerp(tg[SRZ], 0.1, e);
+        tg[SLX] = lerp(tg[SLX], 1.2, e);
+        tg[EL] = lerp(tg[EL], 0.7, e);
+        tg[CHRY] = lerp(tg[CHRY], 0.45, e);
+        snap = true;
       }
       if (winding) {
         /* winding up as the power bar fills: the ball goes back behind the ear, the front arm comes off it and

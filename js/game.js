@@ -1155,6 +1155,10 @@
 
   function zoneAI(d) {
     const dir = G.dir;
+    if (d.fakeT > ps.t && ps.fake && !ps.thrown) {
+      seek(d, ps.fake.x, ps.fake.y, 1, true);  // he bit on the pump fake: for a moment he is driving on a throw that never came
+      return;
+    }
     let tx = d.zx, ty = d.zy, b = null, bs = 1e9;
     for (const r of P) {
       if (r.team === d.team || !r.route) continue;
@@ -1343,8 +1347,52 @@
   const CHARGE = 0.55;  // seconds from an empty bar to a full one
   const RPO_T = 0.7;  // how long the quarterback holds a run-pass option before the back takes the ball
 
+  /* The pump fake: the arm goes through the start of a throw and comes back. For those four tenths of a second he
+     cannot throw (the rush keeps coming). It is sold to the shortest route on the field: zone defenders near that
+     receiver may drive on him for half a second, and a deep safety over him may step down, which is what springs the
+     route behind them. Good coverage men bite less. Once every second and a half; the computer never pumps. */
+  function pumpFake() {
+    const q = ps.qb;
+    if (!canPass() || G.chg || q.pump > 0 || q.pumpCd > ps.t) return;
+    q.pump = 0.42;
+    q.pumpCd = ps.t + 1.5;
+    const dir = G.dir;
+    let r = null, best = 1e9;
+    for (const x of ps.recs) if (x.route && !x.down) {
+      const dep = (x.y - ps.los) * dir;
+      if (dep > -1 && dep < best) {
+        best = dep;
+        r = x;
+      }
+    }
+    if (!r) return;
+    ps.fake = { x: r.x + r.vx * 0.3, y: r.y + r.vy * 0.3 };
+    let bit = 0;
+    for (const d of P) if (d.team !== q.team && d.asg === 'zone' && !d.down && hyp(d.x - r.x, d.y - r.y) < (d.deep ? 16 : 11)) {
+      if (Math.random() < clamp((d.deep ? 0.4 : 0.65) - ((d.cov ?? 80) - 75) * 0.012, 0.15, 0.75)) {
+        d.fakeT = ps.t + (d.deep ? 0.4 : 0.55);
+        bit++;
+      }
+    }
+    snd('tick');
+    if (bit) toast(bit > 1 ? 'They bit on the pump' : 'He bit on the pump');
+  }
+
+  /* The quarterback's slide: past the line he gives himself up, feet first. The ball is dead where he starts it, and
+     nobody may hit him: no fumble, and no chance of being shaken up. */
+  function qbSlide() {
+    const c = ps.carrier;
+    if (AUTO || G.state !== 'live' || !c || c !== ps.qb || !userP(c) || c.down || ps.fum || (c.y - ps.los) * G.dir <= 0) return;
+    c.down = true;
+    c.slide = true;
+    ps.slid = true;
+    ps.tackler = null;
+    toast('He slides');
+    finish('tackle');
+  }
+
   function startCharge(i, pid) {
-    if (!canPass() || !ps.recs[i] || ps.recs[i].down) return;
+    if (!canPass() || !ps.recs[i] || ps.recs[i].down || ps.qb.pump > 0) return;
     G.chg = { i, t: 0, pid: pid === undefined ? null : pid };
     G.pwShow = null;
     $('#tip').hidden = true;  // the tip said "hold a letter": it makes way for the power bar
@@ -1728,6 +1776,7 @@
       p.callT -= dt;
       p.manT -= dt;
       p.thrT -= dt;
+      if (p.pump > 0) p.pump -= dt;
       p.spinT -= dt;
       p.stiff -= dt;
       p.truck -= dt;
@@ -2408,7 +2457,7 @@
     const p0 = ps, s0 = G.score.slice();
     finish0(kind, arg);
     gesture(p0);
-    if (kind === 'tackle' && p0 && p0.carrier && G.state === 'dead' && (p0.mode === 'pass' || p0.mode === 'run') && !AUTO && !QUIET && !G.drill && Math.random() < 0.008) shaken(p0.tackler && P.includes(p0.tackler) && Math.random() < 0.35 ? p0.tackler : p0.carrier);  // about one time in three it is the tackler who stays down
+    if (kind === 'tackle' && p0 && p0.carrier && !p0.slid && G.state === 'dead' && (p0.mode === 'pass' || p0.mode === 'run') && !AUTO && !QUIET && !G.drill && Math.random() < 0.008) shaken(p0.tackler && P.includes(p0.tackler) && Math.random() < 0.35 ? p0.tackler : p0.carrier);  // about one time in three it is the tackler who stays down
     if (p0 && p0.rk && !p0.flagged && G.state === 'dead') return roughKick(p0, s0);
     if (!p0 || p0.flagged || G.state !== 'dead' || (p0.mode !== 'pass' && p0.mode !== 'run')) return;  // a flag during the play already decided it (holding, interference)
     if (p0.free) freePlay(p0, s0);
@@ -2680,7 +2729,7 @@
         rpGain = gi;
         if (sack && me && ps.tackler === me) G.my.sack++;
         if (sack) credit(ps.tackler, 'sack', 1);
-        sub = `${c.name} #${c.num}${ps.caught?' · catch':''}${kind==='oob'?' · out of bounds':''}`;
+        sub = `${c.name} #${c.num}${ps.caught?' · catch':''}${kind==='oob'?' · out of bounds':''}${ps.slid?' · slide':''}`;
         if (sack) {
           react(1 - off, 0.9, 2.2);
           snd('whoop', { x: c.x, delay: 0.5 });  // and so do the men who got there
@@ -4250,8 +4299,10 @@
     if (k === 'switch' && G.state === 'pre' && G.poss === 1 && !G.lock) return switchDef();
     if (G.state !== 'live') return;
     const c = ps.carrier;
+    if (k === 'pump') return pumpFake();
+    if (k === 'slide') return qbSlide();
     if (k === 'away') {
-      if (canPass()) {
+      if (canPass() && !(ps.qb.pump > 0)) {
         const q = ps.qb;
         G.chg = null;
         throwTo(null, { x: q.x < FW / 2 ? -3 : FW + 3, y: q.y + G.dir * 9 });
@@ -4307,14 +4358,14 @@
     if (G.state === 'live') {
       const c = ps.carrier;
       if (ps.fum && !ps.fum.scoop) return userOnD() ? 'loose' : 'none';
-      if (c && userP(c)) return canPass() ? 'pass' : 'carry';
+      if (c && userP(c)) return canPass() ? 'pass' : c === ps.qb && (c.y - ps.los) * G.dir > 0 ? 'carryq' : 'carry';
       if (userOnD()) return lk ? 'deflock' : 'def';
       if (lk && me && ps.offTeam === 0 && !ps.turnover && !me.down && me !== ps.qb) return me.route && (ps.mode === 'pass' || (ps.rpo && !ps.handoff)) && !ps.thrown ? 'route' : 'offball';
     }
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open; Pump fakes a throw, and a zone defender may bite.', carryq: 'Past the line your quarterback can Slide: the play ends there, and nobody may hit him.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
     offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', watch: 'You watch the plays you are not on the field for. Fast fwd runs them at three times the speed; Skip drive goes straight to the result.', watchK: 'Their kickoff, with your returner back deep. Skip starts your offense from the touchback spot.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
@@ -4373,8 +4424,15 @@
         B(r.let, 'rc', () => startCharge(i), () => endCharge(i)).style.background = r.col;  // hold to build power, let go to throw
       });
       B('Away', 'aw', () => act('away'));  // nobody open: throw it out of bounds (from inside the pocket it may be grounding)
+      B('Pump', 'aw', () => act('pump'));  // a fake throw: zone defenders may bite
     }
-    else if (kind === 'carry') {
+    else if (kind === 'carryq') {
+      spr();
+      B('Juke', '', () => act('juke'));
+      B('Spin', '', () => act('spin'));
+      B('Power', '', () => act('power'));
+      B('Slide', 'hc', () => act('slide'));  // the quarterback past the line: give yourself up, safely
+    } else if (kind === 'carry') {
       spr();
       B('Juke', '', () => act('juke'));
       B('Spin', '', () => act('spin'));
@@ -4446,6 +4504,8 @@
     if (e.code === 'KeyG') act('hard');
     if (e.code === 'KeyM') act('motion');
     if (e.code === 'KeyZ') act('away');
+    if (e.code === 'KeyB') act('pump');
+    if (e.code === 'KeyN') act('slide');
     if (e.code === 'Minus' || e.code === 'BracketLeft') zoomBy(-1);
     if (e.code === 'Equal' || e.code === 'BracketRight') zoomBy(1);
     if (e.code === 'Escape' || e.code === 'KeyP') G.paused ? closePause() : openPause();
@@ -4592,7 +4652,7 @@
   const GP = { on: false, prev: [], x: 0, y: 0, sprint: false, nav: { dir: '', t: 0 }, zoomT: 0, foc: null, last: null };
   const GB = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   const GLET = ['A', 'B', 'X', 'Y', 'RB'];  // the throw buttons, in the order of the receivers across the field
-  const GMAP = { snap: { A: 'main', X: 'motion', Y: 'hard', LB: 'audible', RB: 'flip' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' },
+  const GMAP = { snap: { A: 'main', X: 'motion', Y: 'hard', LB: 'audible', RB: 'flip' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' }, carryq: { A: 'power', B: 'juke', X: 'spin', Y: 'slide' },
     def: { A: 'dive', B: 'switch', X: 'hit', Y: 'strip' }, deflock: { A: 'dive', X: 'hit', Y: 'strip' }, route: { A: 'call' }, watch: { A: 'ff', B: 'skipd' }, watchF: { A: 'ff', B: 'skipd' }, watchK: { A: 'ff', B: 'skipd' }, watchKF: { A: 'ff', B: 'skipd' }, defpre: { B: 'switch', LB: 'audible' }, loose: { A: 'dive' }, timeout: { A: 'timeout' } };
   addEventListener('gamepadconnected', e => toast('Controller connected' + (e.gamepad && e.gamepad.mapping === 'standard' ? '' : ' · buttons may differ')));
   addEventListener('gamepaddisconnected', () => toast('Controller disconnected'));
@@ -4666,6 +4726,7 @@
         if (rel(b)) endCharge(i);
       });
       if (hit(GB.LB)) act('away');
+      if (hit(GB.LT)) act('pump');
       return;
     }
     const map = GMAP[G.pad] || {};

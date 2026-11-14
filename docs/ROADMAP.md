@@ -45,8 +45,8 @@ what is next. Update it after every item.
 2. Load the harness in the page (the query string defeats the cache):
    `await fetch('tools/harness.js?'+Date.now()).then(r=>r.text()).then(t=>(0,eval)(t))`
 3. Run:
-   - `H.sim(12,180)` computer vs computer. Healthy ranges: about 4 yards per carry, completions 53-62%,
-     interceptions 1-3%, about 25-35 points per game combined, `errs` empty.
+   - `H.sim(12,180)` computer vs computer. Healthy ranges: 4 to 5 yards per carry, completions 53-62%,
+     interceptions 1-3%, about 40-46 points per game combined (measured 2026-11-14), `errs` empty.
    - `H.exh(2,120)` scripted user in exhibition (exercises play calling, kicks, kickoffs). `errs` empty.
    - `H.career('QB',2)` and `H.career('WR',2)` (a new career is a quarterback or a receiver). `errs` empty, stats non-zero.
    - `H.fingerprint()` must equal `localStorage['pg.fingerprint']` after any change that should not alter play. It pins
@@ -1472,6 +1472,27 @@ what is next. Update it after every item.
   fingerprint unchanged; careers, exhibition, drills; audit empty at 320x568 and 390x844 with the new buttons.
   Not built from the list: pass protection calls (slide left or right, max protect), which need the line's blocking
   assignments reworked; relationships with teammates and fans.
+
+- 2026-11-14 06:30. The owner: "Yes keep working" (pass protection calls). Two things, and the second CHANGES PLAY.
+  (1) Pass protection, before the snap on a pass (`protect`, `setProt`, Protect on the pad, O, controller LT): Base,
+  Slide left, Slide right, Max protect. A slide re-makes the line calls with every lineman counted 1.6 yards over
+  (`lineCalls`, now its own function) and biases free blockers that way; Max protect takes the routes off the backs
+  and the tight end so they block, and re-letters the receivers. `PG.dbg.lab(play, n, { prot })` measures a call.
+  Seeded, 300 snaps each: a slide changes who comes free (Curl Flat against Man Blitz, sacks 144 base, 133 left,
+  125 right; Skinny Post against Man Blitz, 0 base but 121 and 152 with a slide: the wrong slide costs you), and Max
+  protect lifts completions against zone (67% to 85% against Cover 3) but can backfire against a man blitz, because
+  the men covering the backs come too. The computer and simulations stay on Base.
+  (2) Found while measuring: receivers ran two or three yards past every hard break, so a ball thrown to the break
+  was "overthrown" every time. In 160 seeded snaps of eight plays the computer completed 1 of 116 hitches, 0 of 42
+  in-routes and half its outs; the same throws from a person missed the same way. Fixed in three places:
+  `followRoute` throttles down into a sharp turn (and records it as `p.cut`), `lead` charges a break for the ground
+  it costs, during it and for 0.7 seconds after. Now hitches 76 of 82, ins 23 of 38, outs 100 of 138. That lifted
+  completions in `H.sim` from 57% to 67%, so the base catch chance in `resolvePass` came down from 0.96 to 0.9:
+  24 games now give 59% completions, 2.1% interceptions, 16.0 yards a completion, 41.9 points a game (before: 57%,
+  1.8%, 15.8, 45.4). An attempt to also pace the receiver to arrive with the ball was dropped: it took completions to
+  87%. The fingerprint changed, as it must, was checked to repeat, and was re-pinned (the old one is kept as
+  `pg.fingerprint.before-routes` in the test browser). Checked: careers (4 games each), exhibition, drills with the
+  usual star counts, audit empty at 320x568 and 390x844 with the sixth pre-snap button.
 
 ## Morning hand-off
 

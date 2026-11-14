@@ -698,6 +698,29 @@
     return p;
   }
 
+  /* line calls: each rusher (linemen first, outside in, then blitzers) gets the nearest free blocker across from him.
+     slide (yards, + toward larger x): the line is sliding that way, so each blocker counts as standing that much
+     further over, takes the man to that side, and the far edge is the one left for a back. */
+  function lineCalls(off, los, bx, slide) {
+    for (const o of P) if (o.isOL) o.bt = null;
+    const rush = P.filter(p => p.team !== off && p.asg === 'rush').sort((a, b) => Math.abs(a.y - los) - Math.abs(b.y - los) || Math.abs(b.x - bx) - Math.abs(a.x - bx)), taken = new Set();
+    for (const r of rush) {
+      let b = null, bd = 1e9;
+      for (const o of P) {
+        if (!o.isOL || taken.has(o)) continue;
+        const q = Math.abs(o.x + slide - r.x);
+        if (q < bd) {
+          bd = q;
+          b = o;
+        }
+      }
+      if (b) {
+        taken.add(b);
+        b.bt = r;
+      }
+    }
+  }
+
   function setupPlay(shift) {
     const was = shift ? Object.fromEntries(P.map(p => [p.team + p.role, [p.x, p.y]])) : null, selRole = shift && G.sel ? G.sel.role : null;
     if (!shift) {
@@ -806,23 +829,7 @@
         p.deep = false;
       }
     }
-    // line calls: each rusher (linemen first, outside in, then blitzers) gets the nearest free blocker across from him
-    const rush = P.filter(p => p.team !== off && p.asg === 'rush').sort((a, b) => Math.abs(a.y - los) - Math.abs(b.y - los) || Math.abs(b.x - bx) - Math.abs(a.x - bx)), taken = new Set();
-    for (const r of rush) {
-      let b = null, bd = 1e9;
-      for (const o of P) {
-        if (!o.isOL || taken.has(o)) continue;
-        const q = Math.abs(o.x - r.x);
-        if (q < bd) {
-          bd = q;
-          b = o;
-        }
-      }
-      if (b) {
-        taken.add(b);
-        b.bt = r;
-      }
-    }
+    lineCalls(off, los, bx, 0);
     ps.third = G.down === 3 && !kick ? off : null;  // counted when it ends: third downs tried and made
     if (kick && op.n === 'Punt' && liveReturn()) {
       // the free safety drops back to field the punt
@@ -1106,8 +1113,18 @@
   function followRoute(p) {
     const r = p.route;
     if (p.wp < r.pts.length) {
-      const w = r.pts[p.wp];
-      if (seek(p, w[0], w[1], 1, true) < 0.7) p.wp++;
+      const w = r.pts[p.wp], nx = r.pts[p.wp + 1], dx = w[0] - p.x, dy = w[1] - p.y, d = hyp(dx, dy) || 1;
+      /* A hard break is run under control: he throttles down over the last few yards so he can plant and cut at the
+         mark. At full speed he ran two or three yards past it, and a ball thrown to the break (a curl, a hitch, an in)
+         came down with nobody there. The sharper the turn, the more he slows; a stop at the end is the sharpest. */
+      const ox = nx ? nx[0] - w[0] : r.stop ? -dx : r.lx, oy = nx ? nx[1] - w[1] : r.stop ? -dy : r.ly, ol = hyp(ox, oy) || 1;
+      const turn = Math.acos(clamp((dx * ox + dy * oy) / (d * ol), -1, 1)), sharp = clamp((turn - 0.7) / 1.7, 0, 1);
+      const f = sharp > 0 && d < 3.5 ? lerp(1 - 0.62 * sharp, 1, d / 3.5) : 1;
+      if (seek(p, w[0], w[1], f, true) < 0.7) {
+        p.wp++;
+        p.cut = sharp;  // how hard that break was, and when: for the next half second he is still coming out of it
+        p.cutAt = ps.t;
+      }
     } else if (r.stop) {
       p.dvx = p.dvy = 0;
     } else {
@@ -1134,7 +1151,8 @@
       if (o.team === p.team || o.down || o.eng || o.stun > 0 || cl.has(o)) continue;
       const dc = dist(o, prot);
       if (pro && !(o.asg === 'rush' || dc < 6)) continue;
-      const s = dist(p, o) + dc * 0.6;
+      let s = dist(p, o) + dc * 0.6;
+      if (pro && ps.slide && p.isOL) s -= ps.slide * Math.sign(o.x - ps.bx) * 2.2;  // the line is sliding that way: each man looks to that side first
       if (s < bs) {
         bs = s;
         best = o;
@@ -1222,8 +1240,9 @@
   function offAI(p, cl) {
     const a = ps.air;
     if (ps.mode === 'pass' && !ps.open) {
-      if (a && a.target === p) seek(p, a.x1, a.y1, 1, true);
-      else if (p.route && !(a && p.wp >= p.route.pts.length)) followRoute(p);
+      if (a && a.target === p) {
+        seek(p, a.x1, a.y1, 1, true);
+      } else if (p.route && !(a && p.wp >= p.route.pts.length)) followRoute(p);
       else blockAI(p, cl);
       return;
     }
@@ -1313,13 +1332,18 @@
     let x = r.x, y = r.y, rem = r.spd * T * 0.93;
     const rt = r.route;
     if (!rt || r.manT > 0) return [clamp(x + r.vx * T, 1.5, FW - 1.5), clamp(y + r.vy * T, -8.5, 108.5)];
+    if (r.cut > 0 && ps.t - r.cutAt < 0.7) rem = Math.max(0, rem - r.spd * 0.6 * r.cut * (1 - (ps.t - r.cutAt) / 0.7));  // just out of a break: not yet up to speed on the new line
     let i = r.wp;
     while (rem > 0 && i < rt.pts.length) {
       const w = rt.pts[i], d = hyp(w[0] - x, w[1] - y);
       if (d <= rem) {
+        /* a break costs him ground: he slows into it and has to get going again (see followRoute), so the sharper
+           the cut, the less far past it he will be */
+        const nx = rt.pts[i + 1], ox = nx ? nx[0] - w[0] : rt.lx, oy = nx ? nx[1] - w[1] : rt.ly, ol = hyp(ox, oy) || 1;
+        const turn = d > 0.01 && (nx || !rt.stop) ? Math.acos(clamp(((w[0] - x) * ox + (w[1] - y) * oy) / (d * ol), -1, 1)) : 0;
         x = w[0];
         y = w[1];
-        rem -= d;
+        rem = Math.max(0, rem - d - r.spd * 0.5 * clamp((turn - 0.7) / 1.7, 0, 1));
         i++;
       } else {
         x += (w[0] - x) / d * rem;
@@ -1623,7 +1647,10 @@
         nd = o;
       }
     }
-    let cp = dr > 2.2 ? 0 : (0.96 - clamp((2.6 - ndd) / 2.6, 0, 1) * 0.42) * (0.93 + ((r.cat ?? r.rt) - 70) * 0.005) - (dr > 1.2 ? 0.25 : 0) - Math.max(0, a.dist - 16) * 0.009;
+    /* 0.9 was 0.96 until 2026-11-14: receivers used to run two or three yards past every hard break, so balls thrown to
+       hitches, curls and in-routes never found them, and the game was balanced with those misses in it. With the routes
+       run properly the base chance came down, to keep completions near 58%. */
+    let cp = dr > 2.2 ? 0 : (0.9 - clamp((2.6 - ndd) / 2.6, 0, 1) * 0.42) * (0.93 + ((r.cat ?? r.rt) - 70) * 0.005) - (dr > 1.2 ? 0.25 : 0) - Math.max(0, a.dist - 16) * 0.009;
     const ud = nd && nd === G.sel && off === 1 && !AUTO && ndd < 1.8;
     if (ud) cp -= 0.2;
     cp *= G.wx.cat;  // a wet or frozen ball is harder to hold
@@ -4158,6 +4185,49 @@
      defender jumps. Once a play. In the league's penalty tables defensive offside and neutral zone infractions together
      come to under one a game and false starts to about two and a half, so it works about one time in eight (offside,
      five yards, replay the down) and backfires about one time in twenty-five (your own lineman flinches). */
+  /* Pass protection, called before the snap on a pass play (Protect steps through them): Base; Slide left or right
+     (each lineman takes the rusher toward that side first, which picks up an overload from there and leaves the other
+     edge lighter); Max protect (the backs and the tight end stay in to block instead of running their routes, so
+     there are fewer men to throw to). Left and right are as you see them. Simulations and the computer stay on Base. */
+  const PROT = ['base', 'left', 'right', 'max'], PROT_TXT = { base: 'Base protection', left: 'Slide left', right: 'Slide right', max: 'Max protect' };
+
+  function setProt(kind) {
+    const off = ps.offTeam;
+    if (ps.kept) for (const [p, route, rn] of ps.kept) {
+      p.route = route;
+      p.rn = rn;
+    }
+    ps.kept = null;
+    ps.slide = kind === 'left' ? -G.dir : kind === 'right' ? G.dir : 0;
+    lineCalls(off, ps.los, ps.bx, ps.slide * 1.6);
+    if (kind === 'max') {
+      const stay = P.filter(p => p.team === off && p.route && /^(RB|FB|TE)$/.test(p.role));
+      if (!stay.length || P.filter(p => p.team === off && p.route).length - stay.length < 2) return false;  // nobody to keep in, or nobody left to throw to
+      ps.kept = stay.map(p => [p, p.route, p.rn]);
+      for (const p of stay) p.route = null;
+    }
+    ps.prot = kind;
+    ps.recs = P.filter(p => p.team === off && p.route && p !== ps.qb).sort((a, b) => a.x - b.x);
+    ps.recs.forEach((p, i) => {
+      p.let = (GP.on ? GLET : 'ABCDE')[i];
+      p.col = LCOL[i];
+    });
+    return true;
+  }
+
+  function protect() {
+    if (G.state !== 'pre' || !ps || ps.mode !== 'pass' || ps.rpo || P.some(p => p.jog)) return;
+    if (!(G.lock ? G.me && G.me === ps.qb : G.poss === 0)) return;
+    let i = PROT.indexOf(ps.prot || 'base');
+    for (let k = 0; k < PROT.length; k++) {
+      i = (i + 1) % PROT.length;
+      if (setProt(PROT[i])) break;
+    }
+    G.pad = null;  // the letters may have changed
+    snd('audible');
+    toast(PROT_TXT[ps.prot]);
+  }
+
   function hardCount() {
     if (G.state !== 'pre' || !ps || ps.hard || (ps.mode !== 'pass' && ps.mode !== 'run') || P.some(p => p.jog)) return;
     if (!(G.lock ? G.me && G.me === ps.qb : G.poss === 0)) return;
@@ -4287,6 +4357,7 @@
     }
     if (k === 'audible' || k === 'flip') return audible(k === 'flip');
     if (k === 'hard') return hardCount();
+    if (k === 'protect') return protect();
     if (k === 'motion') return userMotion();
     if (k === 'timeout') {
       if ((G.state === 'dead' || G.state === 'call') && !G.lock) {
@@ -4365,7 +4436,7 @@
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open; Pump fakes a throw, and a zone defender may bite.', carryq: 'Past the line your quarterback can Slide: the play ends there, and nobody may hit him.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage. Protect sets the pass blocking: slide the line toward a blitz, or keep the backs in.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open; Pump fakes a throw, and a zone defender may bite.', carryq: 'Past the line your quarterback can Slide: the play ends there, and nobody may hit him.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
     offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', watch: 'You watch the plays you are not on the field for. Fast fwd runs them at three times the speed; Skip drive goes straight to the result.', watchK: 'Their kickoff, with your returner back deep. Skip starts your offense from the touchback spot.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;
@@ -4416,6 +4487,7 @@
         B('Flip', '', () => act('flip'));
         if (!ps.hard) B('Hard count', 'hc', () => act('hard'));
         if (!ps.mot) B('Motion', '', () => act('motion'));
+        if (ps.mode === 'pass' && !ps.rpo) B(ps.prot === 'left' ? 'Slide L' : ps.prot === 'right' ? 'Slide R' : ps.prot === 'max' ? 'Max pro' : 'Protect', 'hc', () => act('protect'));
       }
     } else if (kind === 'ready') B('READY', 'big', () => act('main'));
     else if (kind === 'kick') B('KICK', 'big', () => act('main'));
@@ -4503,6 +4575,7 @@
     if (e.code === 'KeyC') act('call');
     if (e.code === 'KeyG') act('hard');
     if (e.code === 'KeyM') act('motion');
+    if (e.code === 'KeyO') act('protect');
     if (e.code === 'KeyZ') act('away');
     if (e.code === 'KeyB') act('pump');
     if (e.code === 'KeyN') act('slide');
@@ -4652,7 +4725,7 @@
   const GP = { on: false, prev: [], x: 0, y: 0, sprint: false, nav: { dir: '', t: 0 }, zoomT: 0, foc: null, last: null };
   const GB = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   const GLET = ['A', 'B', 'X', 'Y', 'RB'];  // the throw buttons, in the order of the receivers across the field
-  const GMAP = { snap: { A: 'main', X: 'motion', Y: 'hard', LB: 'audible', RB: 'flip' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' }, carryq: { A: 'power', B: 'juke', X: 'spin', Y: 'slide' },
+  const GMAP = { snap: { A: 'main', X: 'motion', Y: 'hard', LB: 'audible', RB: 'flip', LT: 'protect' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' }, carryq: { A: 'power', B: 'juke', X: 'spin', Y: 'slide' },
     def: { A: 'dive', B: 'switch', X: 'hit', Y: 'strip' }, deflock: { A: 'dive', X: 'hit', Y: 'strip' }, route: { A: 'call' }, watch: { A: 'ff', B: 'skipd' }, watchF: { A: 'ff', B: 'skipd' }, watchK: { A: 'ff', B: 'skipd' }, watchKF: { A: 'ff', B: 'skipd' }, defpre: { B: 'switch', LB: 'audible' }, loose: { A: 'dive' }, timeout: { A: 'timeout' } };
   addEventListener('gamepadconnected', e => toast('Controller connected' + (e.gamepad && e.gamepad.mapping === 'standard' ? '' : ' · buttons may differ')));
   addEventListener('gamepaddisconnected', () => toast('Controller disconnected'));
@@ -6652,6 +6725,7 @@
             G.flip = i % 2 === 1;
             const s0 = { ...G.stats[0] };
             setupPlay();
+            if (o.prot) setProt(o.prot);  // a protection call to measure: 'left', 'right' or 'max'
             G.state = 'pre';
             snap();
             let k = 0;

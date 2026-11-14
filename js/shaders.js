@@ -67,13 +67,16 @@
           c *= 1.0 + band * V.z * 0.07 * inField * (1.0 - paint) * (1.0 - uSnow);
           /* rain: the turf picks up the sky at grazing angles and the towers leave long streaks */
           if (uWet > 0.0) {
-            vec3 N = normalize(vec3((noise(p * 3.0) - 0.5) * 0.10, 1.0, (noise(p * 3.0 + 9.0) - 0.5) * 0.10));
+            /* the wet surface ripples smoothly: sums of sines, not the lattice noise, whose cells showed in the
+               towers' reflection as a patch of blocks */
+            vec2 w = vec2(sin(p.x * 1.9 + sin(p.y * 1.3) * 1.7) + 0.5 * sin(p.y * 4.3 + p.x * 2.1), sin(p.y * 1.6 + sin(p.x * 1.1) * 1.9) + 0.5 * sin(p.x * 3.7 - p.y * 2.9));
+            vec3 N = normalize(vec3(w.x * 0.034, 1.0, w.y * 0.034));
             float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);
             c = mix(c, uSky, fres * 0.45 * uWet);
             vec3 R = reflect(-V, N);
             float spec = 0.0;
-            for (int i = 0; i < 4; i++) spec += pow(max(dot(R, normalize(uTowers[i] - vWorld)), 0.0), 160.0);
-            c += vec3(0.85, 0.92, 1.0) * spec * 0.55 * uWet * uLamp;
+            for (int i = 0; i < 4; i++) spec += pow(max(dot(R, normalize(uTowers[i] - vWorld)), 0.0), 110.0);
+            c += vec3(0.85, 0.92, 1.0) * spec * 0.42 * uWet * uLamp;
           }
           gl_FragColor = vec4(min(c * uTint, vec3(0.86)), 1.0);     // stays under the glow threshold: lamps bloom, yard lines do not
           #include <colorspace_fragment>

@@ -1711,6 +1711,14 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   controls are still there under the same ids. The pause sheet was left as it is (four buttons). Audit empty at
   320x568 and 390x844. Next: 9 the field and stadium in each time of day and weather.
 
+- Change 9 (03:05), the field and stadium in each light and weather: day, dusk and night in clear, rain and snow
+  were drawn side by side. One thing was off: in the rain the light towers' reflection on the turf was a patch of
+  blocks, because the wet surface's ripples came from the lattice noise and its cells showed through the tight
+  highlight. The ripples are sums of sines now and the highlight a little wider and softer (`shaders.js`, the turf's
+  `uWet` branch): a soft sheen. The rest read correctly (snow dusting, dusk sky, rain streaks, the board) and was
+  left alone. A rain game drawn every 30 steps gave no shader warning or error; fingerprint unchanged; audit empty.
+  Next: 10 in a cutscene, lighter bench figures; then the stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

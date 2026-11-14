@@ -642,7 +642,7 @@
    <h2>Player</h2><div class="two"><div><label class="lbl" for="cn">Name</label><input id="cn" maxlength="16" autocomplete="off" placeholder="Last name" value="${esc(st.name)}"></div>
    <div><label class="lbl" for="cj">Number</label><input id="cj" inputmode="numeric" maxlength="2" placeholder="1–99" value="${esc(st.num)}"></div></div>
    <h2>Position</h2><div class="seg" id="cp">${PLAYABLE.map(k=>`<button data-p="${k}" class="${k===st.pos?'on':''}">${POS[k].label}</button>`).join('')}</div>
-   <h2>${P.label} build</h2><div class="arch" id="ca">${P.arch.map(([n,a],i)=>`<button data-a="${i}" class="${i===st.arch?'on':''}"><b>${n} · ${ovrOf(st.pos,a)} OVR</b><span>${P.attrs.map(([k,l])=>`${l} ${a[k]}`).join(' · ')}</span></button>`).join('')}</div>
+   <h2>${P.label} build</h2><div class="arch" id="ca">${P.arch.map(([n,a],i)=>`<button data-a="${i}" class="${i===st.arch?'on':''}"><b>${n}<em>${ovrOf(st.pos,a)} OVR</em></b><span class="abs">${P.attrs.map(([k,l])=>`<i><u>${l}</u><b>${a[k]}</b><s><q style="width:${Math.max(0,Math.min(100,(a[k]-50)*2))}%"></q></s></i>`).join('')}</span></button>`).join('')}</div>
    <h2>Into the league</h2><button class="btn2" id="cedt" style="margin:0 0 8px">Edit team names and colors</button><div class="teams" id="ct"><button class="tm ${st.team<0?'on':''}" data-i="-1" style="--c:var(--acc);grid-column:1/3"><i></i><b>Enter the draft</b><span>Work out at the combine first</span><u>›</u></button>
    <p class="note" style="grid-column:1/3;margin:2px 0">Or walk on with a team: no draft, no signing bonus, and you start in the rotation.</p>
    ${PG.teamGrid(st.team)}</div>

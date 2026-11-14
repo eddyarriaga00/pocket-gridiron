@@ -118,7 +118,7 @@
     },
     summary() {
       const n = totalStars();
-      return 'Three short drills: passing, running and tackling.' + (n ? ` ${n} of 9 stars.` : '');
+      return n ? `Three short drills · ${n} of 9 stars` : 'Three short drills: passing, running and tackling.';
     },
     /* test hooks */
     DRILLS,

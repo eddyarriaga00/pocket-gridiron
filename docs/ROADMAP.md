@@ -1918,6 +1918,16 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   out with less text; 33 the kicking screens (meter, swipe hint, kickoff sheet) in stills; 34 the stadium at dusk
   from the play camera; 35 the README against today's changes; then the seventh stock-take.
 
+- Change 31 (08:05), the menu and new-career screens in stills at 320 wide. Menu: the Season card with no season
+  saved still said "seven games" (a season has been ten since the league grew): corrected; "Milestones · 12 of 12"
+  ran to two lines in its button and reads "Milestones 12/12"; the training camp card ran to three lines and reads
+  "Three short drills · 9 of 9 stars" once any star is earned. New career: each build's four ratings were a line of
+  text; they are four small bars with the number beside each (scaled 50 to 100, the chosen build's in the accent
+  color), and the build's overall sits at the right of its name (`.abs`). Audit empty at 320x568 and 390x844;
+  careers at both positions, camp and exhibition clean; fingerprint unchanged.
+  Next: 32 the press conference and awards night screens; 33 the kicking screens in stills; 34 the stadium at dusk
+  from the play camera; 35 the README against today's changes; then the seventh stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

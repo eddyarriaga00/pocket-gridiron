@@ -5791,7 +5791,7 @@
     scr.innerHTML = `<div class="menu"><h1>Pocket<br><em>Gridiron</em></h1><p class="tag">Full 11-on-11 football, built for one hand.</p>
   ${offer?'<div class="offer"><b>First time here?</b><span>Training camp teaches passing, running and tackling in three short drills.</span><div class="row2"><button class="go sm" id="oY">Start camp</button><button class="btn2" id="oN">Not now</button></div></div>':''}
   <button class="mode main" id="mC">${menuBadge(ct, 'career')}<b>Career</b><span>${cs||'Create a player, lock in at your position, and build a legacy one season at a time.'}</span><i>›</i></button>
-  <button class="mode" id="mSe">${menuBadge(st, 'season')}<b>Season</b><span>${ss||'Take one team through seven games and the playoffs.'}</span><i>›</i></button>
+  <button class="mode" id="mSe">${menuBadge(st, 'season')}<b>Season</b><span>${ss||'Take one team through ten games and the playoffs.'}</span><i>›</i></button>
   <button class="mode" id="mE">${menuBadge(null, 'exh')}<b>Exhibition</b><span>Pick two teams and play one game.</span><i>›</i></button>
   ${camp?`<button class="mode" id="mT">${menuBadge(null, 'camp')}<b>Training camp</b><span>${camp.summary()}</span><i>›</i></button>`:''}
   <div class="row2 mrow"><button class="btn2" id="mS">${MENU_ICON.set}Settings</button><button class="btn2" id="mH">${MENU_ICON.how}How to play</button></div>

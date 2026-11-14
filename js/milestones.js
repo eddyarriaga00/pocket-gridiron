@@ -41,7 +41,7 @@
       earn(LIST.filter(m => m[3] && m[3](g)).map(m => m[0]));
     },
     earn: id => earn([id]),
-    summary: () => `Milestones · ${count()} of ${LIST.length}`,
+    summary: () => `Milestones ${count()}/${LIST.length}`,
     open() {
       PG.toMenu();
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Milestones</h1>

@@ -1600,6 +1600,23 @@ what is next. Update it after every item.
   longer Snap tip touching the play card in camp at 320 (the sentence added for Protect was taken back out); empty
   at 320x568 and 390x844 after. Fingerprint unchanged; careers, a quarterback season, exhibition, season mode, drills.
 
+- 2026-11-14 17:00. The owner, on doing Stats and Social next: "Yes but improve organization don't automatically
+  just hide it with a section thing". So this pass lays things out instead of folding them, and three of the folds
+  from 15:30 were taken back out. Stats (`tabStats`): this season's numbers are tiles with the career figure under
+  each (`.stl`); the games are a chart of grades, wins in the accent color, over a row a game with the grade as a
+  badge (`gamesHtml`); every name on the leader board has a bar as a share of the leader (`ldBar`); the trophies have
+  a progress bar and the earned ones come first. Social: messages are a conversation with a round avatar a sender
+  (`.chat`), the hype bar has its two thresholds marked under it (25 partners stay, 55 offers come), and followers
+  are a line over the last weeks (`folTrend`, from `so.hist`, kept from now on, so it appears after two more games).
+  Un-folded: the other seven divisions are small cards two across with record and points for and against (`.dvg`),
+  last week's scores are an open grid, the trust explanation is two fact chips and a line, and Edit teams, Ask for a
+  trade and Retire are a row of three buttons under a Career heading (the trade still asks twice). Still folded,
+  as before today: Game settings and Your look. Checked with counts: 8 divisions, 15 scores, 14 trophies, 10 leader
+  categories, every game in the log, and the buttons #edt #ret #trade #hset #hlook #play #prac. Audit: one label
+  cut at 320 ("Touchdowns" in a tile; the tiles now say TDs, INTs, Completed), empty after at 320x568 and 390x844
+  through every tab and Social sub-tab for both positions. Fingerprint unchanged; careers, a receiver season,
+  exhibition, season mode, drills.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

@@ -810,6 +810,7 @@
   /* the week's posts go on top of the feed, under a heading for the week */
   function pushFeed(head, posts) {
     const so = social(), weeks = [];
+    so.hist = (so.hist || []).concat(so.fol).slice(-12);  // followers week by week, for the line on the Social tab
     for (const p of so.feed) {
       if (p.kind === 'wk') weeks.push([p]);
       else if (weeks.length) weeks[weeks.length - 1].push(p);
@@ -837,6 +838,14 @@
      callout to back up, an offer to answer) under that, then three small tabs. Mentions shows this week open and the
      earlier weeks folded. */
   let socTab = 'feed';
+
+  /* followers over the last weeks, as a line: drawn once there are two weeks to join */
+  function folTrend(so) {
+    const h = (so.hist || []).concat(so.fol);
+    if (h.length < 3) return '';
+    const lo = Math.min(...h), hi = Math.max(...h), W = 300, H = 40, pt = (v, i) => `${(i / (h.length - 1) * W).toFixed(1)},${(H - 4 - (hi > lo ? (v - lo) / (hi - lo) : 0.5) * (H - 8)).toFixed(1)}`;
+    return `<div class="ftr"><small>Followers · last ${h.length - 1} weeks</small><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Followers from ${short(h[0])} to ${short(h[h.length - 1])}"><polyline points="${h.map(pt).join(' ')}"/></svg><span>${short(h[0])}</span><span>${short(h[h.length - 1])}</span></div>`;
+  }
 
   /* small pictures for the hub's four tabs (drawn in the text color) */
   const TAB_ICON = {
@@ -903,7 +912,7 @@
     if (last) {
       const won = last.us > last.them, good = 'AB'.includes(String(last.grade)[0]);
       out.push({ from: 'Mom', text: won ? anyOf(['We watched the whole thing. Your father yelled at the TV the entire fourth quarter. So proud of you.', 'A win! Call me when you are home. And eat something.']) : anyOf(['Tough one, honey. You will get them next week. Call your mother.', 'Do not read the comments tonight. We love you.']), wk });
-      out.push({ from: 'Your agent', text: good ? anyOf([`A ${last.grade} on the film. Games like that are how the next contract gets written.`, 'Phones are ringing after that one. Keep stacking them.']) : anyOf(['Flush it. One game does not change what teams think of you. Bounce back.', 'Quiet week on my end. Give me something to sell on Sunday.']), wk });
+      out.push({ from: 'Your agent', text: good ? anyOf([`Grade ${last.grade} on the film. Games like that are how the next contract gets written.`, 'Phones are ringing after that one. Keep stacking them.']) : anyOf(['Flush it. One game does not change what teams think of you. Bounce back.', 'Quiet week on my end. Give me something to sell on Sunday.']), wk });
       out.push({ from: `${mate.first} ${mate.last}`, text: won ? anyOf(['Told you we had them. Film at 8, do not be late.', 'That is how it is supposed to look. Same thing next week.']) : anyOf(['We are better than that. Extra work tomorrow, you in?', 'On to the next. I got your back.']), wk });
     } else {
       out.push({ from: 'Mom', text: 'First game this week! We will be watching. Wear your mouthguard.', wk });
@@ -931,12 +940,17 @@
       : `<p class="note">${C.log.length ? 'Your mentions start with your next game.' : 'Play a game and the internet will have something to say.'}</p>`;
     else if (socTab === 'rec') body = so.quotes.length ? `<ul class="quotes">${so.quotes.map(q => `<li><span class="tone t-${q.tone}">${PG.media.TONE[q.tone] || q.tone}</span>“${esc(q.q)}”<small>${esc(q.wk)}</small></li>`).join('')}</ul>`
       : '<p class="note">Your answers at the podium and at media day are kept here.</p>';
-    else if (socTab === 'dm') body = `<ul class="quotes dml">${dms().map(m => `<li><b>${esc(m.from)}</b>${esc(m.text)}<small>${esc(m.wk)}</small></li>`).join('')}</ul>`;
+    else if (socTab === 'dm') body = `<div class="chat">${dms().map(m => {
+      const col = m.from === 'Mom' ? '#e0569a' : m.from === 'Your agent' ? '#64748b' : C.rival && m.from === C.rival.name ? TEAMS[C.rival.team].c1 : t.c1;
+      return `<div class="msg"><span class="av" style="--c:${col};color:${PG.inkOn(col)}${PG.inkOn(col) === '#fff' ? '' : ';text-shadow:none'}">${esc(m.from === 'Your agent' ? 'AG' : m.from.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase())}</span><div><b>${esc(m.from)}<small>${esc(m.wk)}</small></b><p>${esc(m.text)}</p></div></div>`;
+    }).join('')}</div>`;
     else body = (deals.length ? deals.map(x => `<div class="xp deal"><span><i class="dot" style="--c:${x.col}"></i>${esc(x.name)} · ${esc(x.kind)}</span><b>+${fmt(x.pay)} XP a game</b></div>`).join('') : '<p class="note">No partners yet.</p>')
       + '<p class="note">Two games in a row with hype at 55 or more bring an offer. A deal pays every game until your hype falls under 25. Two at most.</p>';
     return `<div class="sprof" style="--c:${t.c1}"><span class="av" style="--c:${t.c1};color:${PG.inkOn(t.c1)}${PG.inkOn(t.c1) === '#fff' ? '' : ';text-shadow:none'}">${esc(L.slice(0, 2).toUpperCase())}</span><div><b>${esc(C.name)}${ver ? '<i class="ver" aria-label="verified"></i>' : ''}</b><span>@${esc(L.toLowerCase())}${C.num} · ${esc(t.name)} ${C.pos} #${C.num}</span></div></div>
   <div class="sstats"><div><b>${short(so.fol)}</b><span>Followers</span></div><div><b>${so.hype}</b><span>Hype</span></div><div><b>${so.backed}–${so.ate}</b><span>Callouts</span></div><div><b>${deals.length}</b><span>Partners</span></div></div>
   <div class="hypebar"><i style="width:${so.hype}%"></i></div>
+  <div class="hypek"><span style="left:25%">25 · partners stay</span><span style="left:55%">55 · offers come</span></div>
+  ${folTrend(so)}
   ${calloutHtml()}${offerHtml()}
   ${so.posted !== pracKey() ? `<div class="spost"><small>Post something \u00b7 once a week</small><div class="seg wrap"><button data-sp="fans">Thank the fans</button><button data-sp="hype">${C.phase === 'done' ? 'Stay hungry' : 'Hype the next game'}</button><button data-sp="mate">Shout out a teammate</button></div></div>` : ''}
   <div class="seg stab">${st('feed', 'Mentions')}${st('dm', 'Messages')}${st('rec', 'On the record')}${st('deals', 'Partners')}</div>${body}`;
@@ -1138,7 +1152,7 @@
   function trustHtml() {
     const [, role, sh] = roleOf(), up = ROLES[ROLES.findIndex(r => r[1] === role) - 1];
     return (C.coach || C.coachPress ? `<p class="coach">${C.coach ? `<small>Coach</small>${esc(C.coach)}` : ''}${C.coachPress ? `<small${C.coach ? ' class="c2"' : ''}>${C.coach ? 'On your press conference' : 'Coach, on your press conference'}</small>${esc(C.coachPress)}` : ''}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
-      + (up ? `<details class="inf"><summary>${Math.round(sh*10)} of 10 drives · ${up[1]==='Starter'?'starter':'rotation'} at ${up[0]}</summary><p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.</p></details>` : '');
+      + (up ? `<div class="trk"><span><b>${Math.round(sh*10)} of 10</b> drives are yours</span><span><b>${up[0]}</b> trust: ${up[1]==='Starter'?'you start':'the rotation'}</span></div><p class="note">Good games and practice raise the coach's trust.</p>` : '');
   }
 
   function tabUp() {
@@ -1172,10 +1186,23 @@
 
   function tabStats() {
     const cols = COLS[C.pos], row = (l, m) => `<tr><td>${l}</td>${cols.map(([,k])=>`<td>${m[k]}</td>`).join('')}</tr>`;
-    return `<table class="lg"><tr><th></th>${cols.map(([h])=>`<th>${h}</th>`).join('')}</tr>${row('Season',C.stats)}${row('Career',C.career)}</table>
+    /* laid out as a page, not a list: this season's numbers as tiles (the career figure under each), the games as a
+       chart of grades with a row a game under it, the league leaders with a bar a man, then the trophies and the seasons */
+    return `<h2>This season</h2><div class="stl">${cols.map(([h,k])=>`<div><small>${STAT_NAME[h]||h}</small><b>${C.stats[k]}</b><span>${C.career[k]} career</span></div>`).join('')}</div>
   ${C.pos==='WR'&&(C.career.kr||C.career.pr)?`<p class="note">Returns · this season ${retTot(C.stats)} · career ${retTot(C.career)}</p>`:''}
-  ${leadersHtml()}${historyHtml()}${trophiesHtml()}
-  ${C.log.length?`<h2>Game log</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} vs ${team(g.opp).ab}${g.grade?' · '+g.grade:''}<small>${g.line}</small></td></tr>`).join('')}</table>`:'<p class="note">Your game log shows up here after your first game.</p>'}`;
+  ${gamesHtml()}${leadersHtml()}${trophiesHtml()}${historyHtml()}`;
+  }
+
+  const STAT_NAME = { G: 'Games', Comp: 'Completed', Att: 'Attempts', Yds: 'Yards', TD: 'TDs', INT: 'INTs', Rec: 'Catches', Tgt: 'Targets', Car: 'Carries', Tkl: 'Tackles', Sack: 'Sacks', PBU: 'Break-ups' };
+  const GRADE_STEP = ['F', 'D', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+'];
+
+  /* every game: a bar for its grade (taller is better, a win in the accent color), and under the chart a row a game
+     with the grade as a badge, the score and your line */
+  function gamesHtml() {
+    if (!C.log.length) return '<p class="note">Your game log shows up here after your first game.</p>';
+    const h = g => 22 + Math.max(0, GRADE_STEP.indexOf(String(g.grade || 'C'))) * 7.8;
+    return `<h2>Game log</h2><div class="gch" role="img" aria-label="Your grade in each game">${C.log.map(g=>`<div class="${g.us>g.them?'w':g.us<g.them?'l':'t'}"><i style="height:${h(g)}%"></i><small>${g.grade||'–'}</small></div>`).join('')}</div>
+  <div class="glog">${C.log.slice().reverse().map(g=>`<div><i class="gb ${g.us>g.them?'w':g.us<g.them?'l':'t'}">${g.grade||'–'}</i><div><b>${g.wk} ${g.away?'at':'vs'} ${team(g.opp).ab} · ${g.res} ${g.us}–${g.them}</b><small>${g.line}</small></div></div>`).join('')}</div>`;
   }
 
   /* season by season; a career begun before this table existed only lists the seasons finished since */
@@ -1186,6 +1213,11 @@
   }
 
   let ldCat = null;  // the leader board on show (kept while the hub is open)
+  /* a bar under each name on the leader board: his figure as a share of the leader's */
+  const ldBar = (v, B) => {
+    const top = B.rows.length ? Math.abs(+B.rows[0].v) : 0, w = top > 0 && isFinite(+v) ? clamp(Math.abs(+v) / top * 100, 3, 100) : 0;
+    return w ? `<i class="lbar"><i style="width:${w.toFixed(0)}%"></i></i>` : '';
+  };
 
   function leadersHtml() {
     if (!C.stats.g) return '';
@@ -1195,14 +1227,15 @@
     const chip = l => `<button data-ld="${esc(l)}" class="${l === ldCat ? 'on' : ''}">${esc(l)}</button>`;
     return `<h2>League leaders</h2><div class="ldk"><small>${esc(POS[C.pos].label)}s</small><div class="seg wrap ld">${mine.map(chip).join('')}</div>
   <small>Around the league</small><div class="seg wrap ld">${AROUND.map(c => chip(c[0])).join('')}</div></div>
-  <table class="lg ldt"><tr><th>${esc(B.label)}</th><th></th></tr>${B.rows.slice(0, 5).map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td><i class="rk">${i + 1}</i>${esc(r.name)} <span style="color:var(--mute)">${r.ab}${r.riv ? ' \u00b7 your rival' : ''}</span></td><td>${B.show(r.v)}</td></tr>`).join('')}
-  ${!B.around && at > 4 ? `<tr class="me"><td><i class="rk">${at + 1}</i>${esc(C.name)}</td><td>${B.show(you.v)}</td></tr>` : ''}
+  <table class="lg ldt"><tr><th>${esc(B.label)}</th><th></th></tr>${B.rows.slice(0, 5).map((r, i) => `<tr class="${r.me ? 'me' : ''}"><td><i class="rk">${i + 1}</i>${esc(r.name)} <span style="color:var(--mute)">${r.ab}${r.riv ? ' \u00b7 your rival' : ''}</span>${ldBar(r.v, B)}</td><td>${B.show(r.v)}</td></tr>`).join('')}
+  ${!B.around && at > 4 ? `<tr class="me"><td><i class="rk">${at + 1}</i>${esc(C.name)}${ldBar(you.v, B)}</td><td>${B.show(you.v)}</td></tr>` : ''}
   ${!B.around && at < 0 && you ? `<tr class="me"><td><i class="rk">\u2013</i>${esc(C.name)} <span style="color:var(--mute)">not enough ${C.pos === 'QB' ? 'attempts' : 'catches'} yet</span></td><td>${B.show(you.v)}</td></tr>` : ''}</table>`;
   }
 
   function trophiesHtml() {
     const have = C.troph || {}, n = TROPHIES.filter(t => have[t[0]]).length;
-    return `<h2>Trophies · ${n} of ${TROPHIES.length}</h2><div class="tro">${TROPHIES.map(([id,name,how])=>`<div class="${have[id]?'on':''}"><b>${name}</b><span>${how}</span></div>`).join('')}</div>`;
+    const list = TROPHIES.filter(t => have[t[0]]).concat(TROPHIES.filter(t => !have[t[0]]));  // the ones you have first
+    return `<h2>Trophies · ${n} of ${TROPHIES.length}</h2><div class="trp"><i style="width:${n / TROPHIES.length * 100}%"></i></div><div class="tro">${list.map(([id,name,how])=>`<div class="${have[id]?'on':''}"><b>${name}</b><span>${how}</span></div>`).join('')}</div>`;
   }
 
   /* the end of a career: one last look, then a clean slate */
@@ -1392,7 +1425,6 @@
     let sure = false;  // the trade button has been tapped once
     let setOpen = false;  // the game settings are folded away until asked for
     let lookOpen = false;  // and so is the player's look
-    let moreOpen = false;  // and the rarely used buttons: edit the teams, ask for a trade, retire
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
@@ -1411,9 +1443,8 @@
   <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>`:''}</div>
   <div class="hset${lookOpen?' open':''}"><button class="hsum" id="hlook" aria-expanded="${lookOpen}"><b>Your look</b><span>${lookSum()}</span></button>
   ${lookOpen?lookHtml():''}</div>
-  <div class="hset${moreOpen?' open':''}"><button class="hsum" id="hmore" aria-expanded="${moreOpen}"><b>Career options</b><span>Teams${canTrade()?' · trade':''} · retire</span></button>
-  ${moreOpen?`<div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
-  ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}`:''}</div></div>`;
+  <h2>Career</h2><div class="row3${canTrade()?'':' two'}"><button class="btn2" id="edt">Edit teams</button>${canTrade()?`<button class="btn2${sure?' on':''}" id="trade">${sure?'Confirm trade':'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
+  ${canTrade()?`<p class="note">${sure?`Tap Confirm trade to join the ${full(tradeTo())} as their starter.`:'A trade sends you to the weakest other team as its starter, once a season.'}</p>`:''}</div>`;
       $('#bk').onclick = PG.showMenu;
       $('#hset').onclick = () => {
         setOpen = !setOpen;  // stays as you left it while the hub is open
@@ -1475,11 +1506,6 @@
         socialPost(b.dataset.sp);
         keepScroll(draw);
       });
-      const hm = $('#hmore');
-      if (hm) hm.onclick = () => {
-        moreOpen = !moreOpen;
-        keepScroll(draw);
-      };
       scr.querySelectorAll('[data-sg]').forEach(b => b.onclick = () => {
         schedPick = +b.dataset.sg;
         PG.snd('tick');
@@ -1536,8 +1562,8 @@
         showHub('up');
         PG.banner('Traded', `${esc(C.name)} goes to the ${full(to)}`, 2600);
       };
-      if ($('#ret')) $('#ret').onclick = showRetire;  // these two are inside the folded Career options card
-      if ($('#edt')) $('#edt').onclick = () => PG.showTeams(C.team, () => showHub(tab));
+      $('#ret').onclick = showRetire;
+      $('#edt').onclick = () => PG.showTeams(C.team, () => showHub(tab));
     };
     draw();
   }

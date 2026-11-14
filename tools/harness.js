@@ -200,7 +200,6 @@ window.H = (() => {
     },
     newCareer(pos, team = '2') {
       PG.career.open();
-      if (q('#hmore') && !q('#ret')) q('#hmore').click();  // Retire is inside the folded Career options card
       if (q('#ret')) {
         q('#ret').click();
         q('#nc').click();

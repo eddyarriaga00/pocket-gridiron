@@ -447,6 +447,13 @@ tr.me td{color:var(--acc);font-weight:700}
 .itabs svg{width:15px;height:15px;fill:currentColor}
 .itabs span{font-size:10px;letter-spacing:.04em}
 /* a line of explanation, folded: tap the summary to read it */
+.trk{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.trk span{padding:6px 10px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-size:11.5px;color:var(--mute)}
+.trk b{color:var(--ink);font-family:var(--display)}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.row3.two{grid-template-columns:1fr 1fr}
+.row3 .btn2{font-size:10.5px;letter-spacing:.03em}
+.row3 .btn2.on{box-shadow:inset 0 0 0 1.5px var(--acc);color:var(--acc)}
 .inf{margin:6px 2px 0}
 .inf summary{display:inline-flex;align-items:center;gap:6px;min-height:28px;cursor:pointer;list-style:none;font-size:11.5px;color:var(--mute)}
 .inf summary::-webkit-details-marker{display:none}
@@ -454,9 +461,16 @@ tr.me td{color:var(--acc);font-weight:700}
 .inf[open] summary{color:var(--ink)}
 .inf .note{margin:2px 0 0}
 /* folded standings and scores */
-.fold .fin{padding:0 10px 10px}
-.fold .fin .dvh:first-child{margin-top:4px}
-.arl{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 10px 10px}
+/* the other divisions as small cards, two across */
+.dvg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dvc{padding:7px 9px 8px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.dvc small{display:block;margin-bottom:3px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.dvc p{display:flex;align-items:center;gap:6px;margin:0;padding:2px 0;font-size:12px;font-variant-numeric:tabular-nums}
+.dvc p i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--c)}
+.dvc p b{min-width:30px;font-family:var(--display);font-size:11.5px}
+.dvc p u{margin-left:auto;text-decoration:none;color:var(--mute);font-size:11px}
+.dvc p.ld b{color:var(--acc)}
+.arl{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .arl div{display:grid;gap:2px;padding:6px 8px;border-radius:8px;background:var(--panel2);font-size:12px}
 .arl span{display:flex;align-items:center;gap:6px;color:var(--mute)}
 .arl span.w{color:var(--ink);font-weight:700}
@@ -475,6 +489,46 @@ tr.me td{color:var(--acc);font-weight:700}
 .schl small{display:block;color:var(--mute);font-size:11.5px}
 .nx ul:not(.aw) li::before{content:"";flex:none;width:9px;height:9px;margin:4px 0 0;border-radius:50%;border:1.5px solid var(--mute)}
 .nx ul:not(.aw) li b{margin-left:auto}
+/* Stats: this season's numbers as tiles */
+.stl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.stl div{padding:9px 6px 8px;border-radius:10px;background:var(--panel);border:1px solid var(--line);text-align:center}
+.stl small{display:block;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stl b{display:block;margin:2px 0 1px;font:800 22px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stl span{display:block;font-size:10.5px;color:var(--mute)}
+/* the games as a chart of grades, then a row a game */
+.gch{display:flex;align-items:flex-end;gap:5px;height:96px;padding:8px 10px 6px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.gch div{flex:1;max-width:34px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px}
+.gch i{display:block;width:100%;border-radius:4px 4px 1px 1px;background:var(--panel3)}
+.gch .w i{background:var(--acc)}
+.gch .l i{background:#8a4a55}
+.gch small{font-size:10px;color:var(--mute);font-family:var(--display);font-weight:700}
+.glog{display:grid;gap:6px;margin-top:8px}
+.glog>div{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.glog .gb{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--panel3);font:800 13px var(--display);font-style:normal}
+.glog .gb.w{background:var(--acc);color:var(--acc-ink)}
+.glog .gb.l{background:#5a2f38;color:#ffc9cf}
+.glog b{display:block;font-size:12.5px}
+.glog small{display:block;font-size:11.5px;color:var(--mute);line-height:1.35}
+.lbar{display:block;height:4px;margin:4px 0 0 18px;border-radius:2px;background:var(--panel3);overflow:hidden}
+.lbar i{display:block;height:100%;background:var(--acc);opacity:.75}
+.trp{height:5px;margin:0 0 8px;border-radius:3px;background:var(--panel3);overflow:hidden}
+.trp i{display:block;height:100%;background:var(--acc)}
+/* Social: messages as a conversation, the hype scale, followers as a line */
+.chat{display:grid;gap:8px}
+.msg{display:flex;gap:9px;align-items:flex-start}
+.msg .av{flex:none;width:34px;height:34px;font-size:11.5px}
+.msg>div{flex:1;min-width:0;padding:8px 11px 9px;border-radius:4px 12px 12px 12px;background:var(--panel);border:1px solid var(--line)}
+.msg b{display:flex;justify-content:space-between;gap:8px;font-family:var(--display);font-size:12px}
+.msg b small{font-weight:400;color:var(--mute);font-size:11px}
+.msg p{margin:3px 0 0;font-size:12.5px;line-height:1.4}
+.hypek{position:relative;height:16px;margin-bottom:6px}
+.hypek span{position:absolute;top:0;padding-left:5px;border-left:1px solid var(--mute);font-size:10px;line-height:14px;color:var(--mute);white-space:nowrap}
+.ftr{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin:4px 0 10px;padding:8px 11px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.ftr small{grid-column:1/3;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.ftr svg{grid-column:1/3;width:100%;height:40px}
+.ftr polyline{fill:none;stroke:var(--acc);stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.ftr span{font-size:11px;color:var(--mute)}
+.ftr span:last-child{text-align:right;color:var(--ink);font-weight:700}
 .spost{margin:10px 0;padding:9px 11px 10px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}   /* the weekly post */
 .spost small{display:block;margin-bottom:7px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 .dml li b{display:block;margin-bottom:2px;font-family:var(--display);font-size:12px}

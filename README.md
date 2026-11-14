@@ -119,9 +119,10 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   tight end in to block, with fewer men to throw to.
 - Receivers slow into a hard break and cut at the mark, so hitches, curls, in-routes and outs can be thrown on time.
 - Captains wear a "C" patch: each side's quarterback and middle linebacker, and you once you are the starter.
-- The career hub shows the next game as two team badges with records and ratings, has pictures on its tabs, folds
-  the other divisions, last week's scores, the rarely used buttons and the longer explanations away until tapped,
-  and shows your season as a strip of win and loss chips you can tap.
+- The career hub is laid out to be read at a glance: the next game as two team badges with records and ratings,
+  pictures on the tabs, your division as a table and the other seven as small cards, last week's scores as a grid
+  of chips, your season as win and loss chips you can tap, your numbers as tiles, your games as a chart of grades,
+  bars on the leader board, messages as a conversation, and your followers as a line.
 - Two more cutscenes: at halftime both teams jog off the field, and after the final whistle the two leaders meet at
   midfield and shake hands while the winners celebrate behind them. Tap to skip, as with the others.
 - Pump fake: Pump on the passing pad (B, or LT on a controller) fakes a throw; zone defenders near the short route

@@ -1617,6 +1617,15 @@ what is next. Update it after every item.
   through every tab and Social sub-tab for both positions. Fingerprint unchanged; careers, a receiver season,
   exhibition, season mode, drills.
 
+### Daytime loop, 2026-11-14 (cron job 735d3840, every 30 minutes until 17:30; the owner is at work 9:30 to 5)
+The owner at 02:20: "now work on the game non stop ... every like 5 changes check where u are and what needs to be
+worked on, dont add new features or such be faithful to madden and nfl and football, just make it better and more
+visually better and such, bug test too and make sure good for mobile". No new features or modes. Each change is
+numbered below; after every fifth, a stock-take line says what looks weakest and what the next five are.
+Queue (first five): 1 a bug-test sweep after the day's hub work (random players, all four game types, both sizes);
+2 the main menu, more visual and better organized; 3 the Upgrade tab's abilities as cards with their state shown;
+4 Season mode's hub to match the career's (badges, chips, tiles); 5 a mobile check of load size and draw cost.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

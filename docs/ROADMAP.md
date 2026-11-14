@@ -1673,6 +1673,24 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   say Points, Allowed, Pass yards, Rush yards); empty after at 320x568 and 390x844. Fingerprint unchanged.
   Next: 5 a mobile check of load size and draw cost; then the first stock-take.
 
+- Change 5 (03:30), a mobile check, measured, nothing changed. Load: the page's own files are 1,004 kB, 318 kB
+  compressed (game.js 103, render3d.js 69, career.js 42, audio.js 27), plus the library from cdnjs and, after the
+  page is up, the 4.2 MB common voice pack. Drawing at 390x844 on this Mac: 117 to 151 draws and about 339,000
+  triangles in play (0.7 to 2.2 ms a frame); cutscenes and the kickoff swap in the close-up model and reach 537,000
+  triangles at 105 to 178 draws. Triangles at that level are within what current phones draw; the draws were the
+  cost and they came down on 2026-11-14. No change made. Not measurable here: a real phone.
+- STOCK-TAKE after five (03:35). Done: a clean bug sweep; the main menu, the abilities, and Season mode's hub made
+  visual; load and draw cost measured. Also today outside the loop: multiple careers, the online groundwork.
+  Weakest now, by eye: (a) the halftime and final sheets are tables of numbers; (b) the play-call sheet and the
+  pause and settings screens have not had the visual pass; (c) Exhibition and Season have had no random bug sweep
+  since the new cutscenes and the watched kickoffs; (d) the field and stadium have not been looked at in day, dusk,
+  rain and snow since the repaint; (e) the close-up model draws all 48 figures in full detail in a cutscene that
+  shows six.
+  Next five: 6 the halftime and final sheets as side-by-side team bars; 7 a random bug sweep of Exhibition and
+  Season (kicks, onside, two-point tries, overtime, cutscenes on and off); 8 Settings and the pause sheet organized
+  visually; 9 a look at the field and stadium in each time of day and weather, fixing what looks off; 10 in a
+  cutscene, the bench figures drawn with the plain model or not at all.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

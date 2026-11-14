@@ -1166,12 +1166,15 @@
 
   function tabPerks() {
     const n = slots(), on = (C.perks || []).slice(0, n), nextAt = SLOT_AT[n];
-    return `<h2>Abilities · ${on.length} of ${n} slot${n===1?'':'s'} used</h2>`
+    /* the three slots drawn as slots (what is in each, which are open, and the rating that opens the next), then the
+       abilities as cards two across, the equipped ones outlined */
+    const slot = i => i < on.length ? `<div class="on"><small>Slot ${i + 1}</small><b>${on[i]}</b></div>` : i < n ? `<div class="open"><small>Slot ${i + 1}</small><b>Open</b></div>` : `<div class="lock"><small>Slot ${i + 1}</small><b>${SLOT_AT[i] ? SLOT_AT[i] + ' OVR' : 'Locked'}</b></div>`;
+    return `<h2>Abilities · ${on.length} of ${n} slot${n===1?'':'s'} used</h2><div class="slts">${[0, 1, 2].map(slot).join('')}</div><div class="pkg">`
       + PERKS[C.pos].map(([name, what]) => {
         const eq = on.includes(name), full2 = !eq && on.length >= n;
-        return `<div class="pk"><b>${name}</b><span>${what}</span><button data-p="${name}" class="${eq?'on':''}" ${full2?'disabled':''}>${eq?'Equipped':n?'Equip':'Locked'}</button></div>`;
+        return `<div class="pk${eq?' eq':''}"><b>${name}</b><span>${what}</span><button data-p="${name}" class="${eq?'on':''}" ${full2?'disabled':''}>${eq?'Equipped':n?'Equip':'Locked'}</button></div>`;
       }).join('')
-      + `<p class="note">${nextAt?`Next slot opens at ${nextAt} overall.`:'All three slots are open.'}</p>`;
+      + `</div><p class="note">${nextAt?`Next slot opens at ${nextAt} overall.`:'All three slots are open.'}</p>`;
   }
 
   function tabSeason() {

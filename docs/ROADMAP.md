@@ -1634,6 +1634,12 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   badge of the team it is with instead; the four small buttons have an icon each (`MENU_ICON`, `menuBadge`). Nothing
   moved or removed. Audit empty at 320x568 and 390x844; fingerprint unchanged.
 
+- Change 3 (03:05), the Upgrade tab's abilities: the three slots are drawn as slots (what is in each, which are open,
+  and the overall rating that opens a locked one), and the abilities are cards two across with the equipped ones
+  outlined (`tabPerks`, `.slts`, `.pkg`). Equip and unequip work as before. Audit: a slot's name was cut at 320 (it
+  wraps now); empty after at 320x568 with all three slots filled for both positions. Fingerprint unchanged.
+  Next: 4 Season mode's hub to match the career's; 5 a mobile check of load size and draw cost; then the stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

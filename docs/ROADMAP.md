@@ -1970,6 +1970,30 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 37 the classic 2D view; 38 controller focus on the new switches, cards and tiles; 39 extra point and kickoff
   hints in a still; 40 a last full regression and a check of the bundle; then the eighth stock-take.
 
+- Change 37 (09:30), the classic 2D view, nothing changed: switched on in Settings, an exhibition and a career game
+  played through with it and audited at 320x568 (clean), the field looked at in a still with a broadcast card and a
+  toast up together (they stack as in 3D). Switched back to 3D afterwards.
+- Change 38 (09:35), controller focus on today's controls, nothing changed: the controller's ring moves between
+  buttons, inputs and selects, so every screen was scanned for anything tappable that is not one of those (Settings,
+  How to play, camp, the career tabs and saves, the season tabs, exhibition set-up, the play-call sheet, the pause
+  sheet): none. The switches are buttons. Not tried with a real controller.
+- Change 39 (09:40), the extra point and kickoff hints, nothing changed: both seen at 320 wide on two lines (217 by
+  43 px, the same as the field goal's), the kickoff in a still.
+- Change 40 (09:55), a last full regression. Menus and all four modes audited at 320x568 and 390x844: empty.
+  Fingerprint unchanged; six simulated games in range (5.0 yards a carry, 56% complete, 40.2 points). The rough test
+  player: exhibition, quarterback and receiver careers, a rigged season through a playoff overtime: clean. The
+  single-file bundle loaded on its own, gave the same fingerprint and played an exhibition and a career game. One
+  fault in the test tool, not the game: the rough player counted a game as over at the final whistle and moved on
+  while the closing cutscene was still playing, so the next test's screen was replaced by the result sheet; it now
+  waits for the result screen.
+- Eighth stock-take (09:55), after forty changes. Changes 36 to 40: the finished-season card, and four checks that
+  found nothing in the game to fix. The queue of known weak spots is empty. What remains is taste and depth, which
+  are the owner's to steer, and three things only a person with the device can judge: a real controller on the new
+  switches, sound on a phone speaker, and the frame rate on an actual phone. From here the loop does lower-yield
+  work: 41 the trade and retirement screens in stills; 42 the hall of fame and milestones screens in stills;
+  43 team editor (names and colors) at 320 wide; 44 rain and snow games through the rough test player; 45 a second
+  look at the play-call sheet's Special tab and the two-point sheet; then the ninth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

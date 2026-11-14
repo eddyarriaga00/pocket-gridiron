@@ -47,7 +47,7 @@ window.X = (() => {
   function run(label) {
     const g = d();
     let n = 0, ot = false;
-    const over = () => g.G.state === 'over' || g.G.state === 'menu' || q('#again') || q('#rc');
+    const over = () => g.G.state === 'menu' || q('#again') || q('#rc');  // not the 'over' state alone: the closing cutscene plays first, and the result screen comes after it
     while (!over() && n++ < 900000) {
       step();
       g.step(0.02);

@@ -1544,6 +1544,16 @@ what is next. Update it after every item.
   gait, tackle, block and the leaping catch as before; a watched game drawn every 10 steps (3,812 frames) with no
   bad pose and no error; careers, exhibition, drills; audit empty at 390x844. Seen as four small stills.
 
+- 2026-11-14 12:00. The owner: "add more small details". Three on the field, drawn only (`render3d.js`). (1) A
+  kicking net: two poles and a net 3.6 yards behind each set of uprights (`g.userData.net`), run up only while a
+  field goal or extra point is being tried at that end and gone again for the next play. (2) A kickoff tee: an orange
+  tee at the kickoff spot with the ball stood up on it, leaning back toward the kicker, instead of lying on the turf.
+  (3) A stiff arm with the right hand now has the ball under the left arm (`f.ballL`): it used to be drawn in the
+  hand that was fending the man off. The pass already spiralled and a kick already tumbled, so those were left.
+  Checked: the net is up for a staged field goal at the right end only and down after it; fingerprint unchanged;
+  gait and tackle as before; a watched career game drawn every 10 steps with no error; careers, exhibition, drills;
+  audit empty at 390x844 (a first run reported every button "blocked": that was the test's own overlay canvas).
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

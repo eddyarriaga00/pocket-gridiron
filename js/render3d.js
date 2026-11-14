@@ -20,6 +20,7 @@
 
   let renderer, scene, camera, post = null, glowAmount = 0.8, W = 1, H = 1;
   let fieldTex, fieldCanvas, crowdMat, skyMat, skyDome, ribbonTex, ribbonCanvas, boardTex, boardCanvas, boardKey = '';
+  let tee = null;
   let parts = [], figs = [], contact, ball, ballShadow, ring, targetRing, losLine, fdLine, sticks, sticks2, chain, downBox;
   const crew = [], downMats = [];
   let hemiLight, sunLight, fillLight, fieldMat, groundMat, wallMat, rainPts, snowPts, envKey = '', envSnow = false, crowdBase = 1, celebT = 0;
@@ -2027,6 +2028,7 @@
     tg.fill(0);
     f.leap = Math.max(0, (f.leap || 0) - dt / 0.3);  // a jump for the ball comes back down over about a third of a second
     f.tap = Math.max(0, (f.tap || 0) - dt / 0.35);  // a toe tap at the sideline, the same
+    f.ballL = false;
     let stretch = 0;  // reaching out for a ball off his line: how far into the lunge
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
     /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
@@ -2735,6 +2737,7 @@
               tg[SLX] = 0.5;
               tg[SLZ] = 0.15;
               tg[EL] = 2.0;
+              f.ballL = true;
             }
             tg[CHRY] = yaw;
             eyes = false;
@@ -3235,6 +3238,10 @@
     flashes.frustumCulled = false;
     scene.add(flashes);
     /* goal posts, pylons */
+    let netMat = null;
+    tee = new T.Mesh(new T.CylinderGeometry(0.05, 0.12, 0.13, 8), new T.MeshLambertMaterial({ color: 0xff7a2f }));  // the kickoff tee
+    tee.visible = false;
+    scene.add(tee);
     const postMat = new T.MeshLambertMaterial({ color: 0xe9edf5 });
     const cyl = (r, h, x, y, z, rz) => {
       const m = new T.Mesh(new T.CylinderGeometry(r, r, h, 8), postMat);
@@ -3250,6 +3257,25 @@
       posts.push(g);
       g.add(cyl(0.16, 3.33, FW / 2, 1.67, -y), cyl(0.12, 6.4, FW / 2, 3.33, -y, Math.PI / 2),
         cyl(0.1, 11.5, FW / 2 - 3.1, 9.1, -y), cyl(0.1, 11.5, FW / 2 + 3.1, 9.1, -y));
+      /* the kicking net: two poles and a net behind the uprights, run up only for a field goal or an extra point at this end */
+      if (!netMat) {
+        const nc = document.createElement('canvas');
+        nc.width = nc.height = 32;
+        const nx = nc.getContext('2d');
+        nx.strokeStyle = 'rgba(235,240,248,0.9)';
+        nx.lineWidth = 2;
+        nx.strokeRect(0, 0, 32, 32);
+        const nt = new T.CanvasTexture(nc);
+        nt.wrapS = nt.wrapT = T.RepeatWrapping;
+        nt.repeat.set(18, 16);
+        netMat = new T.MeshBasicMaterial({ map: nt, transparent: true, opacity: 0.6, side: T.DoubleSide, depthWrite: false });
+      }
+      const ny = y + (y < 50 ? -3.6 : 3.6), net = new T.Group(), mesh = new T.Mesh(new T.PlaneGeometry(9.4, 8.4), netMat);
+      mesh.position.set(FW / 2, 5.6, -ny);
+      net.add(cyl(0.07, 10, FW / 2 - 4.7, 5, -ny), cyl(0.07, 10, FW / 2 + 4.7, 5, -ny), mesh);
+      net.visible = false;
+      g.userData.net = net;
+      g.add(net);
     }
     for (const y of [-10, 0, 100, 110]) for (const x of [0, FW]) box(0.22, 0.8, 0.22, 0xff7a2f, x, 0.4, -y);
     /* benches */
@@ -3779,7 +3805,7 @@
         if (f) {
           const pocket = c === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open && !c.down;
           if (pocket) v3.set(0.06, 0.4, -0.27).applyMatrix4(f.chest.matrixWorld);
-          else v3.set(0.03, -0.24, -0.1).applyMatrix4(f.elR.matrixWorld);
+          else v3.set(f.ballL ? -0.03 : 0.03, -0.24, -0.1).applyMatrix4((f.ballL ? f.elL : f.elR).matrixWorld);  // under the other arm when the right hand is the one fending a man off
           bx = v3.x;
           by = -v3.z;
           bz = v3.y;
@@ -3794,8 +3820,8 @@
       } else if (ps.mode !== 'ko' || G.state === 'pre') {
         bx = ps.bx;
         by = ps.los;
-        bz = 0.18;
-        ball.rotation.set(0, 0, 0);
+        bz = ps.mode === 'ko' ? 0.36 : 0.18;
+        ball.rotation.set(ps.mode === 'ko' ? 1.25 * (G.dir || 1) : 0, 0, 0);  // a kickoff: stood up on the tee, leaning back a little toward the kicker
       }
       if (bx === null) ball.visible = false;
       else ball.position.set(bx, bz, -by);
@@ -3971,6 +3997,10 @@
        (backed up on your own goal line, its uprights stood between you and your quarterback). */
     const camY = -camera.position.z, inPlay = G.state !== 'menu' && G.state !== 'intro' && G.state !== 'over';
     for (const g of posts) g.visible = Math.abs(camY - g.userData.y) > 14 && !(inPlay && g.userData.y < 0 && camY < g.userData.y);
+    const fgTry = !!ps && ps.mode === 'kick' && !!G.op && G.op.n === 'Field Goal' && G.state !== 'scene' && G.state !== 'menu';
+    for (const g of posts) g.userData.net.visible = fgTry && (ps.offTeam === 0) === (g.userData.y > 50);
+    tee.visible = !!ps && ps.mode === 'ko' && G.state !== 'scene' && G.state !== 'menu' && G.state !== 'over';
+    if (tee.visible) tee.position.set(FW / 2, 0.065, -ps.los);
     const behind = camera.position.z > 27;  // the camera has backed up past the near video board: its black back would fill the view
     if (nearBoard[0].visible === behind) for (const m of nearBoard) m.visible = !behind;
     if (rainPts.visible) updateWeather(rainPts, 36, 6);

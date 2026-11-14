@@ -312,6 +312,7 @@ js/vo.js                the index of the commentators' clips (written by tools/v
 audio/vo.pack           the clips every game uses, end to end in one file (about 4 MB of AAC)
 audio/vo/NE.pack ...    each team's own lines (about 140 kB a team), fetched when a game with that team starts
 js/league.js            schedule, standings and playoffs shared by Career and Season
+js/online.js            the online layer, set up but not switched on (see docs/ONLINE.md)
 js/career.js            Career mode
 js/media.js             The press conference and the social feed around a career (career.js draws the screens)
 js/season.js            Season mode

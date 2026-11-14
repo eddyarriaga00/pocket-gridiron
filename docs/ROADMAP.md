@@ -1657,6 +1657,15 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   type. Head to head could instead be two phones linked directly with no server beyond a free relay for the
   handshake. These are his calls; nothing is to be signed up for or connected without him.
 
+- 03:00, the owner on multiplayer and chat: "i'll do that tmr just set it up for that". Set up, not switched on:
+  `js/online.js` (loaded last; `PG.online`) holds what does not depend on the service: an online name and id kept on
+  the device, the rules for a chat line (plain text, 140 characters, links removed, one every 2.5 seconds), and the
+  adapter a service plugs into (`use`, `connect`, `chat.send/on`, `match.host/join/send/on`). It makes no network
+  call and has no screen; with no adapter `ready()` is false and sends are refused. Tested with a fake adapter.
+  `docs/ONLINE.md` is the decision sheet for him: phone-to-phone head to head (PeerJS 1.5.5 is on cdnjs) against a
+  hosted service, the chat services whose libraries are on cdnjs (firebase 13.3.0, ably 2.30.0, pusher 8.6.0; their
+  limits and prices were NOT checked), names against sign-in, and moderation. Nothing was signed up for.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

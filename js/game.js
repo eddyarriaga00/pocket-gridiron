@@ -4326,9 +4326,10 @@
     };
     const spr = () => B('Sprint', 'spr', () => G.sprintBtn = 1, () => G.sprintBtn = 0);
     if (kind === 'snap') {
+      const more = ps && ps.mode !== 'kick';
+      if (more) B('Audible', '', () => act('audible'));  // the bottom row: Audible, then Snap in the corner under the thumb
       B('SNAP', 'big', () => act('main'));
-      if (ps && ps.mode !== 'kick') {
-        B('Audible', '', () => act('audible'));
+      if (more) {
         B('Flip', '', () => act('flip'));
         if (!ps.hard) B('Hard count', 'hc', () => act('hard'));
         if (!ps.mot) B('Motion', '', () => act('motion'));

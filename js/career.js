@@ -733,8 +733,8 @@
   ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
   ${C.rival&&C.rival.team===o&&C.phase!=='done'&&!(C.social&&C.social.mday===pracKey())?`<button class="btn2" id="mday" style="margin:0 0 8px">Media day \u00b7 one question about ${esc(C.rival.name)}</button>`:''}
   ${C.social&&C.social.offer?'<p class="note" style="margin:0 0 8px">An endorsement offer is waiting in the Social tab.</p>':''}
-  <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul><button class="go sm" id="play">Play game</button>
-  ${C.prac!==pracKey()?'<button class="btn2" id="prac" style="margin-top:8px">Practice first · bonus XP</button>':'<p class="note" style="margin-top:8px">Practice is done for this week.</p>'}</div>
+  <ul>${goals().map(g=>`<li>${g.d} <b>+${GOAL_XP} XP</b></li>`).join('')}</ul>
+  ${C.prac!==pracKey()?'<div class="row2 pg2"><button class="btn2" id="prac">Practice · bonus XP</button><button class="go sm" id="play">Play game</button></div>':'<button class="go sm" id="play">Play game</button><p class="note" style="margin:8px 0 0">Practice is done for this week.</p>'}</div>
   ${C.news?`<p class="news">${esc(C.news)}</p>`:''}`;
   }
 
@@ -1034,7 +1034,7 @@
 
   function trustHtml() {
     const [, role, sh] = roleOf(), up = ROLES[ROLES.findIndex(r => r[1] === role) - 1];
-    return (C.coach ? `<p class="coach"><small>Coach</small>${esc(C.coach)}</p>` : '') + (C.coachPress ? `<p class="coach"><small>Coach, on your press conference</small>${esc(C.coachPress)}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
+    return (C.coach || C.coachPress ? `<p class="coach">${C.coach ? `<small>Coach</small>${esc(C.coach)}` : ''}${C.coachPress ? `<small${C.coach ? ' class="c2"' : ''}>${C.coach ? 'On your press conference' : 'Coach, on your press conference'}</small>${esc(C.coachPress)}` : ''}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
       + (up ? `<p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.</p>` : '');
   }
 
@@ -1291,8 +1291,7 @@
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
-  <div class="xp"><span>To spend</span><b>${fmt(C.xp)} XP</b></div>
-  <div class="xp deal"><span>Contract</span><b>${deal().left>0?`${money(deal().pay)} a season · ${deal().left} of ${deal().years} left`:'Up for renewal'}</b></div>
+  <div class="xp2"><div><span>To spend</span><b>${fmt(C.xp)} XP</b></div><div><span>Contract</span><b class="dl">${deal().left>0?`${money(deal().pay)} · ${deal().left} of ${deal().years} left`:'Up for renewal'}</b></div></div>
   ${trustHtml()}
   ${C.ageNote && C.week === 0 && C.phase === 'reg' ? `<p class="note">${esc(C.ageNote)}</p>` : ''}
   ${nextCard()}

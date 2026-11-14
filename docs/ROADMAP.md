@@ -1401,6 +1401,13 @@ what is next. Update it after every item.
   fingerprint unchanged; six watched career games with no error and never your name on the field while sitting;
   careers, exhibition, drills; audit empty at 320x568, 375x812 and 390x844.
 
+- 2026-11-14 01:00. The owner: "yes tidy up things now layout and ui". Interface only. (1) Before the snap, Snap is
+  now the corner button under the thumb with Audible beside it (it used to sit left of Audible); Flip, Hard count and
+  Motion stay in the row above. (2) Career hub: XP to spend and the contract share one row (`.xp2`), the coach's note
+  and his word on your press conference are one card, and Practice and Play game sit side by side (`.pg2`), so Play
+  game is about 90 pixels higher on the page. Checked: fingerprint unchanged, careers and exhibition clean, audit
+  empty at 320x568 and 390x844 (the contract text does not clip at 320).
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

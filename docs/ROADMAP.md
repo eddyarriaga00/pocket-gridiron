@@ -1626,6 +1626,14 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
 2 the main menu, more visual and better organized; 3 the Upgrade tab's abilities as cards with their state shown;
 4 Season mode's hub to match the career's (badges, chips, tiles); 5 a mobile check of load size and draw cost.
 
+- Change 1 (02:40), bug sweep: a random test player played 18 career games on six teams (quarterback and receiver),
+  choosing looks at random, tapping every hub tab and Social sub-tab, posting, picking schedule chips, pumping,
+  sliding, going for it on fourth down and skipping drives at random, drawn every 40 steps, with the ball spot,
+  clock, score and every position checked each step. No error, bad number or stuck state. Nothing to fix.
+- Change 2 (02:50), the main menu: each mode has a round picture on the left, and a saved career or season shows the
+  badge of the team it is with instead; the four small buttons have an icon each (`MENU_ICON`, `menuBadge`). Nothing
+  moved or removed. Audit empty at 320x568 and 390x844; fingerprint unchanged.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

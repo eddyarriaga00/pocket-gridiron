@@ -5754,18 +5754,35 @@
 
   const tmBtn = (t, i, on) => `<button class="tm ${on?'on':''}" data-i="${i}" style="--c:${t.c1}"><i></i><b>${t.city}</b><span>${t.name}</span><u>${t.ovr}</u></button>`;
 
+  /* small pictures for the menu: a mode's own picture, or the badge of the team a saved career or season is with */
+  const MENU_ICON = {
+    career: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="4"/><path d="M4 21c0-4.6 3.4-7.5 8-7.5s8 2.9 8 7.5z"/></svg>',
+    season: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v5a5 5 0 01-4 4.9V16h3v3H8v-3h3v-3.1A5 5 0 017 8zM3 4.5h3V9a3.5 3.5 0 01-3-3.4zm18 0v1.1A3.5 3.5 0 0118 9V4.5z"/></svg>',
+    exh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l4 12h2.4l4-12h-2.7L8.2 14.6 5.7 6zm11.6 9.4c.5 1.8 2 2.8 4 2.8 2.200 0 3.700-1.200 3.700-3.100 0-1.700-1-2.500-3.200-3.100-1.300-.4-1.700-.6-1.700-1.200 0-.5.500-.9 1.200-.9.800 0 1.300.4 1.500 1.100l2-.7c-.4-1.500-1.700-2.400-3.500-2.400-2 0-3.400 1.200-3.400 3 0 1.600 1 2.400 3 3 1.400.4 1.900.7 1.900 1.300 0 .6-.6 1-1.400 1-1 0-1.700-.5-2-1.500z"/></svg>',
+    camp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 3a7 7 0 110 14 7 7 0 010-14zm0 3a4 4 0 100 8 4 4 0 000-8zm0 2.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3z"/></svg>',
+    set: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9v2H4zm13 0h3v2h-3zm-3-2h2v6h-2zM4 16h3v2H4zm7 0h9v2h-9zm-3-2h2v6H8z"/></svg>',
+    how: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1 15h2v2h-2zm1.200-11c2.100 0 3.600 1.300 3.600 3.200 0 1.400-.7 2.200-1.900 3-.9.600-1.100.9-1.100 1.800h-2c0-1.600.4-2.300 1.600-3.100.900-.6 1.300-1 1.300-1.700s-.600-1.200-1.500-1.200-1.600.5-1.800 1.500l-2-.5C8.800 7.100 10.200 6 12.200 6z"/></svg>',
+    mile: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.900 6.300 6.800.7-5.100 4.600 1.500 6.800L12 16.900 5.900 20.400l1.500-6.800L2.300 9l6.800-.7z"/></svg>',
+    hall: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l10 5v2H2V7zM4 11h3v7H4zm6.500 0h3v7h-3zM17 11h3v7h-3zM2 20h20v2H2z"/></svg>',
+  };
+  const menuBadge = (i, kind) => {
+    const t = i != null && TEAMS[i];
+    return t ? `<u class="mi tb" style="--c:${t.c1};color:${inkOn(t.c1)}">${esc(t.ab)}</u>` : `<u class="mi">${MENU_ICON[kind]}</u>`;
+  };
+
   function showMenu() {
     if (G.state === 'menu') G.env = null;  // the stadium behind the menus is always a clear night
     toMenu();
     const cs = PG.career && PG.career.summary(), camp = PG.camp, offer = !!camp && camp.fresh() && !cs && !(PG.season && PG.season.summary());
+    const ss = PG.season && PG.season.summary(), ct = cs && PG.career.data ? PG.career.data.team : null, st = ss && PG.season.data ? PG.season.data.team : null;
     scr.innerHTML = `<div class="menu"><h1>Pocket<br><em>Gridiron</em></h1><p class="tag">Full 11-on-11 football, built for one hand.</p>
   ${offer?'<div class="offer"><b>First time here?</b><span>Training camp teaches passing, running and tackling in three short drills.</span><div class="row2"><button class="go sm" id="oY">Start camp</button><button class="btn2" id="oN">Not now</button></div></div>':''}
-  <button class="mode main" id="mC"><b>Career</b><span>${cs||'Create a player, lock in at your position, and build a legacy one season at a time.'}</span><i>›</i></button>
-  <button class="mode" id="mSe"><b>Season</b><span>${(PG.season&&PG.season.summary())||'Take one team through seven games and the playoffs.'}</span><i>›</i></button>
-  <button class="mode" id="mE"><b>Exhibition</b><span>Pick two teams and play one game.</span><i>›</i></button>
-  ${camp?`<button class="mode" id="mT"><b>Training camp</b><span>${camp.summary()}</span><i>›</i></button>`:''}
-  <div class="row2"><button class="btn2" id="mS">Settings</button><button class="btn2" id="mH">How to play</button></div>
-  <div class="row2" style="margin-top:8px">${PG.milestones?`<button class="btn2" id="mM">${PG.milestones.summary()}</button>`:''}${PG.career&&PG.career.hall?'<button class="btn2" id="mF">Hall of fame</button>':''}</div></div>`;
+  <button class="mode main" id="mC">${menuBadge(ct, 'career')}<b>Career</b><span>${cs||'Create a player, lock in at your position, and build a legacy one season at a time.'}</span><i>›</i></button>
+  <button class="mode" id="mSe">${menuBadge(st, 'season')}<b>Season</b><span>${ss||'Take one team through seven games and the playoffs.'}</span><i>›</i></button>
+  <button class="mode" id="mE">${menuBadge(null, 'exh')}<b>Exhibition</b><span>Pick two teams and play one game.</span><i>›</i></button>
+  ${camp?`<button class="mode" id="mT">${menuBadge(null, 'camp')}<b>Training camp</b><span>${camp.summary()}</span><i>›</i></button>`:''}
+  <div class="row2 mrow"><button class="btn2" id="mS">${MENU_ICON.set}Settings</button><button class="btn2" id="mH">${MENU_ICON.how}How to play</button></div>
+  <div class="row2 mrow" style="margin-top:8px">${PG.milestones?`<button class="btn2" id="mM">${MENU_ICON.mile}${PG.milestones.summary()}</button>`:''}${PG.career&&PG.career.hall?`<button class="btn2" id="mF">${MENU_ICON.hall}Hall of fame</button>`:''}</div></div>`;
     /* the offer is for the first look at the menu: any choice here answers it */
     const go = f => () => {
       if (camp) camp.seen();

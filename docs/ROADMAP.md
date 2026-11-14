@@ -1666,6 +1666,13 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   hosted service, the chat services whose libraries are on cdnjs (firebase 13.3.0, ably 2.30.0, pusher 8.6.0; their
   limits and prices were NOT checked), names against sign-in, and moderation. Nothing was signed up for.
 
+- Change 4 (03:20), Season mode's hub, to match the career's: the next game as two team badges with record and
+  rating; pictures on the four tabs; the schedule as a row a game (a W or L badge and the score for the ones played,
+  the week's number, opponent's rating and record for the ones to come); the team's totals as six tiles with the
+  per-game figure under each. Roster and Start over as before. Audit: "Points against" was cut in a tile (the tiles
+  say Points, Allowed, Pass yards, Rush yards); empty after at 320x568 and 390x844. Fingerprint unchanged.
+  Next: 5 a mobile check of load size and draw cost; then the first stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

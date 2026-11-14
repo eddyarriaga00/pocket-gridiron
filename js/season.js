@@ -126,28 +126,38 @@
         <ul class="aw">${awards().map(([l, who, why]) => `<li><span>${l}<small>${why}</small></span><b>${who}</b></li>`).join('')}</ul>
         <button class="go sm" id="nxs">Start season ${S.year + 1}</button></div>`;
     }
-    const o = LG.nextOpp(S);
-    return `<div class="nx${LG.prime(S) ? ' prime' : ''}"><small>${LG.label(S)}${LG.prime(S) ? ' · Primetime' : ''}</small><h4>${LG.home(S) ? 'vs' : 'at'} ${full(o)}</h4>
-      <p>${S.ovrs[o]} OVR, ${LG.recTxt(S, o)} · You are ${LG.recTxt(S, S.team)}</p>
-      <button class="go sm" id="play">Play game</button></div>`;
+    /* the matchup at a glance, as on the career hub: the two badges with record and rating, the home side on the right */
+    const o = LG.nextOpp(S), home = LG.home(S), side = i => `<div class="mt${i === S.team ? ' me' : ''}"><i style="--c:${TEAMS[i].c1};color:${PG.inkOn(TEAMS[i].c1)}">${TEAMS[i].ab}</i><b>${LG.recTxt(S, i)}</b><small>${S.ovrs[i]} OVR</small></div>`;
+    return `<div class="nx${LG.prime(S) ? ' prime' : ''}"><small>${LG.label(S)}${LG.prime(S) ? ' · Primetime' : ''}</small>
+      <div class="mu">${side(home ? o : S.team)}<div class="mv">at</div>${side(home ? S.team : o)}</div><h4>${home ? 'vs' : 'at'} ${full(o)}</h4>
+      <button class="go sm" id="play" style="margin-top:8px">Play game</button></div>`;
   }
 
   function tabSchedule() {
-    const rows = S.log.map(g => `<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${full(g.opp)}</td></tr>`);
+    /* a row a game: a W or L badge and the score for the ones played, the week's number and the opponent's rating for
+       the ones to come */
+    const rows = S.log.map(g => `<div><i class="gb ${g.us > g.them ? 'w' : g.us < g.them ? 'l' : 't'}">${g.us > g.them ? 'W' : g.us < g.them ? 'L' : 'T'}</i><div><b>${g.wk} · ${g.us}–${g.them} vs ${full(g.opp)}</b></div></div>`);
     if (S.phase === 'reg') for (let w = S.week; w < S.sched.length; w++) {
       const m = S.sched[w].find(p => p.includes(S.team)), o = m[0] === S.team ? m[1] : m[0];
-      rows.push(`<tr><td style="color:var(--mute)">Wk ${w + 1} · vs ${full(o)} (${S.ovrs[o]})</td></tr>`);
+      rows.push(`<div class="tc"><i class="gb">${w + 1}</i><div><b>${m[0] === S.team ? 'vs' : 'at'} ${full(o)}</b><small>${S.ovrs[o]} OVR · ${LG.recTxt(S, o)}</small></div></div>`);
     }
-    return `<table class="lg">${rows.join('')}</table>`;
+    return `<div class="glog">${rows.join('')}</div>`;
   }
 
   function tabTeam() {
     const s = S.stats, g = Math.max(1, s.g), per = v => (v / g).toFixed(1);
-    const row = (l, v) => `<tr><td>${l}</td><td>${v}</td><td>${per(v)}</td></tr>`;
-    return `<table class="lg"><tr><th></th><th>Total</th><th>Per game</th></tr>${row('Points for', s.pf)}${row('Points against', s.pa)}
-      ${row('Passing yards', s.pass)}${row('Rushing yards', s.rush)}${row('Giveaways', s.to)}${row('Takeaways', s.take)}</table>
+    const row = (l, v) => `<div><small>${l}</small><b>${v}</b><span>${per(v)} a game</span></div>`;  // a tile each: the total, and the figure per game under it
+    return `<div class="stl">${row('Points', s.pf)}${row('Allowed', s.pa)}${row('Giveaways', s.to)}${row('Pass yards', s.pass)}${row('Rush yards', s.rush)}${row('Takeaways', s.take)}</div>
       ${s.g ? '' : '<p class="note">Team numbers show up after your first game.</p>'}`;
   }
+
+  /* a small picture for each of the hub's tabs */
+  const TAB_ICON = {
+    table: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 13.500v-5h2.600v5zm4.200 0v-11h2.600v11zm4.200 0v-7.500h2.600v7.500z"/></svg>',
+    sched: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.500h1.500V3h5V1.500H12V3h2v11H2V3h2zM3.500 6.500v6h9v-6z"/></svg>',
+    team: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.500l5.500 2v4.200c0 3.300-2.300 5.600-5.500 6.800-3.200-1.200-5.500-3.500-5.500-6.800V3.500z"/></svg>',
+    roster: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.500" cy="5" r="2.500"/><circle cx="11.500" cy="5.500" r="2"/><path d="M1 13.500c0-2.800 2-4.500 4.500-4.500s4.500 1.700 4.500 4.500zm9.800 0c0-1.600-.5-2.900-1.400-3.800.6-.3 1.300-.4 2-.4 2.100 0 3.600 1.500 3.600 4.200z"/></svg>',
+  };
 
   function hub(tab) {
     tab = tab || 'table';
@@ -158,8 +168,8 @@
         <div class="pc" style="--c:${t.c1}"><div><h3>${t.name}</h3><p>${t.city} · Season ${S.year} · ${LG.recTxt(S, S.team)}<br>${DIFF[S.diff]} · ${S.ql / 60} min quarters${S.titles ? ` · ${S.titles} title${S.titles > 1 ? 's' : ''}` : ''}</p></div>
           <div class="ovr">${S.ovrs[S.team]}<small>OVR</small></div></div>
         ${nextCard()}
-        <div class="tabs" style="margin-top:16px">${[['table', 'Standings'], ['sched', 'Schedule'], ['team', 'Team'], ['roster', 'Roster']].map(([k, l]) =>
-          `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <div class="tabs itabs" style="margin-top:16px">${[['table', 'Standings'], ['sched', 'Schedule'], ['team', 'Team'], ['roster', 'Roster']].map(([k, l]) =>
+          `<button data-t="${k}" class="${k === tab ? 'on' : ''}">${TAB_ICON[k]}<span>${l}</span></button>`).join('')}</div>
         ${tab === 'table' ? LG.standingsHtml(S) : tab === 'sched' ? tabSchedule() : tab === 'roster' ? tabRoster() : tabTeam()}
         <div class="stack"><button class="btn2 warn" id="ret">${sure ? 'Tap again to erase this season' : 'Start over'}</button></div></div>`;
       $('#bk').onclick = PG.showMenu;

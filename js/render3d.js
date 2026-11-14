@@ -2001,6 +2001,9 @@
     applyPose(f);
   }
 
+  /* is he busy with the ball or a tackle, so a gesture would look wrong? */
+  const carrierHeld = (p, ps) => p.down || p.fell || p.flat > 0 || !!p.eng || !!p.block;
+
   function poseFor(f, p, s, dt) {
     const tg = TG, ps = s.ps;
     tg.fill(0);
@@ -2686,6 +2689,52 @@
         tg[SRX] = 1.4 + Math.sin(time * 28) * 0.45;
         tg[ER] = 0.4;
       }  // swiping at the ball
+      if (qbSet && !winding && !(p.thrT > 0)) {
+        /* reading the field, he pats the ball: the front hand comes off it and taps it, about once a second */
+        const pat = Math.pow(Math.max(0, Math.sin(time * 5.6 + f.seed)), 8);
+        tg[EL] -= 0.3 * pat;
+        tg[SLZ] -= 0.12 * pat;
+      }
+      const ge = ps.gest;
+      if (ge && ge.who === p && s.G.state === 'dead' && sp < 3.5 && !carrierHeld(p, ps)) {
+        /* after the whistle (see gesture() in game.js): in over a quarter of a second, held, and out again before the huddle */
+        const a = ps.after || 0, e = smooth(clamp((a - 0.25) / 0.25, 0, 1)) * (1 - smooth(clamp((a - 1.4) / 0.25, 0, 1)));
+        if (e > 0) {
+          const to = (i, v) => (tg[i] = lerp(tg[i], v, e));
+          eyes = false;
+          if (ge.kind === 'point') {
+            // first down: the free arm straight out upfield, with a jab in it
+            const k = ps.carrier === p ? 0 : 1;  // the man with the ball points with the other hand
+            to(k ? SRX : SLX, 1.5 + 0.12 * Math.sin(time * 14));
+            to(k ? SRZ : SLZ, 0);
+            to(k ? ER : EL, 0.05);
+            to(CHRX, 0.02);
+            hx = 0;
+            hy = p.team === ps.offTeam ? s.dir : -s.dir;
+          } else if (ge.kind === 'wave') {
+            // no catch: both arms out low in front of him, crossing and uncrossing
+            const w = Math.sin(time * 10);
+            to(SLX, 0.95);
+            to(SRX, 0.95);
+            to(SLZ, 0.1 + 0.45 * w);
+            to(SRZ, -0.1 - 0.45 * w);
+            to(EL, 0.12);
+            to(ER, 0.12);
+            to(CHRX, -0.12);
+          } else {
+            // a sack: both arms out and bent up, chest out, a couple of pumps
+            const pump = 0.12 * Math.sin(time * 11);
+            to(SLX, 0.15);
+            to(SRX, 0.15);
+            to(SLZ, -1.3);
+            to(SRZ, 1.3);
+            to(EL, 1.9 + pump);
+            to(ER, 1.9 + pump);
+            to(CHRX, 0.12);
+            to(HEADRX, -0.2);
+          }
+        }
+      }
       if (stretch > 0) tg[PELY] -= 0.12 * stretch;  // lower into the lunge
       if (p.hurdle > 0) {
         // lead leg up and over, trail leg tucked

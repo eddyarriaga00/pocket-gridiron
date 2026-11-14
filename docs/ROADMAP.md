@@ -1447,6 +1447,16 @@ what is next. Update it after every item.
   error; careers, exhibition, drills. Seen as frame strips from the side and from above, not in motion. Next on the
   list: the toe tap at the sideline, the form tackle as a paired animation, then the skinned body.
 
+- 2026-11-14 04:00. The owner: "keep improving things add more small details". Four, all drawn only and never in
+  simulations. After the whistle somebody says it with his arms (`gesture()` in game.js picks the man and stores
+  `ps.gest`; `poseFor` draws it from 0.25 to 1.65 seconds after the whistle): a first down, and the nearest teammate
+  on his feet (or the runner, if he stayed up) points upfield; a pass broken up, and the nearest defender waves it
+  off with both arms; a sack, and a defender beside it flexes. And the quarterback, set in the pocket, pats the ball
+  about once a second. In three watched games: 18 points, 5 flexes, 1 wave. Checked: fingerprint unchanged; gait,
+  tackle, block and leaping catch as before; two watched career games drawn every 12 steps (6,130 frames) with no bad
+  pose and no error; careers, exhibition, drills; audit empty on the career and exhibition games at 390x844. Seen as
+  three small stills, not in motion.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

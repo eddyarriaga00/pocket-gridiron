@@ -2373,10 +2373,41 @@
     else accept();
   }
 
+  /* After the whistle somebody says it with his arms (drawn by render3d.js, never in simulations): a teammate points
+     upfield for a first down, a defender waves off a pass he broke up, and a defender flexes after a sack. */
+  function gesture(p0) {
+    if (AUTO || QUIET || G.state !== 'dead' || !p0 || (p0.mode !== 'pass' && p0.mode !== 'run') || p0.gest) return;
+    const off = p0.offTeam, c = p0.carrier, up = q => !q.down && !q.fell && !(q.flat > 0) && !q.ref;
+    const nearest = (team, x, y, max, not) => {
+      let best = null, bd = max;
+      for (const q of P) if (q.team === team && q !== not && up(q)) {
+        const d = hyp(q.x - x, q.y - y);
+        if (d < bd) {
+          bd = d;
+          best = q;
+        }
+      }
+      return best;
+    };
+    let who = null, kind = '';
+    if (G.last === 'Sack!' && p0.qb) {
+      who = nearest(1 - off, p0.qb.x, p0.qb.y, 9, p0.tackler);
+      kind = 'flex';
+    } else if (G.last === 'First down' && c && c.team === off) {
+      who = up(c) ? c : nearest(off, c.x, c.y, 12, c);
+      kind = 'point';
+    } else if ((G.last === 'Pass broken up' || G.last === 'Batted down') && p0.tgt) {
+      who = nearest(1 - off, p0.tgt.x, p0.tgt.y, 6, null);
+      kind = 'wave';
+    }
+    if (who) p0.gest = { who, kind };
+  }
+
   function finish(kind, arg) {
     if (G.state !== 'live' && G.state !== 'kicka') return;
     const p0 = ps, s0 = G.score.slice();
     finish0(kind, arg);
+    gesture(p0);
     if (kind === 'tackle' && p0 && p0.carrier && G.state === 'dead' && (p0.mode === 'pass' || p0.mode === 'run') && !AUTO && !QUIET && !G.drill && Math.random() < 0.008) shaken(p0.tackler && P.includes(p0.tackler) && Math.random() < 0.35 ? p0.tackler : p0.carrier);  // about one time in three it is the tackler who stays down
     if (p0 && p0.rk && !p0.flagged && G.state === 'dead') return roughKick(p0, s0);
     if (!p0 || p0.flagged || G.state !== 'dead' || (p0.mode !== 'pass' && p0.mode !== 'run')) return;  // a flag during the play already decided it (holding, interference)

@@ -731,7 +731,7 @@
     :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
     }
     const o = nextOpp(), lab = LG.label(C), pt = LG.prime(C);
-    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small><h4>${LG.home(C)?'vs':'at'} ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}<br>${C.ovrs[o]} OVR, ${recTxt(o)} · You are ${recTxt(t)}${oppInj(o)?`<br>${esc(oppInj(o).txt)}.`:''}${C.inj?`<br>You are questionable with ${C.inj.what}: ${attrName(C.inj.key)} −${C.inj.n} this week.`:''}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
+    return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small>${matchupHtml(o)}<h4>${LG.home(C)?'vs':'at'} ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}${oppInj(o)?`<br>${esc(oppInj(o).txt)}.`:''}${C.inj?`<br>You are questionable with ${C.inj.what}: ${attrName(C.inj.key)} −${C.inj.n} this week.`:''}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>
   ${C.social&&C.social.callout&&C.social.callout.team===o?calloutHtml():''}
   ${C.rival&&C.rival.team===o&&C.phase!=='done'&&!(C.social&&C.social.mday===pracKey())?`<button class="btn2" id="mday" style="margin:0 0 8px">Media day \u00b7 one question about ${esc(C.rival.name)}</button>`:''}
   ${C.social&&C.social.offer?'<p class="note" style="margin:0 0 8px">An endorsement offer is waiting in the Social tab.</p>':''}
@@ -741,6 +741,26 @@
   }
 
   const pracKey = () => C.season + '-' + C.week + '-' + C.phase;
+
+  /* the matchup at a glance: the two teams' badges in their colors with record and rating under each, home side on
+     the right as on a scoreboard, and "vs" or "at" between them */
+  function matchupHtml(o) {
+    const home = LG.home(C), side = i => {
+      const tm = team(i);
+      return `<div class="mt${i === C.team ? ' me' : ''}"><i style="--c:${tm.c1};color:${PG.inkOn(tm.c1)}">${tm.ab}</i><b>${recTxt(i)}</b><small>${C.ovrs[i]} OVR</small></div>`;
+    };
+    return `<div class="mu">${side(home ? o : C.team)}<div class="mv">at</div>${side(home ? C.team : o)}</div>`;
+  }
+
+  /* the season so far as a strip of chips, one a game: won, lost or tied, and the game still to come outlined. Tap
+     one for its score. */
+  let schedPick = -1;
+  function schedHtml() {
+    if (!C.log.length) return '';
+    const cur = C.log.filter(g => g.season === undefined || g.season === C.season), list = cur.length ? cur : C.log, pick = schedPick >= 0 && schedPick < list.length ? schedPick : list.length - 1, g = list[pick];
+    return `<h2>Your games</h2><div class="schd">${list.map((x, i) => `<button data-sg="${i}" class="${x.us > x.them ? 'w' : x.us < x.them ? 'l' : 't'}${i === pick ? ' on' : ''}" aria-label="${x.wk}: ${x.res} ${x.us} to ${x.them}"><b>${x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'T'}</b><small>${team(x.opp).ab}</small></button>`).join('')}${C.phase !== 'done' ? '<span class="nxt"><b>·</b><small>next</small></span>' : ''}</div>
+  <p class="schl"><b>${g.wk}</b> ${g.res} ${g.us}–${g.them} ${g.away ? 'at' : 'vs'} ${team(g.opp).name}${g.grade ? ` · grade ${g.grade}` : ''}<small>${g.line || ''}</small></p>`;
+  }
 
   /* this week's game: the home city's weather, the same every time it is asked (so the forecast on the hub is what you
      get), and a primetime game at night */
@@ -817,6 +837,14 @@
      callout to back up, an offer to answer) under that, then three small tabs. Mentions shows this week open and the
      earlier weeks folded. */
   let socTab = 'feed';
+
+  /* small pictures for the hub's four tabs (drawn in the text color) */
+  const TAB_ICON = {
+    up: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5l4.5 5h-3v6h-3v-6h-3z"/></svg>',
+    season: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h8v3.2a4 4 0 01-3.2 3.9V11H11v2H5v-2h2.2V9.6A4 4 0 014 5.7zM2 3.5h1.5v2.7A2.2 2.2 0 012 4.3zm12 0v.8a2.2 2.2 0 01-1.5 1.9V3.5z"/></svg>',
+    stats: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 13.5v-5h2.6v5zm4.2 0v-11h2.6v11zm4.2 0v-7.5h2.6v7.5z"/></svg>',
+    social: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h11v7.5H8.4L5 13.5v-3H2.5z"/></svg>',
+  };
 
   /* ---------- your look ----------
      What the player wears over the team's kit, and his skin tone. Each row is one piece; 'kit' leaves it as the team
@@ -1110,7 +1138,7 @@
   function trustHtml() {
     const [, role, sh] = roleOf(), up = ROLES[ROLES.findIndex(r => r[1] === role) - 1];
     return (C.coach || C.coachPress ? `<p class="coach">${C.coach ? `<small>Coach</small>${esc(C.coach)}` : ''}${C.coachPress ? `<small${C.coach ? ' class="c2"' : ''}>${C.coach ? 'On your press conference' : 'Coach, on your press conference'}</small>${esc(C.coachPress)}` : ''}</p>` : '') + `<div class="trust"><span>Coach trust · ${role}</span><b>${C.trust}</b><div class="bar"><i style="width:${C.trust}%"></i></div></div>`
-      + (up ? `<p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.</p>` : '');
+      + (up ? `<details class="inf"><summary>${Math.round(sh*10)} of 10 drives · ${up[1]==='Starter'?'starter':'rotation'} at ${up[0]}</summary><p class="note">You play about ${Math.round(sh*10)} of every 10 of your unit's drives. Good games and practice raise the coach's trust; at ${up[0]} you ${up[1]==='Starter'?'become the starter':'join the rotation'}.</p></details>` : '');
   }
 
   function tabUp() {
@@ -1134,7 +1162,7 @@
 
   function tabSeason() {
     return LG.standingsHtml(C)
-      + (C.log.length ? `<h2>Your games</h2><table class="lg">${C.log.map(g=>`<tr><td>${g.wk} · ${g.res} ${g.us}–${g.them} vs ${team(g.opp).ab}</td></tr>`).join('')}</table>` : '');
+      + schedHtml();
   }
 
   const retTot = m => {
@@ -1364,6 +1392,7 @@
     let sure = false;  // the trade button has been tapped once
     let setOpen = false;  // the game settings are folded away until asked for
     let lookOpen = false;  // and so is the player's look
+    let moreOpen = false;  // and the rarely used buttons: edit the teams, ask for a trade, retire
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
@@ -1371,7 +1400,7 @@
   ${trustHtml()}
   ${C.ageNote && C.week === 0 && C.phase === 'reg' ? `<p class="note">${esc(C.ageNote)}</p>` : ''}
   ${nextCard()}
-  <div class="tabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats'],['social','Social']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${l}</button>`).join('')}</div>
+  <div class="tabs itabs" style="margin-top:16px">${[['up','Upgrade'],['season','Season'],['stats','Stats'],['social','Social']].map(([k,l])=>`<button data-t="${k}" class="${k===tab?'on':''}">${TAB_ICON[k]}<span>${l}</span></button>`).join('')}</div>
   ${tab==='up'?tabUp():tab==='season'?tabSeason():tab==='social'?tabSocial():tabStats()}
   <div class="hset${setOpen?' open':''}"><button class="hsum" id="hset" aria-expanded="${setOpen}"><b>Game settings</b><span>${DIFFS[C.diff??1]} · ${C.ql/60}-min quarters${C.pos==='WR'?` · ${C.kr===false?'offense only':'returns kicks'}`:''}</span></button>
   ${setOpen?`  <h2>Difficulty</h2><div class="seg" id="hd">${DIFFS.map((d,i)=>`<button data-d="${i}" class="${i===(C.diff??1)?'on':''}">${d}</button>`).join('')}</div>
@@ -1382,8 +1411,9 @@
   <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>`:''}</div>
   <div class="hset${lookOpen?' open':''}"><button class="hsum" id="hlook" aria-expanded="${lookOpen}"><b>Your look</b><span>${lookSum()}</span></button>
   ${lookOpen?lookHtml():''}</div>
-  <div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
-  ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}</div>`;
+  <div class="hset${moreOpen?' open':''}"><button class="hsum" id="hmore" aria-expanded="${moreOpen}"><b>Career options</b><span>Teams${canTrade()?' · trade':''} · retire</span></button>
+  ${moreOpen?`<div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
+  ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}`:''}</div></div>`;
       $('#bk').onclick = PG.showMenu;
       $('#hset').onclick = () => {
         setOpen = !setOpen;  // stays as you left it while the hub is open
@@ -1445,6 +1475,16 @@
         socialPost(b.dataset.sp);
         keepScroll(draw);
       });
+      const hm = $('#hmore');
+      if (hm) hm.onclick = () => {
+        moreOpen = !moreOpen;
+        keepScroll(draw);
+      };
+      scr.querySelectorAll('[data-sg]').forEach(b => b.onclick = () => {
+        schedPick = +b.dataset.sg;
+        PG.snd('tick');
+        keepScroll(draw);
+      });
       const hl = $('#hlook');
       if (hl) hl.onclick = () => {
         lookOpen = !lookOpen;
@@ -1496,8 +1536,8 @@
         showHub('up');
         PG.banner('Traded', `${esc(C.name)} goes to the ${full(to)}`, 2600);
       };
-      $('#ret').onclick = showRetire;
-      $('#edt').onclick = () => PG.showTeams(C.team, () => showHub(tab));
+      if ($('#ret')) $('#ret').onclick = showRetire;  // these two are inside the folded Career options card
+      if ($('#edt')) $('#edt').onclick = () => PG.showTeams(C.team, () => showHub(tab));
     };
     draw();
   }

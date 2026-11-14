@@ -118,6 +118,10 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   Max protect. A slide sends the line toward a blitz you expect from that side; Max protect keeps the backs and the
   tight end in to block, with fewer men to throw to.
 - Receivers slow into a hard break and cut at the mark, so hitches, curls, in-routes and outs can be thrown on time.
+- Captains wear a "C" patch: each side's quarterback and middle linebacker, and you once you are the starter.
+- The career hub shows the next game as two team badges with records and ratings, has pictures on its tabs, folds
+  the other divisions, last week's scores, the rarely used buttons and the longer explanations away until tapped,
+  and shows your season as a strip of win and loss chips you can tap.
 - Two more cutscenes: at halftime both teams jog off the field, and after the final whistle the two leaders meet at
   midfield and shake hands while the winners celebrate behind them. Tap to skip, as with the others.
 - Pump fake: Pump on the passing pad (B, or LT on a controller) fakes a throw; zone defenders near the short route

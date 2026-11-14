@@ -323,17 +323,22 @@
      the rest of your conference, then the other one; a division's leader is marked. */
   function standingsHtml(L) {
     const full = i => `${TEAMS[i].city} ${TEAMS[i].name}`, row = (i, n, lead) => `<tr class="${i === L.team ? 'me' : ''}"><td>${n}. ${full(i)}${lead ? ' <span class="lead">leads</span>' : ''}</td><td>${recTxt(L, i)}</td><td>${L.tab[i].pf}</td><td>${L.tab[i].pa}</td></tr>`;
-    const around = L.around.length ? `<h2>Around the league</h2><table class="lg">${L.around.map(([a, sa, b, sb]) =>
-      `<tr><td>${TEAMS[a].name} ${sa}, ${TEAMS[b].name} ${sb}</td></tr>`).join('')}</table>` : '';
+    /* last week's other scores, folded: a chip a game, the winner's side marked */
+    const sc = (t, s, w) => `<span class="${w ? 'w' : ''}"><i style="--c:${TEAMS[t].c1}"></i>${TEAMS[t].ab}<b>${s}</b></span>`;
+    const around = L.around.length ? `<details class="fwkd fold"><summary><span>Around the league</span><small>${L.around.length} games</small></summary><div class="arl">${L.around.map(([a, sa, b, sb]) =>
+      `<div title="${TEAMS[a].name} ${sa}, ${TEAMS[b].name} ${sb}">${sc(a, sa, sa > sb)}${sc(b, sb, sb > sa)}</div>`).join('')}</div></details>` : '';
     if (!full2(L)) return `${bracketHtml(L)}${L.po && L.po.games ? '<h2>Final standings</h2>' : ''}<table class="lg"><tr><th>Team</th><th>W-L</th><th>PF</th><th>PA</th></tr>${seeds(L).map((i, n) => row(i, n + 1)).join('')}</table>
       <p class="note">Top four make the playoffs.</p>${around}`;
     const mine = divOf(L.team), order = [mine, ...[0, 1, 2, 3].map(d => TEAMS[L.team].conf * 4 + d), ...[0, 1, 2, 3].map(d => (1 - TEAMS[L.team].conf) * 4 + d)].filter((d, i, a) => a.indexOf(d) === i);
     const played = ids(L).some(i => L.tab[i].w + L.tab[i].l + L.tab[i].t > 0);
-    const tables = order.map(d => {
+    const table = d => {
       const ts = divTeams(d >> 2, d & 3).sort(better(L));
       return `<h3 class="dvh">${CONF[d >> 2]} ${DIV[d & 3]}</h3><table class="lg"><tr><th>Team</th><th>W-L</th><th>PF</th><th>PA</th></tr>${ts.map((i, n) => row(i, n + 1, played && n === 0)).join('')}</table>`;
-    }).join('');
-    return `${bracketHtml(L)}<h2>${L.po && L.po.games ? 'Final standings' : 'Standings'}</h2>${tables}
+    };
+    /* your division is open; the rest of your conference and the other conference are folded under it, one tap away */
+    const mc = TEAMS[L.team].conf, fold = (label, ds) => `<details class="fwkd fold"><summary><span>${label}</span><small>${ds.length} divisions</small></summary><div class="fin">${ds.map(table).join('')}</div></details>`;
+    return `${bracketHtml(L)}<h2>${L.po && L.po.games ? 'Final standings' : 'Standings'}</h2>${table(mine)}
+      ${fold(`Rest of the ${CONF[mc]}`, order.filter(d => d !== mine && d >> 2 === mc))}${fold(`${CONF[1 - mc]} Conference`, order.filter(d => d >> 2 !== mc))}
       <p class="note">The four division winners of each conference make the playoffs.</p>${around}`;
   }
 

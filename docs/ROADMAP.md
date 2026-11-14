@@ -1581,6 +1581,25 @@ what is next. Update it after every item.
   came up in one watched game; fingerprint unchanged; gait, tackle and block as before; careers, exhibition, drills;
   audit empty at 320x568 with the longer look card.
 
+- 2026-11-14 15:30. The owner: "add a captains patch ... things do feel a bit cluttered and very text like, though i
+  don't want it removed i want more interactive ui with more visuals". Read up on hub design first; the advice that
+  kept coming back is progressive disclosure: show what matters now, put the rest one tap away, a card a topic.
+  Nothing was removed. (1) Captain's patch: a "C" over a star on the right chest (`f.patch`, `patchMaterial`, hidden
+  with the shoulder numbers when too small), worn by each side's quarterback and middle linebacker and by you once
+  you start (`p.capt` in `setupPlay`). (2) Career hub, next game: the two teams as badges in their colors with record
+  and rating under each (`matchupHtml`), replacing the line of text that carried the same numbers; goals have a
+  bullet each. (3) The four tabs have a small picture each (`TAB_ICON`, `.itabs`). (4) Standings (league.js
+  `standingsHtml`, so Season mode too): your division is open, the rest of your conference and the other conference
+  are folded cards, and last week's other scores are a folded grid of score chips with the winner marked. The Season
+  tab went from about 3,300 pixels tall to under 900. (5) Your games is a strip of W/L chips; tap one for its score,
+  grade and stat line (`schedHtml`). (6) The trust explanation is a folded line with an (i) (`details.inf`), and
+  Edit teams, Ask for a trade and Retire are in a folded Career options card (`#hmore`), like Game settings and
+  Your look. The test tools open that card before looking for Retire. Checked with every card opened: the three
+  career options, four settings groups, nine look rows, eight division tables, fifteen scores and the game chips are
+  all still there. Audit: the first run found the chips 40 wide (now 44), 9 and 9.5 pixel labels (now 10), and the
+  longer Snap tip touching the play card in camp at 320 (the sentence added for Protect was taken back out); empty
+  at 320x568 and 390x844 after. Fingerprint unchanged; careers, a quarterback season, exhibition, season mode, drills.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

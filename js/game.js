@@ -914,10 +914,13 @@
       ps.ret = r;
       if (r.team === 0 && G.lock && G.kr) asHero(r);
     }
+    /* captains wear the patch (drawn by render3d.js): each side's quarterback and middle linebacker, and in a career
+       you, once you are the starter */
+    for (const p of P) p.capt = !kick && !G.drill && (p.role === 'QB' || p.role === 'MLB' || (!!G.lock && p.team === 0 && p.role === G.lock && G.share >= 0.99));
     if (G.lock && G.sit && G.bench && off === 0 && !kick && G.share < 1 && !G.drill) {
       // a drive you sit out: the backup is the one on the field, under his own name and number
       const b = P.find(p => p.team === 0 && p.role === G.lock), h = G.bench;
-      if (b) Object.assign(b, { spd: h.spd, rt: h.rt, num: h.num, name: h.name, look: null }, h.x || {});  // and he is dressed like the rest of the team, not in your gear
+      if (b) Object.assign(b, { spd: h.spd, rt: h.rt, num: h.num, name: h.name, look: null, capt: false }, h.x || {});  // and he is dressed like the rest of the team, not in your gear
     }
     G.me = G.lock && !kick && !(G.watch && G.wd && G.wd.own) ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : ps.ret && ps.ret.hero ? ps.ret : null;
     G.sel = G.lock ? G.me : off === 1 ? (selRole && d[selRole]) || d.MLB : null;
@@ -4563,7 +4566,7 @@
     return 'none';
   }
 
-  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage. Protect sets the pass blocking: slide the line toward a blitz, or keep the backs in.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open; Pump fakes a throw, and a zone defender may bite.', carryq: 'Past the line your quarterback can Slide: the play ends there, and nobody may hit him.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
+  const TIPS = { snap: 'Tap Snap to start. Tap a receiver\u2019s letter to change his route. Audible changes the play, Flip mirrors it, Motion sends a receiver across: if a defender runs with him, it is man coverage.', pass: 'Hold a letter to build power, let go to throw. A quick tap floats a lob; a full green bar fires a bullet. Away throws it out of bounds when nobody is open; Pump fakes a throw, and a zone defender may bite.', carryq: 'Past the line your quarterback can Slide: the play ends there, and nobody may hit him.', carry: 'Drag to run. Juke or Spin slips a tackle, Power runs through one, Hurdle clears a diver.',
     def: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball, Switch changes player.', deflock: 'Drag to chase the ball. Dive or Hit to tackle, Strip goes for the ball.', route: 'Follow your route. Tap Call when you are open.',
     offball: 'Drag to block for the ball carrier.', timeout: 'Time out stops the clock: you get back the seconds that just ran off.', fair: 'Fair catch: the ball is yours where it lands, with no return and no hit. Tap it if tacklers are closing in.', loose: 'Loose ball! Run to it and Dive on it.', ready: 'Tap Ready, or wait for the snap.', watch: 'You watch the plays you are not on the field for. Fast fwd runs them at three times the speed; Skip drive goes straight to the result.', watchK: 'Their kickoff, with your returner back deep. Skip starts your offense from the touchback spot.', kick: 'Tap Kick when the marker is in the green.', defpre: 'Switch picks the defender you control. Audible changes the coverage.' };
   let tipT;

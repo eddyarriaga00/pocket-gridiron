@@ -366,6 +366,10 @@ window.A = (() => {
     });
     await step('career create', async() => {
       PG.career.open();
+      if (q('#hmore') && !q('#ret')) {
+        click('#hmore');  // Retire is inside the folded Career options card
+        scan('career options open');
+      }
       if (q('#ret')) {
         click('#ret');
         scan('career so far');

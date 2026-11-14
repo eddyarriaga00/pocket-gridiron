@@ -436,6 +436,32 @@
     return m;
   }
 
+  /* a captain's patch: a "C" over a star, sewn on the chest above the number, in the number's color */
+  function patchMaterial(color) {
+    const key = 'cap|' + color;
+    let m = numCache.get(key);
+    if (m) return m;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    x.fillStyle = color;
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.font = '800 40px Archivo, Arial, sans-serif';
+    x.fillText('C', 32, 25);
+    x.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 4 : 9;
+      x.lineTo(32 + Math.cos(a) * r, 52 + Math.sin(a) * r);
+    }
+    x.fill();
+    const tex = new T.CanvasTexture(c);
+    tex.colorSpace = T.SRGBColorSpace;
+    m = new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+    numCache.set(key, m);
+    return m;
+  }
+
   function stripeMaterial() {
     let m = numCache.get('ref');
     if (m) return m;
@@ -450,7 +476,7 @@
     return m;
   }
 
-  const TV_GEO = new T.PlaneGeometry(0.105, 0.105);
+  const TV_GEO = new T.PlaneGeometry(0.105, 0.105), PATCH_GEO = new T.PlaneGeometry(0.1, 0.1);
 
   /* ---------- figures ---------- */
   function makeFigure() {
@@ -487,6 +513,10 @@
       f.chest.add(q);
       return q;
     });
+    f.patch = new T.Mesh(PATCH_GEO, NO_NAME);  // the captain's patch, high on his right chest
+    f.patch.position.set(0.105, 0.505, -0.258);
+    f.patch.rotation.set(0.32, Math.PI, 0, 'YXZ');
+    f.chest.add(f.patch);
     f.cur = new Float32Array(NPOSE);
     f.cur[PELY] = HIP;
     f.bodyS = new T.Vector3(1, 1, 1);
@@ -557,6 +587,7 @@
       num = ppu * NUM_H > SMALL_PX;
     }
     f.nameplate.visible = name;
+    if (f.patch) f.patch.visible = tv;  // about the size of a shoulder number: gone when that is
     if (f.num.material.isNum) f.num.visible = num;
     if (f.tv) {
       const nm = f.num.material, on = tv && !!nm.isNum && f.num.visible !== false && !(f.hide && f.hide.has('pads'));
@@ -3758,6 +3789,7 @@
         colorFigure(SIDELINE + i, c);
         f.num.material = p.ref ? stripeMaterial() : p.suit || p.hoodie ? NO_NAME : numberMaterial(p.num, c.number);
         f.nameplate.material = p.ref || p.suit || p.hoodie ? NO_NAME : nameMaterial(p.name, c.number);
+        f.patch.material = p.capt && !p.ref && !p.suit && !p.hoodie ? patchMaterial(c.number) : NO_NAME;
         f.fall = 0;
         f.fallDir = Math.random() < 0.75 ? 1 : -1;
         f.snap = true;

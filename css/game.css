@@ -434,6 +434,47 @@ tr.me td{color:var(--acc);font-weight:700}
 .quotes li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 10px 8px;font-size:12.5px;line-height:1.4}
 .quotes .tone{display:table}
 .quotes small{margin-left:6px;color:var(--mute);font-size:11px}
+/* the next game at a glance: two team badges, record and rating under each */
+.mu{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:8px 0 10px;padding:10px 8px;border-radius:10px;background:var(--panel2)}
+.mu .mt{display:grid;justify-items:center;gap:2px}
+.mu .mt i{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:var(--c);font:800 13px var(--display);font-style:normal;letter-spacing:.02em;box-shadow:0 0 0 2px rgba(255,255,255,.14)}
+.mu .mt.me i{box-shadow:0 0 0 2px var(--acc)}
+.mu .mt b{font:800 14px var(--display);font-variant-numeric:tabular-nums}
+.mu .mt small{font-family:inherit;font-weight:400;font-size:10.5px;letter-spacing:0;text-transform:none;color:var(--mute)}
+.mu .mv{font:800 11px var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+/* icons over the hub's tabs */
+.itabs button{height:46px;display:grid;justify-items:center;align-content:center;gap:3px}
+.itabs svg{width:15px;height:15px;fill:currentColor}
+.itabs span{font-size:10px;letter-spacing:.04em}
+/* a line of explanation, folded: tap the summary to read it */
+.inf{margin:6px 2px 0}
+.inf summary{display:inline-flex;align-items:center;gap:6px;min-height:28px;cursor:pointer;list-style:none;font-size:11.5px;color:var(--mute)}
+.inf summary::-webkit-details-marker{display:none}
+.inf summary::before{content:"i";display:grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--mute);font:700 10px var(--display)}
+.inf[open] summary{color:var(--ink)}
+.inf .note{margin:2px 0 0}
+/* folded standings and scores */
+.fold .fin{padding:0 10px 10px}
+.fold .fin .dvh:first-child{margin-top:4px}
+.arl{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 10px 10px}
+.arl div{display:grid;gap:2px;padding:6px 8px;border-radius:8px;background:var(--panel2);font-size:12px}
+.arl span{display:flex;align-items:center;gap:6px;color:var(--mute)}
+.arl span.w{color:var(--ink);font-weight:700}
+.arl span i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.arl span b{margin-left:auto;font-variant-numeric:tabular-nums}
+/* the season so far, a chip a game */
+.schd{display:flex;flex-wrap:wrap;gap:6px}
+.schd button,.schd .nxt{position:relative;display:grid;justify-items:center;align-content:center;width:44px;height:46px;border-radius:9px;background:var(--panel);border:1px solid var(--line)}
+.schd b{font:800 14px var(--display);line-height:1}
+.schd small{font-size:10px;color:var(--mute)}
+.schd .w b{color:var(--acc)}
+.schd .l b{color:#ff8a8a}
+.schd .on{box-shadow:inset 0 0 0 1.5px var(--acc)}
+.schd .nxt{border-style:dashed;color:var(--mute)}
+.schl{margin:8px 0 0;font-size:12.5px;line-height:1.4}
+.schl small{display:block;color:var(--mute);font-size:11.5px}
+.nx ul:not(.aw) li::before{content:"";flex:none;width:9px;height:9px;margin:4px 0 0;border-radius:50%;border:1.5px solid var(--mute)}
+.nx ul:not(.aw) li b{margin-left:auto}
 .spost{margin:10px 0;padding:9px 11px 10px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}   /* the weekly post */
 .spost small{display:block;margin-bottom:7px;font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 .dml li b{display:block;margin-bottom:2px;font-family:var(--display);font-size:12px}

@@ -6065,8 +6065,13 @@
   }
 
   function statTable() {
-    const a = G.stats, row = (l, f) => `<tr><td>${f(a[0])}</td><td>${l}</td><td>${f(a[1])}</td></tr>`;
-    return `<table class="st"><tr><th>${ab(0)}</th><th></th><th>${ab(1)}</th></tr>${row('Pass yards',x=>x.pass)}${row('Rush yards',x=>x.rush)}${row('Comp / att',x=>x.comp+' / '+x.att)}${row('Turnovers',x=>x.to)}</table>`;
+    /* the two teams side by side: each line is one number a team, with a bar between them split by their shares, in
+       the teams' colors */
+    const a = G.stats, c = [0, 1].map(i => TEAMS[G.tm[i]].c1), row = (l, f, n) => {
+      const v0 = Math.max(0, n(a[0])), v1 = Math.max(0, n(a[1])), w = v0 + v1 > 0 ? clamp(v0 / (v0 + v1) * 100, 4, 96) : 50;
+      return `<div class="sr"><b>${f(a[0])}</b><span>${l}</span><b>${f(a[1])}</b><i><u style="width:${w.toFixed(0)}%;background:${c[0]}"></u><u style="width:${(100 - w).toFixed(0)}%;background:${c[1]}"></u></i></div>`;
+    };
+    return `<div class="stb"><div class="sh"><b style="--c:${c[0]}">${ab(0)}</b><b style="--c:${c[1]}">${ab(1)}</b></div>${row('Total yards', x => x.pass + x.rush, x => x.pass + x.rush)}${row('Pass yards', x => x.pass, x => x.pass)}${row('Rush yards', x => x.rush, x => x.rush)}${row('Comp / att', x => x.comp + ' / ' + x.att, x => x.comp)}${row('Turnovers', x => x.to, x => x.to)}</div>`;
   }
 
   function showHalf() {

@@ -1691,6 +1691,12 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   visually; 9 a look at the field and stadium in each time of day and weather, fixing what looks off; 10 in a
   cutscene, the bench figures drawn with the plain model or not at all.
 
+- Change 6 (03:50), the halftime and final sheets: the table of team numbers is now the two teams side by side, a
+  line a stat (total, pass and rush yards, completions, turnovers) with a bar under it split by their shares in the
+  teams' colors (`statTable`, `.stb`); Season and Career result screens use the same function. Total yards is new
+  on the sheet (the sum of the two it already showed). Audit empty at 320x568 and 390x844 through Exhibition,
+  Season and Career games; fingerprint unchanged. Next: 7 a random bug sweep of Exhibition and Season.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

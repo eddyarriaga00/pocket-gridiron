@@ -817,3 +817,15 @@ tr.me td{color:var(--acc);font-weight:700}
 .arch .abs s{grid-column:1/3;height:4px;border-radius:2px;background:rgba(255,255,255,.1);text-decoration:none;overflow:hidden}
 .arch .abs q{display:block;height:100%;border-radius:2px;background:var(--mute);quotes:none}
 .arch .on .abs q{background:var(--acc)}
+
+/* press conference: what each tone does, as chips with an arrow instead of a paragraph */
+.tlg{display:grid;gap:4px;margin-top:10px}
+.tlg p{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0;font-size:11.5px;color:var(--mute)}
+.tlg .tone{margin:0}
+.tlg b{font-weight:600;color:var(--mute)}
+
+/* press summary: what the answers did, as three tiles */
+.fxs.fx3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
+.fx3 span{display:grid;gap:1px;padding:8px 2px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font:700 10px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}
+.fx3 b{font-size:17px;font-weight:800;letter-spacing:0;font-variant-numeric:tabular-nums}
+.fx3 small{font:400 10.5px var(--body);letter-spacing:0;text-transform:none}

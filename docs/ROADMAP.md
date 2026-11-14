@@ -1928,6 +1928,17 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 32 the press conference and awards night screens; 33 the kicking screens in stills; 34 the stadium at dusk
   from the play camera; 35 the README against today's changes; then the seventh stock-take.
 
+- Change 32 (08:25), the press conference at 320 wide. The question screen already read well (reporter card, an
+  answer a card with its tone chip); the paragraph under it explaining what the tones do is now a legend of the tone
+  chips themselves with an arrow each: Humble and Team first, trust up; Confident and Trash talk, hype up and trust
+  down unless you play like it; a callout follows you into the next game (`.tlg`). On the summary screen the line
+  "Coach trust +6 (now 54) Hype +1 Followers +4" is three tiles, each with the change large and the new total
+  under it (`.fx3`). Looked at in stills for a humble and a trash-talking set of answers. Audit empty at 320x568
+  and 390x844; careers clean; fingerprint unchanged. NOT looked at: awards night (it needs a finished season; the
+  audit walks it, and it was left as it is).
+  Next: 33 the kicking screens in stills; 34 the stadium at dusk from the play camera; 35 the README against
+  today's changes, and awards night in a still; then the seventh stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

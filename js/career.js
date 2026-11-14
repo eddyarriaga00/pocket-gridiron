@@ -1168,7 +1168,7 @@
       const lead = posts.filter(p => p.kind === 'trend' || p === posts[0]), all = PG.media.stamp(lead.concat(said, posts.filter(p => !lead.includes(p)))), dFol = so.fol - fol0 + dFol0;  // the game first, then what you said, then everyone else
       scr.innerHTML = `<div class="menu solid press"><div class="prh"><small>Press conference \u00b7 ${esc(ctx.wk)}</small><h3>${walked ? 'No comment' : 'On the record'}</h3></div>
   ${picks.length ? `<ul class="quotes">${picks.map(p => `<li><span class="tone t-${p.tone}">${PG.media.TONE[p.tone]}</span>\u201c${esc(p.t)}\u201d</li>`).join('')}</ul>` : '<p class="note">You walked out without answering a question. The reporters wrote about that instead.</p>'}
-  <div class="fxs"><span>Coach trust <b>${signed(net)}</b> (now ${C.trust})</span><span>Hype <b>${signed(so.hype - hype0)}</b></span><span>Followers <b>${dFol >= 0 ? '+' : '\u2212'}${short(Math.abs(dFol))}</b></span></div>
+  <div class="fxs fx3"><span><b>${signed(net)}</b>Coach trust<small>now ${C.trust}</small></span><span><b>${signed(so.hype - hype0)}</b>Hype<small>now ${so.hype}</small></span><span><b>${dFol >= 0 ? '+' : '\u2212'}${short(Math.abs(dFol))}</b>Followers<small>${short(so.fol)}</small></span></div>
   <p class="coach"><small>${esc(so.coachName)}</small>${esc(C.coachPress)}</p>${calloutHtml()}
   <button class="go" id="prgo">See the reaction</button></div>`;
       $('#prgo').onclick = () => {
@@ -1182,7 +1182,7 @@
       scr.innerHTML = `<div class="menu solid press"><div class="prh"><small>Press conference \u00b7 ${esc(ctx.wk)}</small><h3>Question ${i + 1} of ${qs.length}</h3><div class="dots">${qs.map((_, k) => `<i class="${k < i ? 'd' : k === i ? 'on' : ''}"></i>`).join('')}</div></div>
   <div class="pq"><div class="rpt"><span class="av" style="--c:#2f6fb5">${esc(f[0] + l[0])}</span><div><b>${esc(q.by)}</b><span>${esc(q.outlet)}</span></div></div><p>\u201c${esc(q.q)}\u201d</p></div>
   <div class="pa">${q.answers.map((a, k) => `<button class="ans" data-k="${k}"><span class="tone t-${a.tone}">${PG.media.TONE[a.tone]}</span>${esc(a.t)}</button>`).join('')}</div>
-  ${i === 0 ? '<button class="btn2" id="nocom">No comment \u00b7 walk out</button><p class="note">Humble and team-first answers build the coach\u2019s trust. Confidence and trash talk build hype, and cost trust unless you play like it. A callout of your next opponent follows you into that game.</p>' : ''}</div>`;
+  ${i === 0 ? '<button class="btn2" id="nocom">No comment \u00b7 walk out</button><div class="tlg"><p><span class="tone t-humble">Humble</span><span class="tone t-team">Team first</span><b>trust \u2191</b></p><p><span class="tone t-confident">Confident</span><span class="tone t-trash">Trash talk</span><b>hype \u2191 \u00b7 trust \u2193 unless you play like it</b></p><p><span class="tone t-guarantee">Callout</span><b>follows you into the next game</b></p></div>' : ''}</div>`;
       scr.querySelectorAll('.ans').forEach(b => b.onclick = () => {
         give(q.answers[+b.dataset.k], q);
         PG.snd('tick');

@@ -1855,6 +1855,28 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   redone in changes 2 and 4 and were not touched.
   Next: 25 a season-mode bug sweep through the playoffs; then the fifth stock-take.
 
+- Change 25 (06:45), a season-mode bug sweep through the playoffs. `tools/chaos.js` gained `X.season(n, rig)`: whole
+  seasons on a random team with the rough test player; rig 'win' gives your side three touchdowns late, 'potie' wins
+  the regular season and ties every playoff game late. After every game the league table must add up (wins equal
+  losses, points for equal points against) and at the end the bracket must be settled and its winner the champion.
+  Run: eight seasons, about 100 games, one title, exits in the divisional round and the conference final, six playoff
+  overtimes. One fault found, and it was mine from change 16: a playoff game still level after four overtimes is
+  settled off the field by a field goal to one side (as before), but the new scoreboard header on the final sheet
+  read the scoreboard and showed the level score while the header said who won. `finTop` now takes the recorded
+  score and puts the difference in the last period. Checked directly, and the sweep now compares the sheet with the
+  recorded score after every game. Audit empty at 320x568 and 390x844; fingerprint unchanged.
+- Fifth stock-take (06:45), after twenty-five changes. Changes 21 to 25: the lighter replay, stills of the players,
+  sideline and play-call sheet (nothing to fix), the playoff bracket, and the season sweep (one fault of today's
+  own, fixed). Bug sweeps today: careers with save slots, rare endings, and whole seasons; all clean apart from that
+  one. Weakest now: (a) the bench figures stand in one row in one pose; (b) the career hub and its tabs have not
+  been looked at in stills since the pause, result and camp screens changed around them; (c) the in-play messages
+  (toasts, banners, the broadcast cards) have not been checked for overlap at 320 wide; (d) a declined free play
+  has now been seen, an onside kick still has not; (e) whole careers as a receiver have had fewer games than
+  quarterbacks today.
+  Next five: 26 the bench: a few poses and uneven spacing; 27 the career hub's five tabs in stills at 320 and 390;
+  28 toasts, banners and broadcast cards at 320 wide; 29 an onside kick forced and watched through; 30 whole receiver
+  careers with the rough test player; then the sixth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

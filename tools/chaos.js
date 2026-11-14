@@ -89,6 +89,77 @@ window.X = (() => {
       }
       return { out, seen, bad };
     },
+    /* whole seasons of Season mode on a random team. rig: 'win' gives your side three touchdowns late in every game
+       (so the playoffs are reached and won), 'tie' ties every game late (playoff games must then go to overtime
+       until somebody scores), anything else plays it straight. After every game the league table has to add up. */
+    season(seasons = 1, rig = '') {
+      const out = [], T = PG.TEAMS;
+      try {
+        PG.season.open();
+        if (q('#ret') && !q('#sgo')) {
+          q('#ret').click();
+          q('#ret').click();
+        }
+        pick(qa('#st button')).click();
+        q('#sq [data-q="60"]').click();
+        q('#sgo').click();
+        let done = 0, guard = 0;
+        while (done < seasons && guard++ < 80) {
+          const S = PG.season.data;
+          if (q('#nxs')) {
+            const po = S.po, gm = po.games;
+            if (!po.finish) bad.push('season done with no finish');
+            if (po.champ == null) bad.push('season done with no champion');
+            if (gm && gm.f && gm.f[2] !== po.champ) bad.push('champion ' + po.champ + ' is not the winner of the final ' + gm.f[2]);
+            if (gm) for (const g of [].concat(gm.q || [], gm.c || [], [gm.f])) if (g[0] == null || g[1] == null || (g[2] !== g[0] && g[2] !== g[1])) bad.push('bracket game not settled: ' + g);
+            out.push(T[S.team].ab + ' ' + PG.league.recTxt(S, S.team) + ' · ' + po.finish + ' · champion ' + T[po.champ].ab);
+            hit('season finished: ' + po.finish);
+            done++;
+            q('#nxs').click();
+            continue;
+          }
+          const stage = PG.league.stage(S);
+          q('.tabs [data-t=table]').click();
+          q('#play').click();
+          const g = d();
+          let n = 0, did = false;
+          while (!q('#rc') && n++ < 900000) {
+            const G = g.G;
+            G.xTied = true;  // this sweep rigs the ending itself, or not at all
+            if (rig && !did && G.q === 4 && G.clock < 20 && G.clock > 0.5 && !G.final) {
+              did = true;
+              if (rig === 'win' || (rig === 'potie' && stage.indexOf('week') >= 0)) G.score[0] = G.score[1] + 21;  // 'potie': win the regular season, tie every playoff game late
+              else G.score[0] = G.score[1] = Math.max(G.score[0], G.score[1]);
+            }
+            step();
+            g.step(0.02);
+            fin(G.los, 'los');
+            fin(G.clock, 'clock');
+            if (G.q > 4 && !G.xOt) {
+              G.xOt = true;
+              hit(stage.indexOf('week') < 0 ? 'playoff overtime' : 'overtime');
+            }
+          }
+          if (!q('#rc')) {
+            bad.push('season game never ended: ' + stage + ' state ' + g.G.state);
+            break;
+          }
+          const last = PG.season.data.log[PG.season.data.log.length - 1], top = qa('.ftp .mt b').map(b => +b.textContent);
+          if (stage.indexOf('week') < 0 && last.us === last.them) bad.push('playoff game recorded level: ' + stage + ' ' + last.us);
+          if (top[0] !== last.us || top[1] !== last.them) bad.push('final sheet shows ' + top + ' but ' + last.us + ',' + last.them + ' was recorded (' + stage + ')');
+          if (g.G.score[0] === g.G.score[1] && stage.indexOf('week') < 0) hit('playoff settled off the field');
+          q('#rc').click();
+          const tab = PG.season.data.tab, sum = k => tab.reduce((t, r) => t + (r[k] || 0), 0);
+          if (sum('w') !== sum('l')) bad.push('wins ' + sum('w') + ' and losses ' + sum('l') + ' differ after ' + stage);
+          if (sum('pf') !== sum('pa')) bad.push('points for ' + sum('pf') + ' and against ' + sum('pa') + ' differ after ' + stage);
+          hit('season game');
+        }
+        if (done < seasons) bad.push('season sweep stopped early at ' + PG.league.stage(PG.season.data));
+      } catch (e) {
+        bad.push(String(e.stack).slice(0, 300));
+      }
+      return { out, seen, bad };
+    },
     career(pos, games = 1) {
       const out = [];
       try {

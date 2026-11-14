@@ -6174,7 +6174,7 @@
 
   /* the top of the halftime and final sheets, as on a scoreboard: both badges with the score under each (the winner's
      ringed), and the points quarter by quarter between the two abbreviations */
-  function finTop(label, upTo) {
+  function finTop(label, upTo, sc) {
     const n = Math.max(upTo, ...(G.scores || []).map(e => Math.min(e.q, 5)).filter(q => upTo > 2 || q <= 2)), by = [[], []];
     let prev = [0, 0];
     for (const e of G.scores || []) {
@@ -6183,10 +6183,16 @@
       for (const t of [0, 1]) by[t][q] = (by[t][q] || 0) + e.score[t] - prev[t];
       prev = e.score;
     }
-    const s = G.score, side = t => {
+    /* sc: the score as recorded, where it differs from the scoreboard (a playoff game still level after four
+       overtimes is settled by a field goal off the field): the difference is shown in the last period */
+    const s = sc || G.score, side = t => {
       const tm = TEAMS[G.tm[t]];
       return `<div class="mt${upTo > 2 && s[t] > s[1 - t] ? ' me' : ''}"><i style="--c:${tm.c1};color:${inkOn(tm.c1)}">${tm.ab}</i><b>${s[t]}</b></div>`;
     };
+    for (const t of [0, 1]) {
+      const rest = s[t] - by[t].reduce((a, v) => a + (v || 0), 0);
+      if (upTo > 2 && rest) by[t][n - 1] = (by[t][n - 1] || 0) + rest;
+    }
     const hd = Array.from({ length: n }, (_, q) => q > 3 ? 'OT' : q + 1);
     return `<div class="pzs ftp"><div class="mu">${side(0)}<div class="mv">${label}</div>${side(1)}</div>
   <table class="lsc"><tr><th></th>${hd.map(h => `<th>${h}</th>`).join('')}<th>T</th></tr>${[0, 1].map(t => `<tr><td>${ab(t)}</td>${hd.map((_, q) => `<td>${by[t][q] || 0}</td>`).join('')}<td>${s[t]}</td></tr>`).join('')}</table></div>`;

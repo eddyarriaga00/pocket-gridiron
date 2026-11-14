@@ -124,7 +124,8 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - The quarterback drops back the way one does: half turned, the ball up at his back shoulder, in crossover steps
   (three from the shotgun, five from under center, seven on play action), then sets his feet to throw. A stiff arm
   goes to the nearest tackler, with whichever hand is on his side. A catch at the sideline is taken with a toe tap. After the whistle a teammate points upfield for
-  a first down, a defender waves off a pass he broke up, another flexes after a sack, and a quarterback reading the
+  a first down, a defender waves off a pass he broke up, another flexes after a sack, a teammate helps the runner up, a kicker
+  pumps his fist or holds his helmet, a receiver does the same over one that got away, and a quarterback reading the
   field pats the ball.
 - In a career you watch the snaps you are not on the field for: the other team's drives, their kickoffs to your
   returner, and a drive the coach has you sitting out are played in front of you by the computer. Two small buttons go

@@ -1533,6 +1533,17 @@ what is next. Update it after every item.
   same roster entry. Checked: fingerprint unchanged; gait, tackle, block and both staged catches as before; careers,
   exhibition, drills; audit empty at 320x568 and 390x844 with the longer look card.
 
+- 2026-11-14 11:00. The owner: "add more small details". Five, drawn only. After the whistle (`gesture`, `ps.gest`):
+  a made field goal or extra point and the kicker pumps his fist, a miss and his hands go to his helmet ('pump',
+  'aw'); an incompletion that was not broken up and the receiver's hands go to his helmet, always on third or fourth
+  down and otherwise about one time in seven (`ps.down0`); an ordinary tackle and, six times in ten, the nearest
+  teammate turns to the runner, bends and holds a hand down to him ('help', `ge.to`). Before the snap (`poseFor`, the
+  stance block): a shotgun quarterback points out a defender as his cadence starts, to a different spot each play,
+  and on two snaps in three the middle linebacker spreads his arms to set his front. In four watched games before
+  the receiver's share was cut: 45 helping hands, 36 hands on helmets, 7 fist pumps. Checked: fingerprint unchanged;
+  gait, tackle, block and the leaping catch as before; a watched game drawn every 10 steps (3,812 frames) with no
+  bad pose and no error; careers, exhibition, drills; audit empty at 390x844. Seen as four small stills.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

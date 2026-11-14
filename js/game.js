@@ -831,6 +831,7 @@
     }
     lineCalls(off, los, bx, 0);
     ps.third = G.down === 3 && !kick ? off : null;  // counted when it ends: third downs tried and made
+    ps.down0 = G.down;
     if (kick && op.n === 'Punt' && liveReturn()) {
       // the free safety drops back to field the punt
       const r = d.FS;
@@ -2461,8 +2462,14 @@
   /* After the whistle somebody says it with his arms (drawn by render3d.js, never in simulations): a teammate points
      upfield for a first down, a defender waves off a pass he broke up, and a defender flexes after a sack. */
   function gesture(p0) {
-    if (AUTO || QUIET || G.state !== 'dead' || !p0 || (p0.mode !== 'pass' && p0.mode !== 'run') || p0.gest) return;
+    if (AUTO || QUIET || G.state !== 'dead' || !p0 || p0.gest) return;
     const off = p0.offTeam, c = p0.carrier, up = q => !q.down && !q.fell && !(q.flat > 0) && !q.ref;
+    if (p0.mode === 'kick') {
+      // a field goal or an extra point: the kicker's fist if it is good, his hands on his helmet if it is not
+      if (p0.kick && p0.kick.type === 'fg' && p0.qb && P.includes(p0.qb)) p0.gest = { who: p0.qb, kind: p0.kick.arg ? 'pump' : 'aw' };
+      return;
+    }
+    if (p0.mode !== 'pass' && p0.mode !== 'run') return;
     const nearest = (team, x, y, max, not) => {
       let best = null, bd = max;
       for (const q of P) if (q.team === team && q !== not && up(q)) {
@@ -2485,7 +2492,14 @@
       who = nearest(1 - off, p0.tgt.x, p0.tgt.y, 6, null);
       kind = 'wave';
     }
-    if (who) p0.gest = { who, kind };
+    else if ((G.last === 'Overthrown' || G.last === 'Incomplete') && p0.tgt && up(p0.tgt) && (p0.down0 >= 3 || Math.random() < 0.15)) {
+      who = p0.tgt;  // the one that got away, most of all on third or fourth down: the receiver's hands go to his helmet
+      kind = 'aw';
+    } else if (c && c.down && c.team === off && !p0.turnover && p0.tackler && Math.random() < 0.6) {
+      who = nearest(off, c.x, c.y, 5, c);  // an ordinary tackle: a teammate comes over to help him up
+      kind = 'help';
+    }
+    if (who) p0.gest = { who, kind, to: kind === 'help' ? c : null };
   }
 
   function finish(kind, arg) {

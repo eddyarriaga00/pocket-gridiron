@@ -2448,6 +2448,27 @@
         tg[SRX] = -0.2;
         tg[ER] = 0.7;
       }
+      /* talk before the snap: the quarterback in the shotgun points out a defender as he starts his cadence, and on
+         most snaps the middle linebacker spreads his arms to set his front. Which snaps, and which way the arm goes,
+         come from the play's number and the man's own seed, so it is not the same every time. */
+      const pt = s.G.preT || 0, pn = s.G.pn || 0;
+      if (ps.mode !== 'kick' && ps.mode !== 'ko') {
+        if (p === ps.qb && st === 'two' && pt > 0.55 && pt < 1.35) {
+          const e = smooth(clamp((pt - 0.55) / 0.2, 0, 1)) * (1 - smooth(clamp((pt - 1.15) / 0.2, 0, 1)));
+          tg[SRX] = lerp(tg[SRX], 1.5, e);
+          tg[ER] = lerp(tg[ER], 0.08, e);
+          tg[SRZ] = lerp(tg[SRZ], ((pn * 37) % 5 - 2) * 0.16, e);
+          tg[CHRX] = lerp(tg[CHRX], -0.12, e);
+        } else if (p.role === 'MLB' && p.team !== ps.offTeam && Math.floor(pn * 2.7 + f.seed) % 3 !== 0 && pt > 0.8 && pt < 1.6) {
+          const e = smooth(clamp((pt - 0.8) / 0.2, 0, 1)) * (1 - smooth(clamp((pt - 1.4) / 0.2, 0, 1)));
+          tg[SLX] = lerp(tg[SLX], 1.0, e);
+          tg[SRX] = lerp(tg[SRX], 1.0, e);
+          tg[SLZ] = lerp(tg[SLZ], -0.95, e);
+          tg[SRZ] = lerp(tg[SRZ], 0.95, e);
+          tg[EL] = lerp(tg[EL], 0.2, e);
+          tg[ER] = lerp(tg[ER], 0.2, e);
+        }
+      }
       plant(tg);
       hx = 0;
       hy = p.team === ps.offTeam ? s.dir : -s.dir;
@@ -2757,6 +2778,33 @@
             to(EL, 0.12);
             to(ER, 0.12);
             to(CHRX, -0.12);
+          } else if (ge.kind === 'pump') {
+            // the kick is good: a fist, pumped twice
+            to(SRX, 2.2 + 0.35 * Math.sin(time * 12));
+            to(ER, 1.7);
+            to(SRZ, 0.15);
+            to(CHRX, 0.05);
+          } else if (ge.kind === 'aw') {
+            // the one that got away: both hands on top of his helmet, head down
+            to(SLX, 2.75);
+            to(SRX, 2.75);
+            to(SLZ, 0.25);
+            to(SRZ, -0.25);
+            to(EL, 2.05);
+            to(ER, 2.05);
+            to(HEADRX, 0.3);
+            to(CHRX, -0.12);
+          } else if (ge.kind === 'help') {
+            // helping the runner up: he turns to him, bends, and holds a hand down to him
+            to(SRX, 0.95);
+            to(ER, 0.12);
+            to(SRZ, 0.05);
+            to(CHRX, -0.5);
+            to(HEADRX, 0.3);
+            if (ge.to) {
+              hx = ge.to.x - p.x;
+              hy = ge.to.y - p.y;
+            }
           } else {
             // a sack: both arms out and bent up, chest out, a couple of pumps
             const pump = 0.12 * Math.sin(time * 11);

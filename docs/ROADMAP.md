@@ -1743,6 +1743,15 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   a loss in the test still is the test's own leftover (confetti only falls on drawn frames), not the game.
   Next: 12 a random bug sweep through whole careers with slots.
 
+- Change 12 (03:40), a bug sweep through whole careers with slots: a quarterback played five games; a second career
+  (a receiver) was started beside him and played two whole seasons, with awards night and a contract offer taken at
+  random; the quarterback was brought back (week, game log and XP as he was left), finished his season, asked for
+  and got a trade, played a game for the new team, and retired to the hall of fame vote; the receiver's career was
+  then opened from the list and deleted. No error at any step, and the slots list was right throughout. One thing
+  polished: with nothing being played but careers saved, the menu's Career card now says how many are saved instead
+  of inviting a first career (`summary()`). Audit empty at 320x568; fingerprint unchanged.
+  Next: 13 the pause sheet; 14 How to play as cards; 15 training camp's results; then the stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

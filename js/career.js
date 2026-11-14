@@ -1850,7 +1850,11 @@
       C ? (C.pre ? showCombine() : showHub('up')) : saves().length ? showSaves() : showCreate();
     },
     summary() {
-      if (!C || C.pre) return null;
+      if (!C) {
+        const n = saves().length;  // nothing being played, but careers saved: say so
+        return n ? `${n} saved career${n > 1 ? 's' : ''} · pick one, or start another` : null;
+      }
+      if (C.pre) return null;
       const ph = LG.stage(C);
       return `Continue: ${esc(C.name)} · ${C.pos} · ${ovr()} OVR · ${TEAMS[C.team].name}, season ${C.season}, ${ph}`;
     },

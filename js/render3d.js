@@ -399,6 +399,7 @@
     tex.colorSpace = T.SRGBColorSpace;
     tex.anisotropy = 4;
     m = new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: T.DoubleSide });
+    m.forceSinglePass = true;  // a flat decal: one draw for both faces instead of the two a see-through, two-sided material gets
     m.isNum = true;
     numCache.set(key, m);
     return m;
@@ -439,6 +440,7 @@
     x.fillStyle = '#15171c';
     for (let i = 0; i < 5; i++) x.fillRect(3 + i * 13, 0, 6, 64);
     m = new T.MeshBasicMaterial({ map: new T.CanvasTexture(c), transparent: true, depthWrite: false, side: T.DoubleSide });
+    m.forceSinglePass = true;
     numCache.set('ref', m);
     return m;
   }
@@ -533,9 +535,26 @@
 
   const ZERO4 = new T.Matrix4().makeScale(0, 0, 0), fit4 = new T.Matrix4();
 
+  /* Lettering too small to read is not drawn. Every number, name and shoulder number is a draw of its own, and with 48
+     figures they were most of the frame's draws: from the game camera a name is under a pixel tall and the bench's
+     shoulder numbers are specks. `lod` is on only while the game's own camera is drawing (never for portraits or the
+     test strips); the sizes are in screen pixels, so the close cameras, replays and scenes keep every letter. */
+  let lod = false, lodOn = true;
+  const SMALL_PX = 1.5, NAME_H = 0.045, TV_H = 0.052, NUM_H = 0.148;  // under a pixel and a half tall it is left out; how tall a name's letters, a shoulder number's digits and a chest number's digits are on the model
+
   function writeFigure(f, i) {
+    let name = true, tv = true, num = true;
+    if (lod) {
+      const rp = f.root.position, ce = camera.matrixWorld.elements, d = Math.hypot(ce[12] - rp.x, ce[13] - rp.y - 1.5, ce[14] - rp.z);
+      const ppu = H * 0.5 * camera.projectionMatrix.elements[5] / Math.max(d, 0.5) * f.root.scale.y;  // screen pixels per unit of his own size
+      name = ppu * NAME_H > SMALL_PX;
+      tv = ppu * TV_H > SMALL_PX;
+      num = ppu * NUM_H > SMALL_PX;
+    }
+    f.nameplate.visible = name;
+    if (f.num.material.isNum) f.num.visible = num;
     if (f.tv) {
-      const nm = f.num.material, on = !!nm.isNum && f.num.visible !== false && !(f.hide && f.hide.has('pads'));
+      const nm = f.num.material, on = tv && !!nm.isNum && f.num.visible !== false && !(f.hide && f.hide.has('pads'));
       for (const q of f.tv) {
         if (q.material !== nm) q.material = nm;
         q.visible = on;
@@ -3452,6 +3471,7 @@
     }
 
     /* players */
+    lod = lodOn;
     const fresh = ps !== lastPs;
     lastPs = ps;
     const st = { G, ps, pre: G.state === 'pre' || G.state === 'kickm', live: G.state === 'live' || G.state === 'replay', dir: G.dir || 1, celeb: G.celeb || null, charge: s.charge, P, figOf: q => (P.indexOf(q) < 0 ? null : figs[SIDELINE + P.indexOf(q)]) };  // a man who is not on the field has no figure (the slot before the first player's is a reserve on the bench)
@@ -3739,6 +3759,7 @@
       renderer.setRenderTarget(null);
       renderer.render(scene, camera);
     }
+    lod = false;
   }
 
   /* ---------- uniform portraits ----------
@@ -4451,6 +4472,13 @@
     gait: gaitTest, strip,  // test hooks: measure a run, and draw one stride as a row of side views
     cheer(v) {
       cheer = Math.max(cheer, v);
+    },
+    /* test hook: lodTest(false) draws every number and name whatever its size, to compare a frame with and without */
+    lodTest(on) {
+      lodOn = on !== false;
+    },
+    get cam() {
+      return camera;
     },
     get info() {
       return renderer ? Object.assign({ nearModel, camDist: Math.round(camDist) }, renderer.info.render) : null;

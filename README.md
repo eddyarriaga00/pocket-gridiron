@@ -281,7 +281,8 @@ js/audio.js             the sound engine: synthesized effects, a crowd built fro
                         stadium speakers, a marching band, music, weather, and the booth that plays the recorded
                         commentators (the device's speech voice is only their stand-in when the clips cannot be had)
 js/vo.js                the index of the commentators' clips (written by tools/voice.py)
-audio/vo.pack           the clips themselves, end to end in one file (about 3 MB of AAC)
+audio/vo.pack           the clips every game uses, end to end in one file (about 4 MB of AAC)
+audio/vo/NE.pack ...    each team's own lines (about 140 kB a team), fetched when a game with that team starts
 js/league.js            schedule, standings and playoffs shared by Career and Season
 js/career.js            Career mode
 js/media.js             The press conference and the social feed around a career (career.js draws the screens)
@@ -305,7 +306,7 @@ and every line in `tools/commentary.json` was written for this game. The lines a
 [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open speech model (Apache 2.0), run on a Mac through
 [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) (MIT). `tools/voice.py` records each line, masters it
 (trim, a lift in pitch, pace and brightness for the worked-up calls, a compressor, a set loudness), checks it against
-its words by counting syllables, encodes it as AAC with macOS's `afconvert`, and writes `audio/vo.pack` and `js/vo.js`.
+its words by counting syllables, encodes it as AAC with macOS's `afconvert`, and writes `audio/vo.pack`, one `audio/vo/TEAM.pack` for each team, and `js/vo.js`.
 Neither the model nor its Python environment is in the repository; they live in `.voice/`, which git ignores. To
 record again after changing the script or a voice:
 

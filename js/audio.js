@@ -1268,8 +1268,11 @@
   /* ---------- the booth ----------
      Two recorded commentators: a play-by-play man and an analyst. tools/voice.py records the script in
      tools/commentary.json with an open speech model and packs the clips end to end into audio/vo.pack; js/vo.js says
-     where each one sits. The pack is fetched once and kept as it came (a couple of megabytes); a clip is decoded when
-     it is first wanted, and the last few dozen stay decoded.
+     where each one sits. The lines every game uses are one pack (about 4 MB), fetched once behind the menus; each
+     team's own lines (its name in the calls, the referee and the announcer) are a small pack of their own, fetched
+     when a game with that team starts, so nobody downloads 30 teams they are not playing. A line whose pack is not
+     here yet is left unsaid, and the pack is asked for. Packs are kept as they came; a clip is decoded when it is
+     first wanted, and the last few dozen stay decoded.
      One of them talks at a time. A bigger call cuts in over a smaller one. An equal one waits its turn, and is dropped
      if its moment passes while it waits. Colour is only said when nobody is talking. The crowd and the band dip under
      them. If this build has no clips, or they cannot be fetched or read, nothing is said: the device's own speech
@@ -1277,31 +1280,58 @@
   const VO = PG.VO || null;
   const booth = {
     state: VO ? 'idle' : 'none',  // none: this build has no clips; idle: not asked for yet; loading; ready; failed
-    pack: null, got: null, bufs: new Map(), bags: {}, last: {}, q: [], cur: null, prev: null, ducked: false, bad: 0, log: [],
-    /* fetch the clips, once: a promise for the pack's bytes, or for null when they cannot be had */
+    got: null, packs: {}, bufs: new Map(), bags: {}, last: {}, q: [], cur: null, prev: null, ducked: false, bad: 0, log: [],
+    /* one pack ('' the common one, or a team's letters): a promise for its bytes, or for null when they cannot be had.
+       A pack that could not be fetched is tried again, at most every twenty seconds. */
+    loadPack(name) {
+      const P = VO && VO.packs[name];
+      if (!P) return Promise.resolve(null);
+      const e = this.packs[name] || (this.packs[name] = { got: null, ab: null, at: 0 });
+      if (e.got) return e.got;
+      if (e.at && performance.now() - e.at < 20000) return Promise.resolve(null);
+      const b64 = VO.b64 && VO.b64[name];
+      const inline = () => {
+        const text = atob(b64), bytes = new Uint8Array(text.length);  // the one-file build carries the packs inside itself
+        for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+        VO.b64[name] = null;
+        return bytes.buffer;
+      };
+      e.got = (b64 ? Promise.resolve().then(inline) : fetch(P[0], { cache: 'no-cache' }).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))))
+        .then(ab => {
+          if (ab.byteLength !== P[1]) throw new Error('not the pack this index was written for');
+          return (e.ab = ab);
+        })
+        .catch(() => {
+          e.got = null;
+          e.at = performance.now();
+          return null;
+        });
+      return e.got;
+    },
+    /* fetch the common clips, once: a promise for the pack's bytes, or for null when they cannot be had */
     load() {
       if (this.got || !VO) return this.got || Promise.resolve(null);
       this.state = 'loading';
-      const inline = () => {
-        const text = atob(VO.b64), bytes = new Uint8Array(text.length);  // the one-file build carries the pack inside itself
-        for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
-        VO.b64 = null;
-        return bytes.buffer;
-      };
-      this.got = (VO.b64 ? Promise.resolve().then(inline) : fetch(VO.pack, { cache: 'no-cache' }).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))))
-        .then(ab => {
-          if (ab.byteLength !== VO.bytes) throw new Error('not the pack this index was written for');
-          this.pack = ab;
-          this.state = 'ready';
-          return ab;
-        })
-        .catch(() => {
-          this.state = 'failed';
-          return null;
-        });
+      this.got = this.loadPack('').then(ab => {
+        this.state = ab ? 'ready' : 'failed';
+        return ab;
+      });
       return this.got;
     },
-    /* a clip, decoded, as a promise; clip is its index entry: [id, offset in the pack, bytes, seconds] */
+    /* is this clip's pack here? If not it is asked for, and the line goes unsaid this time */
+    has(clip) {
+      const name = clip[4] || '', e = this.packs[name];
+      if (e && e.ab) return true;
+      this.loadPack(name);
+      return false;
+    },
+    /* the teams of the game about to start: their packs come down now */
+    teams(keys) {
+      if (this.state === 'none' || !S.snd) return;
+      this.load();
+      for (const k of keys) if (k && VO.packs[k]) this.loadPack(k);
+    },
+    /* a clip, decoded, as a promise; clip is its index entry: [id, offset in its pack, bytes, seconds, the pack if not the common one] */
     buf(c, clip) {
       const live = c === ctx, hit = live && this.bufs.get(clip[0]);
       if (hit) {
@@ -1309,16 +1339,23 @@
         this.bufs.set(clip[0], hit);
         return hit;
       }
-      const p = new Promise((ok, no) => {
-        const r = c.decodeAudioData(this.pack.slice(clip[1], clip[1] + clip[2]), ok, no);
-        if (r && r.catch) r.catch(() => {});  // newer browsers also answer with a promise; the callbacks have it
+      let read = true;  // false: the pack could not be had, which says nothing about whether this browser can read clips
+      const p = this.loadPack(clip[4] || '').then(ab => {
+        if (!ab) {
+          read = false;
+          throw new Error('pack not here');
+        }
+        return new Promise((ok, no) => {
+          const r = c.decodeAudioData(ab.slice(clip[1], clip[1] + clip[2]), ok, no);
+          if (r && r.catch) r.catch(() => {});  // newer browsers also answer with a promise; the callbacks have it
+        });
       });
       if (live) {
         this.bufs.set(clip[0], p);
         if (this.bufs.size > 36) this.bufs.delete(this.bufs.keys().next().value);
         p.catch(() => {
           this.bufs.delete(clip[0]);
-          if (++this.bad >= 3) this.state = 'failed';  // this browser cannot read them
+          if (read && ++this.bad >= 3) this.state = 'failed';  // this browser cannot read them
         });
       }
       return p;
@@ -1358,6 +1395,8 @@
         this.q = this.q.filter(x => x.pri >= pri);  // he cuts in, and what was waiting behind the smaller line goes with it
         this.cut();
       } else if (!pri && !o.keep && (this.q.length || this.left() > 0.8)) return false;
+      const first = VO.clips[call] && VO.clips[call][0];
+      if (first && !this.has(first)) return false;  // a team's line before its pack has come down
       const clip = this.take(call);
       if (!clip) return false;
       this.q.push({ call, clip, pri, who: call.startsWith('a.') ? 'a' : 'p', until: now + (o.ttl || (pri ? 3.5 : 2)) });
@@ -1433,6 +1472,7 @@
       return s;
     });
     Promise.all(clips.map(c => booth.buf(ctx, c))).then(bufs => {
+      if (ctx.currentTime > t + 2) return;  // a team's pack was still on its way and came too late: better unsaid than out of place
       const t0 = Math.max(t, ctx.currentTime + 0.02);
       bufs.forEach((b, i) => {
         const src = ctx.createBufferSource();
@@ -1743,9 +1783,13 @@
     call(key, o) {
       return booth.say(key, o);
     },
+    /* the two teams of a game that is starting (their keys in the recorded calls): fetch their lines */
+    voTeams(keys) {
+      booth.teams(keys);
+    },
     /* test hook: what the booth is doing, and everything it has been asked for */
     get booth() {
-      return { state: booth.state, now: booth.cur && booth.cur.call, left: +(ctx ? booth.left() : 0).toFixed(2), waiting: booth.q.map(x => x.call), log: booth.log, kept: booth.bufs.size };
+      return { state: booth.state, packs: Object.keys(booth.packs).filter(k => booth.packs[k].ab), now: booth.cur && booth.cur.call, left: +(ctx ? booth.left() : 0).toFixed(2), waiting: booth.q.map(x => x.call), log: booth.log, kept: booth.bufs.size };
     },
     /* test hook: the mix keeps running, but nothing reaches the speakers (the meter still reads it) */
     deaf(on) {

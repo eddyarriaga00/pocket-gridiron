@@ -182,6 +182,7 @@
     FX.length = 0;
     CONF.length = 0;
     if (PG.audio) PG.audio.scene('game');
+    if (PG.audio && !AUTO && PG.audio.voTeams) PG.audio.voTeams([vk(G.tm[0]), vk(G.tm[1])]);  // the two teams' recorded lines come down now
     $('#hud').hidden = false;
     $('#a0').textContent = ab(0);
     $('#a1').textContent = ab(1);

@@ -261,17 +261,32 @@ def main():
             os.remove(os.path.join(CLIPS, cid + '.m4a'))
     json.dump(memo, open(memo_path, 'w'), indent=0, sort_keys=True)
 
-    pack, clips, text = bytearray(), {}, {}
+    # One pack for the lines every game uses (audio/vo.pack) and one for each team's own lines (audio/vo/NE.pack: a call
+    # whose key ends in a team's letters), so a game fetches the common pack and two small ones instead of all 32 teams.
+    # A clip in a team's pack carries the pack's name as a fifth entry.
+    packs, clips, text = {}, {}, {}
     for call, cid, words, ln in todo:
         data = lean(open(os.path.join(CLIPS, cid + '.m4a'), 'rb').read())
-        clips.setdefault(call, []).append([cid, len(pack), len(data), memo[cid]['secs']])
+        m = re.search(r'\.([A-Z]{2,3})$', call)
+        name = m.group(1) if m else ''
+        pack = packs.setdefault(name, bytearray())
+        clips.setdefault(call, []).append([cid, len(pack), len(data), memo[cid]['secs']] + ([name] if name else []))
         text[cid] = words
         pack += data
-    os.makedirs(os.path.join(ROOT, 'audio'), exist_ok=True)
-    open(os.path.join(ROOT, 'audio', 'vo.pack'), 'wb').write(pack)
-    body = json.dumps({'v': hashlib.sha1(pack).hexdigest()[:10], 'pack': 'audio/vo.pack', 'bytes': len(pack), 'clips': clips, 'text': text}, ensure_ascii=False, separators=(',', ':'))
+    os.makedirs(os.path.join(ROOT, 'audio', 'vo'), exist_ok=True)
+    for old in os.listdir(os.path.join(ROOT, 'audio', 'vo')):
+        os.remove(os.path.join(ROOT, 'audio', 'vo', old))
+    index, digest = {}, hashlib.sha1()
+    for name in sorted(packs):
+        file = 'audio/vo/' + name + '.pack' if name else 'audio/vo.pack'
+        open(os.path.join(ROOT, file), 'wb').write(packs[name])
+        index[name] = [file, len(packs[name])]
+        digest.update(packs[name])
+    pack = b''.join(bytes(packs[n]) for n in sorted(packs))
+    body = json.dumps({'v': digest.hexdigest()[:10], 'packs': index, 'clips': clips}, ensure_ascii=False, separators=(',', ':'))
     open(os.path.join(ROOT, 'js', 'vo.js'), 'w', encoding='utf-8').write(
-        '/* The broadcast booth: which recorded clips there are for each call, and where each one sits in audio/vo.pack.\n'
+        '/* The broadcast booth: which recorded clips there are for each call, and where each one sits in its pack\n'
+        '   (audio/vo.pack, or audio/vo/TEAM.pack for a team\'s own lines: the fifth entry names it).\n'
         '   Written by tools/voice.py from tools/commentary.json; do not edit by hand. */\n'
         'PG.VO = ' + body + ';\n')
 

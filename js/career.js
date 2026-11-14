@@ -700,6 +700,7 @@
     persist();
     const others = ['QB', 'RB', 'WR', 'LB', 'CB', 'OT', 'DE', 'S'], any = a => a[Math.floor(Math.random() * a.length)];
     // draft day on a stage first (the announcer reads the pick there), then the board
+    if (PG.audio && PG.audio.voTeams) PG.audio.voTeams([PG.vk(tm)]);  // the announcer names the team: its recorded lines come down now
     if (PG.cinema) return PG.cinema('draft', { team: tm, pick, name: C.name, num: C.num, pos: C.pos }, played => draftBoard(grade, order, pick, tm, bonus, pre, others, any, played));
     draftBoard(grade, order, pick, tm, bonus, pre, others, any, false);
   }

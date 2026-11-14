@@ -1408,6 +1408,26 @@ what is next. Update it after every item.
   game is about 90 pixels higher on the page. Checked: fingerprint unchanged, careers and exhibition clean, audit
   empty at 320x568 and 390x844 (the contract text does not clip at 320).
 
+- 2026-11-14 02:10. The owner: "focus on speed and loading with no regressions". Measured first, then three changes.
+  (1) Voices: half of the 8.5 MB pack was the 32 teams' own lines, and a game uses two teams. `tools/voice.py` now
+  writes `audio/vo.pack` (the lines every game uses, 4.2 MB) and `audio/vo/TEAM.pack` (about 140 kB each; a clip's
+  fifth index entry names its pack). `audio.js`: `booth.loadPack`, `has`, `teams`; `startGame` and draft day ask for
+  the teams they need (`PG.audio.voTeams`); a line whose pack has not arrived is left unsaid and the pack asked for;
+  a pack that cannot be fetched is retried after twenty seconds and never switches the booth off. A game now
+  downloads about 4.5 MB of voices instead of 8.5. The packs were split from the existing recordings byte for byte
+  (nothing re-recorded); the one-file build carries all 33 inside it as before. The clips' words left `js/vo.js`
+  (nothing read them): 87 kB to 44 kB. (2) Drawing: about 280 of a frame's 400 draws were jersey lettering, one draw
+  for each number, name and shoulder number on 48 figures, and the two-sided numbers were drawn twice. Numbers now
+  draw in one pass (`forceSinglePass`), and lettering under a pixel and a half tall on screen is left out
+  (`writeFigure`, only while the game's own camera draws; `PG.r3d.lodTest(false)` turns it off to compare). From the
+  quarterback's view: 400 draws to about 140, and the frame's drawing time on this Mac from about 3.0 ms to 1.0 ms.
+  The players' chest numbers stay; what goes is under two pixels. Cutscenes keep every letter (44 of 44 shown).
+  (3) `index.html` opens its connections to the font and library hosts early. Checked: fingerprint unchanged;
+  careers, exhibition, drills; a watched game drawn every 20 steps with no error; audit empty at 320x568 and 390x844;
+  a common line, a team line and a referee line measured at their old levels from both builds; every pack's size and
+  three clips from each decoded (99 of 99); a missing pack leaves the booth ready. Not measured: a real phone, where
+  the saving in draws should matter more than it does here.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -1730,8 +1750,9 @@ NFL and Madden, for a career first (Round 24), biggest that fits a run first:
 - A record book: league single-game and season records; the booth and a card when one falls.
 - A roof drawn over the eleven roofed stadiums (data.js `clim: 'dome'`, `env.roof`): the sky and the light towers give
   way to a dome and a ring of lights. The weather side is done (02:55).
-- Optimization: the voice pack is 7.4 MB now; load it in pieces (the calls of the two teams playing first), measure the
-  first load and the frame rate on a phone-sized view, and trim draw calls.
+- Optimization, the rest (the voice packs and the lettering draws are done, 2026-11-14): the common voice pack is
+  still one 4.2 MB fetch (the analyst's lines are 1 MB of it and could come second); the 48 figures' lettering could
+  be one instanced draw from an atlas; measure on a real phone.
 Animations and models, the owner's priority (the Round 21 plan above), one piece a run:
 - Next the quarterback's three,
   five and seven step drops (today he jogs back to a spot), then the toe tap at the sideline, a stiff arm that reaches,

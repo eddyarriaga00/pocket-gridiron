@@ -3416,7 +3416,20 @@
       mesh.count = 0;
       for (let i = 0; i < CAP * joints.length; i++) mesh.setColorAt(i, col.set(0xffffff));
       scene.add(mesh);
-      return { name, mesh, joints, color, fit, shadow, opt: !!opt };
+      /* the close-up shape of the same part, for the players only: it reads the same matrices and colors from the
+         slot after the last bench figure, so the benches stay on the light model when the camera comes in */
+      let hi = null;
+      if (GEO_HI[name]) {
+        hi = new T.InstancedMesh(GEO_HI[name], mat, (CAP - SIDELINE) * joints.length);
+        hi.instanceMatrix = new T.InstancedBufferAttribute(mesh.instanceMatrix.array.subarray(SIDELINE * joints.length * 16), 16);
+        hi.instanceMatrix.setUsage(T.DynamicDrawUsage);
+        hi.instanceColor = new T.InstancedBufferAttribute(mesh.instanceColor.array.subarray(SIDELINE * joints.length * 3), 3);
+        hi.frustumCulled = false;
+        hi.visible = false;
+        hi.count = 0;
+        scene.add(hi);
+      }
+      return { name, mesh, hi, joints, color, fit, shadow, opt: !!opt };
     });
     const holder = new T.Group();
     scene.add(holder);
@@ -3818,14 +3831,27 @@
     updateCrew(gameOn, kick ? null : [toGain, toGain - way * 10, now ? ps.los : G.los], dt);
     const active = ps && G.state !== 'menu' ? (G.state === 'scene' ? SIDELINE + Math.min(MAXP, P.length) : CAP) : SIDELINE;  // a cutscene draws its own actors and the benches: the empty player slots after them are not sent to the card at all
     for (const p of parts) {
-      p.mesh.count = active * p.joints.length;
+      const n = p.joints.length, close = nearModel && !!p.hi && active > SIDELINE;
+      p.mesh.userData.full = active * n;
+      p.mesh.count = close ? SIDELINE * n : active * n;
       p.mesh.instanceMatrix.needsUpdate = true;
       if (fresh) p.mesh.instanceColor.needsUpdate = true;
+      if (p.hi) {
+        p.hi.visible = close;
+        if (close) {
+          p.hi.count = (active - SIDELINE) * n;
+          p.hi.instanceMatrix.needsUpdate = true;
+          if (p.hi.userData.cv !== p.mesh.instanceColor.version) {
+            p.hi.userData.cv = p.mesh.instanceColor.version;  // the colors changed since it was last shown
+            p.hi.instanceColor.needsUpdate = true;
+          }
+        }
+      }
     }
     const cast = s.shadows !== false;
     for (const set of shadowSets) for (const m of set.meshes) {
       m.visible = set.on && cast;
-      m.count = m.userData.src.count;
+      m.count = m.userData.src.userData.full || 0;
     }
     contact.count = active;
     contact.instanceMatrix.needsUpdate = true;
@@ -4038,10 +4064,7 @@
     /* the near model when the camera is within about 20 yards of what it is looking at; the two limits keep it from flickering */
     camDist = camera.position.distanceTo(camLook);
     const near = s.detail !== false && camDist < (nearModel ? 24 : 20);
-    if (near !== nearModel) {
-      nearModel = near;
-      for (const p of parts) p.mesh.geometry = (near && GEO_HI[p.name]) || GEO[p.name];
-    }
+    nearModel = near;  // the players' close-up meshes are switched in where the counts are set, next frame
     skyDome.position.copy(camera.position);
     /* Goal posts: never the one the camera sits beside, and during play not the near one when the camera is behind it
        (backed up on your own goal line, its uprights stood between you and your quarterback). */

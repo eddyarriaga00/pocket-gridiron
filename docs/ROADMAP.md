@@ -1830,6 +1830,16 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   in stills, day and night, fixing what is off; 23 the play-call sheet at 320 wide; 24 the playoff bracket and
   league screens in stills; 25 a bug sweep of season mode through the playoffs; then the fifth stock-take.
 
+- Change 21 (05:40), a lighter instant replay: the close-up model used to be swapped in for every figure at once,
+  the twenty on the benches included. The players, officials and chain crew now have their own close-up meshes that
+  read the same matrices and colors (a view on the same arrays from the slot after the last bench figure, `p.hi` in
+  `render3d.js`), so the benches stay on the light model when the camera comes in. Replay: 612,000 triangles down to
+  499,000 at most; cutscenes 346,000 down to 231,000. Looked at in a replay still (close-up players, numbers, names,
+  shadows and the bench behind them all drawn). Audit empty at 320x568 and 390x844; careers, exhibition, season and
+  camp clean; fingerprint unchanged.
+  Next: 22 the players and sideline in stills, day and night; 23 the play-call sheet at 320 wide; 24 the playoff
+  bracket and league screens in stills; 25 a season-mode bug sweep through the playoffs; then the fifth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

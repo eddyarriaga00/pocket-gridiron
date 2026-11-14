@@ -124,6 +124,10 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .hset.open .hsum::after{transform:rotate(-90deg)}
 .hset.open{padding-bottom:12px}
 .hset>h2:first-of-type{margin-top:4px}
+.pb.wt{width:auto;height:34px;padding:0 12px;border-radius:17px;font-size:10px;letter-spacing:.03em;white-space:nowrap}   /* watching a drive: fast forward, skip */
+.pb.wt{position:relative}
+.pb.wt::after{content:"";position:absolute;inset:-8px 0}
+.pb.wt.on{background:var(--acc);color:var(--acc-ink);border-color:rgba(255,255,255,.85)}
 .pb.hot{background:var(--acc);color:var(--acc-ink);border-color:rgba(255,255,255,.85)}
 .pb.spr{background:linear-gradient(to top,rgba(44,74,128,.88) calc(var(--st,1)*100%),rgba(13,21,36,.78) 0)}   /* stamina: a fill dark enough for the label to read on, even over snow */
 

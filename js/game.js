@@ -828,7 +828,7 @@
       ps.ret = r;
       if (r.team === 0 && G.lock && G.kr) asHero(r);
     }
-    G.me = G.lock && !kick ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : ps.ret && ps.ret.hero ? ps.ret : null;
+    G.me = G.lock && !kick && !(G.watch && G.wd && G.wd.own) ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : ps.ret && ps.ret.hero ? ps.ret : null;
     G.sel = G.lock ? G.me : off === 1 ? (selRole && d[selRole]) || d.MLB : null;
     for (const p of P) {
       p.sx = p.x;
@@ -2990,7 +2990,7 @@
     keepHighlight();
     if (G.rp) {
       G.rp = false;
-      if (REC.length > 50) return startReplay();
+      if (REC.length > 50 && !(SET.wff && G.watch && !G.me)) return startReplay();  // fast forward goes past the replays too
     }
     if (G.drill) {
       if (--G.drill.left <= 0) return endGame();
@@ -3201,7 +3201,7 @@
   function callPlan(t) {
     const toGoal = t === 0 ? 100 - G.los : G.los, ld = G.score[t] - G.score[1 - t], S = schemeOf(t), c = { fixed: null };
     if (G.q === 4 && ld > 0 && G.down <= 3 && G.clock <= Math.max(0, 4 - G.down - G.to[1 - t]) * 40) c.fixed = OFF.find(p => p.quick === 'kneel');  // ahead late: run it out
-    else if (G.down === 4) {
+    else if (G.down === 4 && !(G.go4 && t === 0)) {
       const desp = G.q >= 4 && ld < 0 && G.clock < 100;
       if (toGoal + 17 <= 52 && !(desp && ld < -3)) c.fixed = OFF.find(p => p.n === 'Field Goal');
       else if (!(desp || (G.togo <= 1.5 && toGoal < 60))) c.fixed = OFF.find(p => p.n === 'Punt');
@@ -3391,6 +3391,7 @@
     ps = null;
     G.me = null;
     G.celeb = null;
+    G.watch = G.go4 = false;
     G.state = 'call';
     updHud();
     setBrief('');
@@ -3407,7 +3408,11 @@
       const t = G.pendKO, k = 1 - t;  // t receives, k kicks
       if (!G.drill && lateAndBehind(k)) return k === 0 && !AUTO && !G.lock ? showOnside(k) : onside(k);  // your call, or the computer's (it always tries)
       G.pendKO = null;
-      if (!AUTO && !G.drill && (!G.lock || k === 0 || G.kr)) return beginKickoff(t);  // in a career, your team's kickoffs are yours too, and theirs when you return kicks
+      if (!AUTO && !G.drill) {
+        beginKickoff(t);  // in a career, your team's kickoffs are yours too, and theirs when you return kicks
+        if (G.lock && k === 1 && !G.me) G.watch = true;  // otherwise their kickoff is watched like their drives: your returner brings it out
+        return;
+      }
     }
     if (G.drill && G.drill.script) {
       /* a guided drill: its script names the play for each rep */
@@ -3431,17 +3436,19 @@
           return begin();  // their punt, with you back deep
         }
       }
-      if ((G.lockSide === 'off') !== (G.poss === 0)) return simDrives();
+      const skip = G.skipN === G.possN, res = skip && G.wd && G.wd.n === G.possN ? G.wd : null;  // Skip drive was tapped: the rest of it is worked out unseen
+      if ((G.lockSide === 'off') !== (G.poss === 0)) return skip ? simDrives(false, res) : watchPlay(false);
       if (G.share < 1 && !G.drill) {
         // not the starter: the coach decides drive by drive whether you go in
         if (G.benchN !== G.possN) {
           G.benchN = G.possN;
           G.sit = rnd() > G.share;
         }
-        if (G.sit) return simDrives(true);
+        if (G.sit) return skip ? simDrives(true, res) : watchPlay(true);
       }
       G.op = cpuOff(G.poss);
       G.dp = cpuDef();
+      if (G.down === 4 && G.op.cat === 'special' && G.poss === 0 && G.try2 == null) return ask4th();  // his call is a kick: you may wave it off
       if (G.lock === 'QB' && G.op.cat !== 'special') return showCall('qb');
       return begin();
     }
@@ -3810,26 +3817,35 @@
   /* Career: play the snaps the user's unit is not on the field for, headless, until their unit is back on. */
   /* Plays out drives nobody is controlling: the other unit's, or (own = true) one drive of your own unit that the
      coach has you watching from the sideline. */
-  function simDrives(own) {
-    const was = AUTO, t = G.poss, s0 = G.score.slice(), n0 = G.possN;
-    let plays = 0, over = false, guard = 0;
+  /* res: a drive that was being watched until Skip drive was tapped (who has it, the score when it began, the plays so
+     far), so the result line counts all of it; with a play still running (not 'dead'), that play is finished first. */
+  function simDrives(own, res) {
+    const was = AUTO, t = res ? res.t : G.poss, s0 = res ? res.s0 : G.score.slice(), n0 = res ? res.n : G.possN;
+    let plays = res ? res.plays : 0, over = false, guard = 0, mid = !!res && !!ps && (G.state === 'pre' || G.state === 'live' || G.state === 'kicka');
     AUTO = true;
     QUIET = true;
-    while (!over && guard++ < 300 && (own ? G.possN === n0 : (G.lockSide === 'off') !== (G.poss === 0))) {
-      if (G.poss === t) plays++;
-      G.op = cpuOff(G.poss);
-      G.dp = cpuDef();
-      if (G.kr && !own && G.poss === 1 && G.op.n === 'Punt') {
-        G.liveP = { op: G.op, dp: G.dp };  // they are punting: you are their returner, so this one is played live
-        break;
-      }
-      if (G.op.quick) quickPlay();
-      else {
-        G.flip = !!G.flipNext && G.op.cat !== 'special';
-        G.flipNext = false;
-        setupPlay();
-        G.state = 'pre';
-        snap();
+    G.watch = false;
+    while (mid || (!over && guard++ < 300 && (own ? G.possN === n0 : (G.lockSide === 'off') !== (G.poss === 0)))) {
+      if (mid) {
+        mid = false;
+        G.me = G.sel = null;
+        if (G.state === 'pre') snap();  // lined up: snapped where they stand
+      } else {
+        if (G.poss === t) plays++;
+        G.op = cpuOff(G.poss);
+        G.dp = cpuDef();
+        if (G.kr && !own && G.poss === 1 && G.op.n === 'Punt') {
+          G.liveP = { op: G.op, dp: G.dp };  // they are punting: you are their returner, so this one is played live
+          break;
+        }
+        if (G.op.quick) quickPlay();
+        else {
+          G.flip = !!G.flipNext && G.op.cat !== 'special';
+          G.flipNext = false;
+          setupPlay();
+          G.state = 'pre';
+          snap();
+        }
       }
       let n = 0;
       while (G.state !== 'dead' && n++ < 4000) {
@@ -3886,8 +3902,78 @@
     else if (pts === 0 && !mine) react(0, 0.5, 2);
   }
 
+  /* ---------- a career's other drives, watched ----------
+     The snaps your unit is not on the field for (the other team's offense, or a drive of your own the coach has you
+     sitting out) are played in front of you, by the computer on both sides, instead of being worked out unseen.
+     Two small buttons go with them: Fast forward runs everything at three times the speed until it is tapped again
+     (the choice is remembered), and Skip drive works out the rest of this drive unseen, the way every such drive used
+     to be, and shows the result. A punt you are back deep for, and your own team's kicks, are still yours. */
+  const watching = () => !!G.watch && !G.me && !AUTO && (G.state === 'pre' || G.state === 'live' || G.state === 'kicka' || (G.state === 'dead' && !!G.wd && G.wd.n === G.possN && G.pendKO == null && G.pat == null));  // not once the drive is over
+
+  function watchPlay(sit) {
+    if (!G.wd || G.wd.n !== G.possN) G.wd = { n: G.possN, t: G.poss, s0: G.score.slice(), plays: 0, own: !!sit };
+    G.wd.plays++;
+    G.watch = true;
+    G.op = cpuOff(G.poss);
+    G.dp = cpuDef();
+    begin();
+  }
+
+  function toggleFF() {
+    if (!watching()) return;
+    SET.wff = !SET.wff;
+    save('pg.settings', SET);
+    snd('tick');
+    toast(SET.wff ? 'Fast forward · 3x' : 'Normal speed');
+  }
+
+  function skipDrive() {
+    if (!watching()) return;
+    if (ps && ps.mode === 'ko') {
+      // a kickoff: your offense starts from the touchback spot, where the ball was already put
+      G.watch = G.rp = false;
+      P = [];
+      ps = null;
+      clearCards(true);
+      G.state = 'dead';
+      G.deadT = 0.01;
+      return;
+    }
+    const mid = G.state !== 'dead';
+    G.skipN = G.possN;
+    G.rp = false;
+    clearCards(true);
+    setBrief('');
+    if (mid) return simDrives(G.wd.own, G.wd);  // the play in front of you is finished unseen, and the rest of the drive after it
+    G.deadT = 0;  // between plays: the next call works out the rest
+  }
+
+  /* fourth down in a career: the coach sends the kicking unit out, and you may wave it off */
+  function ask4th() {
+    const fg = G.op.n === 'Field Goal', d = Math.round(100 - G.los + 17), kick = G.op, dp = G.dp;
+    G.state = 'call';
+    scr.innerHTML = `<div class="sheet"><div class="shd"><b>Coach wants ${fg ? 'the kick' : 'to punt'}</b><span>${downTxt()}</span></div><div class="cols"><button class="go sm" id="g4K">${fg ? 'Kick it' : 'Punt'}<br><small>${fg ? d + '-yard field goal' : 'Pin them deep'}</small></button><button class="go sm" id="g4G">Go for it<br><small>${ORD[3]} & ${G.togo < 1 ? 'inches' : Math.max(1, Math.round(G.togo))}${G.lock === 'QB' ? ' · your call' : ''}</small></button></div></div>`;
+    $('#g4K').onclick = () => {
+      G.op = kick;
+      G.dp = dp;
+      begin();
+    };
+    $('#g4G').onclick = () => {
+      G.go4 = true;  // the play caller leaves the kicks out for this snap
+      G.op = cpuOff(0);
+      G.dp = dp;
+      if (!AUTO && !QUIET) {
+        toast('The offense stays on the field');
+        if (PG.audio) PG.audio.crowd.cheer(G.home === 1 ? 0.3 : 0.7, 1.6);
+      }
+      if (G.lock === 'QB') showCall('qb');
+      else begin();
+    };
+  }
+
   function briefTxt() {
     const me = G.me;
+    if (G.watch && !me && !AUTO) return ps && ps.mode === 'kick' && G.poss === 0 ? '' : G.wd && G.wd.own ? '<b>On the sideline</b><span>The coach has the backup in for this drive.</span>' : '<b>Your defense is on</b><span>You are watching this drive.</span>';
     if (G.drill && G.drill.script && !AUTO) {
       const s = drillStep();
       return `<b>${s.h || (G.poss === 0 ? G.op.n : 'Defense')}</b><span>${s.say}</span>`;
@@ -4059,6 +4145,8 @@
 
   function act(k, n) {
     if (AUTO || G.paused) return;
+    if (k === 'ff') return toggleFF();
+    if (k === 'skipd') return skipDrive();
     if (k === 'fair' || (k === 'main' && G.state === 'kicka')) {
       // wave for a fair catch: the ball is yours where it lands, and nobody may hit you
       if (G.state === 'kicka' && ps && ps.mode === 'kick' && ps.ret && ps.ret.team === 0 && !ps.fair && ps.air && !ps.kick.arg.tb) {
@@ -4158,6 +4246,7 @@
     if (AUTO || G.paused) return 'none';
     /* right after the whistle, while the clock is running: the one moment a timeout is worth calling */
     if (G.state === 'dead' && G.runoff > 0 && !G.lock && !G.drill && G.to && G.to[0] > 0) return 'timeout';
+    if (watching() && !(ps && ps.mode === 'kick' && G.poss === 0)) return (ps && ps.mode === 'ko' ? 'watchK' : 'watch') + (SET.wff ? 'F' : '');
     if (!ps) return 'none';
     const lk = G.lock, me = G.me;
     if (G.state === 'pre') {
@@ -4263,6 +4352,11 @@
       B('Audible', '', () => act('audible'));
     } else if (kind === 'timeout') B('Time out', '', () => act('timeout'));
     else if (kind === 'fair') B('Fair catch', '', () => act('fair'));
+    else if (/^watch/.test(kind)) {
+      const f = /F$/.test(kind);
+      B(/K/.test(kind) ? 'Skip' : 'Skip drive', 'wt', () => act('skipd')).id = 'wSkip';
+      B(f ? '3x · on' : 'Fast fwd', 'wt' + (f ? ' on' : ''), () => act('ff')).id = 'wFF';
+    }
     else if (kind === 'loose') {
       spr();
       B('Dive', '', () => act('dive'));
@@ -4294,7 +4388,8 @@
     if (e.code === 'KeyE') act('dive');
     if (e.code === 'KeyL') act('power');
     if (e.code === 'KeyH') act('hurdle');
-    if (e.code === 'KeyF') act('hit');
+    if (e.code === 'KeyF') act(watching() ? 'ff' : 'hit');
+    if (e.code === 'KeyK') act('skipd');
     if (e.code === 'KeyR') act('strip');
     if (e.code === 'KeyT') act('timeout');
     if (e.code === 'KeyV') act('audible');
@@ -4450,7 +4545,7 @@
   const GB = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
   const GLET = ['A', 'B', 'X', 'Y', 'RB'];  // the throw buttons, in the order of the receivers across the field
   const GMAP = { snap: { A: 'main', X: 'motion', Y: 'hard', LB: 'audible', RB: 'flip' }, ready: { A: 'main' }, kick: { A: 'main' }, fair: { A: 'fair' }, carry: { A: 'power', B: 'juke', X: 'spin', Y: 'hurdle' },
-    def: { A: 'dive', B: 'switch', X: 'hit', Y: 'strip' }, deflock: { A: 'dive', X: 'hit', Y: 'strip' }, route: { A: 'call' }, defpre: { B: 'switch', LB: 'audible' }, loose: { A: 'dive' }, timeout: { A: 'timeout' } };
+    def: { A: 'dive', B: 'switch', X: 'hit', Y: 'strip' }, deflock: { A: 'dive', X: 'hit', Y: 'strip' }, route: { A: 'call' }, watch: { A: 'ff', B: 'skipd' }, watchF: { A: 'ff', B: 'skipd' }, watchK: { A: 'ff', B: 'skipd' }, watchKF: { A: 'ff', B: 'skipd' }, defpre: { B: 'switch', LB: 'audible' }, loose: { A: 'dive' }, timeout: { A: 'timeout' } };
   addEventListener('gamepadconnected', e => toast('Controller connected' + (e.gamepad && e.gamepad.mapping === 'standard' ? '' : ' · buttons may differ')));
   addEventListener('gamepaddisconnected', () => toast('Controller disconnected'));
 
@@ -6237,7 +6332,7 @@
         } else if (G.preT > 1.5) kickNow();
       } else {
         /* the computer snaps for itself, and for the user when their player is not the quarterback */
-        const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1), wait = AUTO ? 0.3 : G.drill && G.drill.script ? 5 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2;
+        const auto = AUTO || (G.lock ? G.me !== ps.qb : G.poss === 1), wait = AUTO ? 0.3 : G.drill && G.drill.script ? 5 : G.watch && !G.me ? 1.7 : G.lock && ps.mode !== 'kick' ? 3.4 : 2.2;
         const set = ((!ps.mot || ps.mot.ready) && (!ps.sh || ps.sh.ph === 'done')) || G.preT > wait + 8;  // a man in motion: the snap comes when he gets there (a jet, as he passes the ball); a shift: after the second set
         if ((auto && G.preT > wait && set) || (ps.mot && ps.mot.sweep && ps.mot.ready)) snap();  // a jet sweep is snapped on his timing, whoever is the quarterback
       }
@@ -6393,10 +6488,10 @@
     last = ts;
     FDT = dt;
     watchSpeed(raw);
-    const n = window.FAST || 1;
+    const n = window.FAST || 3;
     try {
       if (!AUTO) pollPad(dt);
-      for (let i = 0; i < n; i++) step(dt);
+      for (let i = 0; i < n; i++) if (i === 0 || window.FAST || (SET.wff && watching())) step(dt);  // fast forward: three steps a frame while you are only watching
       render();
     } catch (e) {
       console.error(e);
@@ -6427,7 +6522,7 @@
         SEEDED = !!n;
         SEED = n | 0;
       },
-      step, render, startCall, resolveChallenge, playScene, endScene,
+      step, render, startCall, resolveChallenge, playScene, endScene, skipDrive, watching,
       pad: dt => pollPad(dt || 0.016),  // one read of the controller (the test page fakes navigator.getGamepads)
       /* The play lab, for balancing the playbook: one offensive play run n times, headless, from first and ten at the
          35 (o.los, o.down, o.togo to change that) against the computer's defense or o.def, every other snap mirrored.

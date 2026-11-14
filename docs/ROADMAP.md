@@ -1363,6 +1363,22 @@ what is next. Update it after every item.
   fingerprint unchanged, careers, exhibition, drills, audit empty at 320x568 and 390x844, no console errors. Still a
   jointed body, not a skinned one: elbows and knees are balls between rigid parts.
 
+- 2026-11-13 20:20. The owner: "allow u to go for it on 4th down instead of field goal, also don't skip over
+  opponents plays, show it and allow u to fast forward or skip it". Both are career changes (an exhibition already
+  lets you call anything on fourth down, and you play its defense). game.js: `startCall` no longer hands the other
+  unit's drives (or a drive you sit out) to `simDrives`; `watchPlay` plays each snap live with nobody under your
+  control (`G.watch`, `G.wd` keeps the drive's start for the result line), the snap comes after 1.7 seconds, and their
+  kickoffs to a team whose returner is not you are played too. The pad shows Skip drive and Fast fwd (`watching()`,
+  pad kinds watch/watchF/watchK/watchKF; keys F and K; controller A and B). Fast forward is three steps a frame and
+  no replays, saved as `SET.wff`. `skipDrive` finishes the play in flight unseen and hands the rest to
+  `simDrives(own, res)`, which sums the whole drive up as before; on a kickoff it takes the touchback spot. Fourth
+  down: when the coach's call is a kick, `ask4th` offers Kick it / Go for it (`G.go4` makes `callPlan` leave the
+  kicks out; a quarterback then gets the usual sheet, a receiver gets the coach's play). The test player skips
+  watched drives unless `window.H_WATCH` is set, and kicks on fourth down. Checked: fingerprint unchanged; careers
+  with every drive watched and with every drive skipped, exhibition, drills, no errors; audit empty at 320x568 and
+  390x844 including the new pad and sheet. Ten-game samples put the opponents' scoring in the same range watched or
+  skipped (13 to 25 a game). Not judged by eye at real speed: the test pane was hidden and drew a frame now and then.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

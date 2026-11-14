@@ -110,6 +110,9 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - Catches look like catches: a receiver with a defender on him goes up for the ball, arms high, and takes it at the top
   of the jump (the defender goes up with him), and a ball thrown off his line gets a stretch, chest out and arms long.
+- The quarterback drops back the way one does: half turned, the ball up at his back shoulder, in crossover steps
+  (three from the shotgun, five from under center, seven on play action), then sets his feet to throw. A stiff arm
+  goes to the nearest tackler, with whichever hand is on his side.
 - In a career you watch the snaps you are not on the field for: the other team's drives, their kickoffs to your
   returner, and a drive the coach has you sitting out are played in front of you by the computer. Two small buttons go
   with them: Fast forward (F, or A on a controller) runs at three times the speed and is remembered; Skip drive (K, or

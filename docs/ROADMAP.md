@@ -1428,6 +1428,25 @@ what is next. Update it after every item.
   three clips from each decoded (99 of 99); a missing pack leaves the booth ready. Not measured: a real phone, where
   the saving in draws should matter more than it does here.
 
+- 2026-11-14 03:20. The owner: "work on proper animations". Two from the Round 21 list, drawing only (`render3d.js`,
+  `poseFor`). (1) The quarterback's drop and set. Going back he is turned about sixty degrees to his throwing side
+  with the ball up at his back shoulder and his eyes downfield, in crossover steps (`gait.base` cut so the feet
+  cross); the steps are counted: the distance to his spot is shared out as three steps from the shotgun, five from
+  under center, seven on play action (`f.dropStep`, passed to `stridePhase`; this playbook's quarterbacks all line up
+  four to eight yards deep, so in practice it is the three-step drop). When he stops he sets: a throwing base by
+  `legIK` (front foot at the target, back foot behind, knees bent, a little bounce), body a quarter open, the ball
+  nearer the throwing shoulder. Scrambling forward and the wind-up are as they were. (2) The stiff arm goes to the
+  man: the nearest defender on his feet within 2.4 yards who is not behind him. The chest turns part of the way and
+  the hand is solved onto his shoulder pad with `armIK`; a man on the right gets the right hand and the ball goes
+  under the left arm; with nobody there, or the man behind, it is the old locked-out arm. Measured with everything
+  frozen and a defender placed round the runner (`PG.r3d.handOf`): the hand ends 0.4 to 0.6 yards from his chest
+  centre at the side and in front (the figures are drawn 1.6 times life size, so that is on his pads), where the
+  old arm pointed the same way whoever was there. Something learned: a positive chest turn (`CHRY`) is to his LEFT.
+  Checked: fingerprint unchanged (drawing only); gait 1 cm slide and 0.2 cm sink, tackle hands 9 cm, block and
+  leaping catch as before; two watched career games drawn every 15 steps (5,743 frames) with no bad pose and no
+  error; careers, exhibition, drills. Seen as frame strips from the side and from above, not in motion. Next on the
+  list: the toe tap at the sideline, the form tackle as a paired animation, then the skinned body.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
@@ -1754,9 +1773,8 @@ NFL and Madden, for a career first (Round 24), biggest that fits a run first:
   still one 4.2 MB fetch (the analyst's lines are 1 MB of it and could come second); the 48 figures' lettering could
   be one instanced draw from an atlas; measure on a real phone.
 Animations and models, the owner's priority (the Round 21 plan above), one piece a run:
-- Next the quarterback's three,
-  five and seven step drops (today he jogs back to a spot), then the toe tap at the sideline, a stiff arm that reaches,
-  the form tackle as a paired animation, facemask bars and helmet numbers; the skinned body last, as its own project.
+- Done 2026-11-14: the quarterback's counted drop and set, and a stiff arm that reaches. Next the toe tap at the
+  sideline, the form tackle as a paired animation, facemask bars and helmet numbers; the skinned body last, as its own project.
   Each piece is checked with a staged test hook and a strip, like `catchTest` and `catchStrip`.
 - The voices, after the owner has listened to Round 11's (he said at 19:15 "work on improving the voices"; how they
   sound now is still unjudged). If they are still too calm, the next step is a more expressive open speech model with

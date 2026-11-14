@@ -1224,11 +1224,11 @@
 
   /* Advance a figure's stride for his velocity (field yards a second) and return its shape, or null when he is as
      good as standing. A shuffle takes shorter, quicker steps than a run at the same speed. */
-  function stridePhase(f, vx, vy, dt) {
+  function stridePhase(f, vx, vy, dt, step) {
     const sp = Math.hypot(vx, vy);
     if (sp <= 0.25) return null;
     const ch = Math.cos(f.heading), sh = Math.sin(f.heading), along = clamp((vy * ch - vx * sh) / sp, -1, 1), side = clamp((vx * ch + vy * sh) / sp, -1, 1);
-    const stepLen = lerp(stepOf(sp), 0.5 + 0.06 * sp, Math.abs(side));
+    const stepLen = step || lerp(stepOf(sp), 0.5 + 0.06 * sp, Math.abs(side));  // step: a set length (a quarterback's drop is a counted number of steps)
     f.ph += sp * dt * Math.PI / stepLen;
     return gaitOf(f, sp, Math.min(1, sp / 7.5), along, side, stepLen);
   }
@@ -2009,10 +2009,22 @@
     const sp = Math.hypot(p.vx, p.vy), run = Math.min(1, sp / 7.5);
     /* The stride lengthens with speed (about 1.5 yards a step at a jog, 2.5 flat out), and the phase advances by the
        ground actually covered. That keeps the feet moving at the pace of the turf instead of skating over it. */
-    const gait = stridePhase(f, p.vx + f.svx, p.vy + f.svy, dt), sn = Math.sin(f.ph);  // being moved clear of a pile is ground covered too: he steps there, he does not slide
     let striding = false;
     const carrier = ps.carrier === p && !ps.air, inPocket = carrier && p === ps.qb && ps.mode === 'pass' && !ps.thrown && !ps.open;
     const winding = s.charge >= 0 && carrier && p === ps.qb && !ps.thrown;  // the user is holding a receiver's letter: the power bar is filling
+    /* The quarterback's drop. He turns half away from the line, the ball up at his back shoulder, and goes back in
+       crossover steps with his eyes downfield: three steps from the shotgun, five from under center, seven on play
+       action. The count is the distance to his spot shared out in steps, so the last one lands as he gets there. Then
+       he sets: feet apart, front foot at the target, knees bent, the ball in both hands at his chest. */
+    const pocketLive = inPocket && s.live && !p.down;
+    if (pocketLive && ps.t < 0.06 && ps.drop) {
+      const far = Math.hypot(ps.drop.x - p.x, ps.drop.y - p.y);
+      f.dropStep = clamp(far / (far > 4.5 ? (ps.pa ? 7 : 5) : 3), 0.6, 1.3);
+      f.ph = 0;
+    }
+    const dropping = pocketLive && !winding && ps.t < 1.8 && p.vy * s.dir < -1, qbSet = pocketLive && sp < 0.6 && ps.t > 0.25;
+    const gait = stridePhase(f, p.vx + f.svx, p.vy + f.svy, dt, dropping ? f.dropStep : 0), sn = Math.sin(f.ph);  // being moved clear of a pile is ground covered too: he steps there, he does not slide
+    if (gait && dropping) gait.base *= 0.3;  // his feet cross as he goes back: it is not a shuffle
     let hx = null, hy = 0, snap = false, eyes = true, wantX = 0, wantY = 0;  // eyes: his helmet is free to turn to what he is watching; wantX, wantY: how far from the engine's spot a block, or a pile, wants him drawn
     const flat = p.flat > 0 && !p.down && !p.fell;  // run over: on his back for a moment
     const cd = ps.carrier, settled = s.G.state === 'dead' || s.G.state === 'replay';
@@ -2425,8 +2437,9 @@
       }
       const cover = s.live && p.team !== ps.offTeam && !ps.open && !ps.air && p.asg !== 'rush' && ps.qb;
       if (inPocket) {
-        hx = 0;
-        hy = s.dir;
+        const open = dropping ? 1.0 : qbSet ? 0.45 : 0;  // how far his body is turned to his throwing side
+        hx = Math.sin(open) * s.dir;
+        hy = Math.cos(open) * s.dir;
         facing = p.vy * s.dir >= 0 ? 1 : -1;
       } else if (cover) {
         /* Eyes on the quarterback. At a jog he stays square to him and shuffles or backpedals. When he has real
@@ -2489,6 +2502,27 @@
         tg[EL] = 1.75;
         tg[ER] = 1.75;
         tg[CHRX] = -0.06;
+        if (dropping) {
+          // going back: the ball up by the back shoulder, the front arm across his chest to it, standing tall
+          tg[SRX] = 1.15;
+          tg[ER] = 2.05;
+          tg[SRZ] = -0.1;
+          tg[SLX] = 1.0;
+          tg[EL] = 1.9;
+          tg[SLZ] = 0.5;
+          tg[CHRY] = 0.2;
+          tg[CHRX] = -0.02;
+          tg[PELRZ] = 0;
+        } else if (qbSet) {
+          // set to throw: the ball a little higher and nearer the throwing shoulder than when he carries it
+          tg[SRX] = 1.0;
+          tg[ER] = 1.95;
+          tg[SRZ] = -0.15;
+          tg[SLX] = 0.95;
+          tg[EL] = 1.85;
+          tg[SLZ] = 0.4;
+          tg[CHRX] = -0.04;
+        }
       }  // ball in both hands at the chest
         else if (carrier) {
           tg[SRX] = 0.5;
@@ -2615,7 +2649,39 @@
         tg[SLZ] = -0.55;
         tg[EL] = 0.05;
         tg[CHRY] = 0.28;
-      }  // free arm locked out
+        /* The stiff arm goes to the man: the nearest defender on his feet within reach, in front of him or beside
+           him. The chest turns part of the way, and the free hand is put on his shoulder pad (or as far toward it as
+           the arm goes), instead of the arm always locking out to the same side. */
+        let near = null, nd = 2.4;
+        for (const o of s.P || []) if (o.team !== p.team && !o.down && !o.fell) {
+          const d = Math.hypot(o.x - p.x, o.y - p.y);
+          if (d < nd) {
+            nd = d;
+            near = o;
+          }
+        }
+        if (near) {
+          const ch = Math.cos(f.heading), sh = Math.sin(f.heading), sc = f.root.scale.y, dx = near.x - p.x, dy = near.y - p.y;
+          const rx = (dx * ch + dy * sh) / sc, fz = (-dx * sh + dy * ch) / sc;  // to his right and ahead of him, in his own lengths
+          if (fz > -0.3) {
+            const ang = Math.atan2(rx, Math.max(0.05, fz)), yaw = clamp(-ang * 0.6, -0.8, 0.5), cy = Math.cos(yaw), sy = Math.sin(yaw);  // a turn of the chest is counted to his left, the man's bearing to his right
+            const x = rx * cy + fz * sy, z = rx * sy - fz * cy, far = Math.hypot(x, z) || 1, to = Math.max(0.2, far - 0.26) / far;  // in the turned chest's space (z is behind him); the hand stops at his pads, not inside him
+            const k = ang > 0.35 ? 1 : 0, shd = k ? f.shR : f.shL;  // a man on his right gets the right hand: the ball goes under the other arm
+            armIK(x * to - shd.position.x, -0.04, z * to - shd.position.z);
+            tg[k ? SRX : SLX] = ARM[0];
+            tg[k ? SRZ : SLZ] = ARM[1];
+            tg[k ? ER : EL] = ARM[2];
+            if (k) {
+              tg[SLX] = 0.5;
+              tg[SLZ] = 0.15;
+              tg[EL] = 2.0;
+            }
+            tg[CHRY] = yaw;
+            eyes = false;
+            tg[HEADRY] = clamp(-ang - yaw, -0.6, 0.6) * 0.6;  // a look at the man he is fending off
+          }
+        }
+      }  // free arm locked out, or on the tackler
       if (p.strip > 0) {
         tg[SRX] = 1.4 + Math.sin(time * 28) * 0.45;
         tg[ER] = 0.4;
@@ -2644,6 +2710,19 @@
         /* last, so the legs reach the turf from wherever the hips have ended up (lower when he drops a shoulder) */
         strideLegs(tg, gait, tg[PELY]);
         striding = true;
+      } else if (qbSet && !(p.thrT > 0)) {
+        /* the quarterback set in the pocket: a throwing base, front foot toward the target and back foot behind him,
+           knees bent, and a little life in it while he reads */
+        tg[PELY] = 0.935 + Math.sin(time * 6 + f.seed) * 0.006;
+        for (let k = 0; k < 2; k++) {
+          legIK(k ? 0.09 : -0.09, k ? -0.13 : 0.17, SOLE, tg[PELY], 0);
+          tg[k ? HR : HL] = LEG[0];
+          tg[k ? KR : KL] = LEG[1];
+          tg[k ? AR : AL] = LEG[2];
+          tg[k ? HRZ : HLZ] = LEG[3];
+          tg[k ? ARZ : ALZ] = LEG[4];
+          tg[k ? ARY : ALY] = LEG[5];
+        }
       } else plant(tg);  // standing still: on the turf, not a centimetre in it
     }
     /* A forward lean comes partly from the hips: the seat goes back and the jersey stays tucked in,
@@ -4468,6 +4547,14 @@
     poseOf(i) {
       const f = figs[SIDELINE + i];
       return f ? { pose: Array.from(f.cur), heading: f.heading, wind: f.wind, fall: f.fall, off: [f.ox, f.oy] } : null;
+    },
+    /* test hook: where player i's hand is (k: 0 left, 1 right), as field [x, y, height in yards], and his shoulder pad */
+    handOf(i, k) {
+      const f = figs[SIDELINE + i];
+      if (!f) return null;
+      f.root.updateMatrixWorld(true);
+      const h = (k ? f.elR : f.elL).localToWorld(new T.Vector3(0, -0.3, 0)), c = f.chest.localToWorld(new T.Vector3(0, 0.45, 0));
+      return { hand: [h.x, -h.z, h.y], chest: [c.x, -c.z, c.y] };
     },
     gait: gaitTest, strip,  // test hooks: measure a run, and draw one stride as a row of side views
     cheer(v) {

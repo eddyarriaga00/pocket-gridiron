@@ -829,6 +829,7 @@
     ['visor', 'Visor', [['kit', 'Dark'], ['clear', 'Clear'], ['silver', 'Mirror'], ['team', 'Team'], ['red', 'Red'], ['blue', 'Blue'], ['orange', 'Orange'], ['purple', 'Purple']]],
     ['mask', 'Facemask', [['kit', 'Grey'], ['black', 'Black'], ['white', 'White'], ['team', 'Team'], ['team2', 'Second']]],
     ['trim', 'Arm bands', [['kit', 'Kit'], ['white', 'White'], ['black', 'Black'], ['team', 'Team'], ['none', 'None']]],
+    ['arm', 'Sleeves', [['kit', 'None'], ['white', 'White'], ['black', 'Black'], ['team', 'Team'], ['team2', 'Second']]],
     ['towel', 'Towel', [['kit', 'None'], ['white', 'White'], ['black', 'Black'], ['team', 'Team'], ['team2', 'Second'], ['red', 'Red'], ['blue', 'Blue'], ['pink', 'Pink']]],
   ];
   const lookOf = k => (C.look && C.look[k]) || 'kit';

@@ -239,6 +239,7 @@
     foreArm: mkForeArm(10),
     wrist: new T.CylinderGeometry(0.053, 0.049, 0.055, 10).translate(0, -0.215, 0),
     hand: new T.SphereGeometry(0.064, 8, 6).scale(1, 1.15, 0.85).translate(0, -0.3, 0),
+    playband: new T.CylinderGeometry(0.064, 0.062, 0.115, 10).translate(0, -0.125, 0),
     /* a towel tucked into the front of the belt, hanging over one thigh (a career player's own choice: optional) */
     towel: merge([new T.BoxGeometry(0.1, 0.05, 0.05).translate(0.08, -0.03, -0.2), new T.BoxGeometry(0.09, 0.22, 0.016).translate(0.08, -0.15, -0.222)]),
     /* a stripe down both sides of the thigh, following its taper */
@@ -333,8 +334,9 @@
     ['torso', ['chest'], 'jersey', 'body', 1], ['pads', ['chest'], 'jersey', 'body', 1], ['neck', ['chest'], 'skin'],
     ['hips', ['pelvis'], 'pants', 'body', 1], ['towel', ['pelvis'], 'towel', 'body', 0, 1],
     ['helmet', ['head'], 'helmet', '', 1], ['ear', ['head'], 'visor'], ['face', ['head'], 'skin'], ['skull', ['head'], 'skin', '', 0, 1], ['hair', ['head'], 'helmet', '', 0, 1], ['brim', ['head'], 'helmet', '', 0, 1], ['stripe', ['head'], 'stripe'], ['logo', ['head'], 'stripe'], ['visor', ['head'], 'visor'], ['mask', ['head'], 'mask'],
-    ['upperArm', ['shL', 'shR'], 'skin', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
-    ['foreArm', ['elL', 'elR'], 'skin', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
+    ['upperArm', ['shL', 'shR'], 'arm', 'limb', 1], ['sleeveCap', ['shL', 'shR'], 'jersey', 'limb'], ['sleeve', ['shL', 'shR'], 'trim', 'limb'],
+    ['foreArm', ['elL', 'elR'], 'arm', 'limb', 1], ['wrist', ['elL', 'elR'], 'trim', 'limb'], ['hand', ['elL', 'elR'], 'glove'],
+    ['playband', ['elL'], 'band', 'limb', 0, 1],  // a quarterback's play-call wristband, on his left forearm
     ['thigh', ['hipL', 'hipR'], 'pants', 'limb', 1], ['pantStripe', ['hipL', 'hipR'], 'stripe', 'limb'],
     ['shin', ['kneeL', 'kneeR'], 'sock', 'limb', 1], ['foot', ['ankL', 'ankR'], 'shoe', 'limb', 1],  // the shoe widens with the leg, or a thick ankle pokes through it
   ];
@@ -574,20 +576,22 @@
   }
 
   function colorFigure(i, c) {
-    for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setColorAt(i * p.joints.length + k, col.set(c[p.color] || '#f1f1f1'));
+    for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setColorAt(i * p.joints.length + k, col.set(c[p.color] || (p.color === 'arm' ? c.skin : '#f1f1f1')));  // 'arm' is bare skin unless he wears sleeves
   }
 
   /* A career player's own look (C.look in career.js): his skin tone, and his own choice of gloves, cleats, socks,
      visor, facemask and bands over the team's kit. 'kit' (or nothing) leaves a piece as the team wears it; 'team' and
      'team2' are the team's two colors. Bands 'none' takes the sleeve and wrist bands off. No yellow in the list. */
   const LOOK_HEX = { white: '#f1f1f1', black: '#17191e', grey: '#aeb6c2', silver: '#d3dae4', clear: '#9db3c7', dark: '#14161c', red: '#c2362f', blue: '#2d6cdf', green: '#1f9d6b', orange: '#e8742a', pink: '#e0569a', purple: '#7c3aed' };
-  const LOOK_HIDE = new Set(['sleeve', 'wrist']), TOWEL_ON = new Set(['towel']);
+  const LOOK_HIDE = new Set(['sleeve', 'wrist']), EXTRAS = { t: new Set(['towel']), b: new Set(['playband']), tb: new Set(['towel', 'playband']) };
+  /* the optional gear a player wears: a towel if he chose one, and every quarterback has a play-call wristband */
+  const gearOf = p => EXTRAS[(p.look && p.look.towel && p.look.towel !== 'kit' ? 't' : '') + (p.role === 'QB' ? 'b' : '')] || null;
 
   function lookColors(c, look, t) {
     if (!look) return c;
     const o = { ...c }, hex = v => (v === 'team' ? t.c1 : v === 'team2' ? t.c2 : LOOK_HEX[v]);
     if (look.skin >= 0 && SKIN[look.skin]) o.skin = SKIN[look.skin];
-    for (const k of ['glove', 'shoe', 'sock', 'visor', 'mask', 'trim']) if (look[k] && look[k] !== 'kit' && hex(look[k])) o[k] = hex(look[k]);
+    for (const k of ['glove', 'shoe', 'sock', 'visor', 'mask', 'trim', 'arm']) if (look[k] && look[k] !== 'kit' && hex(look[k])) o[k] = hex(look[k]);
     if (look.glove === 'bare') o.glove = o.skin;
     o.towel = hex(look.towel) || '#f1f1f1';
     return o;
@@ -3091,6 +3095,8 @@
     ribbonTex.needsUpdate = true;
   }
 
+  const BOARD_SAYS = /^(First down|Sack!|Interception!|It’s good!|No good|Fumble|Safety|Turnover on downs|Touchback|Pass broken up)/;
+
   function paintBoard(G, t0, t1, down) {
     const c = boardCanvas.getContext('2d'), w = 512, h = 160;
     c.fillStyle = '#05080f';
@@ -3724,10 +3730,11 @@
     }
     endsT += dt;
     celebT = G.celeb && G.state === 'dead' ? celebT + dt : 0;
-    const bk = G.ros ? [G.score, G.q, Math.ceil(G.clock || 0), s.down, !!G.celeb].join('|') : 'menu';
+    const msg = G.ros && G.state === 'dead' && !G.celeb && BOARD_SAYS.test(G.last || '') ? G.last : '';  // the board has a word for the big ones
+    const bk = G.ros ? [G.score, G.q, Math.ceil(G.clock || 0), s.down, !!G.celeb, msg].join('|') : 'menu';
     if (bk !== boardKey) {
       boardKey = bk;
-      paintBoard(G, t0, t1, s.down);
+      paintBoard(G, t0, t1, msg || s.down);
     }
 
     /* players */
@@ -3744,9 +3751,10 @@
       }
       if (fresh) {
         f.hide = p.suit || p.hoodie ? BARE_HIDE : p.ref ? REF_HIDE : p.look && p.look.trim === 'none' ? LOOK_HIDE : null;
-        f.extra = p.hoodie ? CAP_ON : p.suit ? HAIR_ON : p.look && p.look.towel && p.look.towel !== 'kit' ? TOWEL_ON : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
+        f.extra = p.hoodie ? CAP_ON : p.suit ? HAIR_ON : gearOf(p);  // a cutscene's referee is dressed like the officials, the commissioner in a suit
         setBuild(f, p.ref || p.suit ? BUILD.ref : p.hoodie ? BUILD.qb : buildOf(p.role));
         const home = p.team === 0, kit = p.team === (G.home || 0), c = p.hoodie ? HOOD(t0) : p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : lookColors(teamColors(home ? t0 : t1, kit, SKIN[(p.num * 7 + i) % SKIN.length]), p.look, home ? t0 : t1);  // kit: home colors for the home side, white for the visitors
+        if (envSnow && !p.ref && !p.suit && !p.hoodie && !p.look && (p.num * 13 + i) % 5 < 3) c.arm = p.num % 2 ? '#f1f1f1' : '#17191e';  // in the snow most of them wear long sleeves under the jersey, white or black
         colorFigure(SIDELINE + i, c);
         f.num.material = p.ref ? stripeMaterial() : p.suit || p.hoodie ? NO_NAME : numberMaterial(p.num, c.number);
         f.nameplate.material = p.ref || p.suit || p.hoodie ? NO_NAME : nameMaterial(p.name, c.number);
@@ -4080,7 +4088,8 @@
   function dress(st, team, home, num, look) {
     const c = lookColors(teamColors(team, home, SKIN[(num * 3) % SKIN.length]), look, team);
     for (const name in st.meshes) for (const m of st.meshes[name]) {
-      m.material.color.set(c[m.userData.color]);
+      m.material.color.set(c[m.userData.color] || (m.userData.color === 'arm' ? c.skin : '#f1f1f1'));
+      if (name === 'playband') m.visible = false;
       if (LOOK_HIDE.has(name)) m.visible = !(look && look.trim === 'none');
       if (name === 'towel') m.visible = !!(look && look.towel && look.towel !== 'kit');
     }

@@ -6517,6 +6517,12 @@
       ctx.beginPath();
       ctx.ellipse(q.x, q.y - q.s, q.s * r, q.s * r * 0.45, 0, 0, 7);
       ctx.stroke();
+      /* and what the hit kicks up: a few specks of turf (snow, when it is snowing) thrown out and falling back */
+      ctx.fillStyle = G.env && G.env.weather === 'snow' ? '#eef4ff' : '#16210f';
+      for (let j = 0; j < 7; j++) {
+        const a = j * 0.9 + f.x * 3.1, k = 0.5 + (j % 3) * 0.3, u = f.t / 0.35;
+        ctx.fillRect(q.x + Math.cos(a) * q.s * (0.3 + u * 1.5 * k) - 1, q.y - q.s * (0.2 + u * 1.9 * k - u * u * 1.5) - 1, 2.5, 2.5);
+      }
       ctx.globalAlpha = 1;
     }
     if (!R3) post(-10);

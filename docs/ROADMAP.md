@@ -1568,6 +1568,19 @@ what is next. Update it after every item.
   quarterback season, exhibition, season mode, drills; audit empty at 390x844 through all four game types. The test
   tab crashed once after that whole batch had finished and reported; a reload ran clean.
 
+- 2026-11-14 14:00. The owner: "apart from cut scenes, what other small details can u add, and apply them". Five,
+  drawn only. (1) Long sleeves in the snow: the arms have their own color key now (`arm`, bare skin unless set), and
+  in a snow game about three players in five wear white or black sleeves under the jersey. (2) A Sleeves row in Your
+  look (none, white, black, the team's colors). (3) Every quarterback wears a play-call wristband on his left forearm
+  (`playband`, an optional part like the towel; `gearOf(p)` picks a player's optional gear). (4) The stadium board's
+  bottom line now names the big ones while the play is dead (first down, sack, interception, a kick good or no good,
+  fumble, safety, turnover on downs, touchback, pass broken up), not only touchdowns. (5) A hit kicks up a few specks
+  of turf with the white ring (snow, when it is snowing). Considered and left: eye black (too small behind the
+  facemask to place blind), an official's flag on the turf (the owner's no-yellow rule), breath in the cold.
+  Checked: sleeves, the wristband and the linebacker's signal seen in a snow-game still; seven kinds of board message
+  came up in one watched game; fingerprint unchanged; gait, tackle and block as before; careers, exhibition, drills;
+  audit empty at 320x568 with the longer look card.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

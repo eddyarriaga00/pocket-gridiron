@@ -785,3 +785,11 @@ tr.me td{color:var(--acc);font-weight:700}
 .evs em{display:block;font:700 10px var(--display);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .evs small{display:block;color:var(--mute);font-size:11px}
 .evs b{font:800 12px var(--display);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+
+/* segmented choices with a small picture over the word */
+.seg.pic button{height:48px;display:grid;justify-items:center;align-content:center;gap:4px}
+.seg.pic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.lvl{display:flex;align-items:flex-end;gap:2px;height:14px}
+.lvl u{width:4px;border-radius:1px;background:currentColor;opacity:.3;text-decoration:none}
+.lvl u:nth-child(1){height:6px}.lvl u:nth-child(2){height:10px}.lvl u:nth-child(3){height:14px}
+.lvl u.on{opacity:1}

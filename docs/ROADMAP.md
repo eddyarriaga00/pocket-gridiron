@@ -1798,6 +1798,12 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 18 exhibition set-up with pictures for time and weather; 19 a bug sweep of rare endings; 20 a second mobile
   measurement; then the fourth stock-take.
 
+- Change 18 (04:55), exhibition set-up: the kickoff time and weather choices carry a small picture each (sun, sun on
+  the horizon, moon; clear sky, rain cloud, snowflake) and difficulty has one, two or three bars (`ENV_ICON`,
+  `.seg.pic`, `.lvl`). Same choices, same words. Audit empty at 320x568 and 390x844; fingerprint unchanged.
+  Next: 19 a bug sweep of rare endings across random teams, QB and WR; 20 a second mobile measurement; then the
+  fourth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

@@ -6058,6 +6058,16 @@
     });
   }
 
+  /* small pictures for the kickoff time and the weather */
+  const envSvg = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const ENV_ICON = {
+    day: envSvg('<circle cx="12" cy="12" r="4"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>'),
+    dusk: envSvg('<path d="M7 16a5 5 0 0110 0M3 16h18M6 20h12M12 6v2.5M5.6 9.6l1.8 1.8M18.4 9.6l-1.8 1.8"/>'),
+    night: envSvg('<path d="M19 14.5A8 8 0 019.5 5a7 7 0 109.5 9.5z"/>'),
+    clear: envSvg('<circle cx="12" cy="11" r="5"/><path d="M4 20h16"/>'),
+    rain: envSvg('<path d="M7 13a4 4 0 010-8 5 5 0 019.5 1.5A3.25 3.25 0 0116.5 13zM8 16l-1 3.5M12 16l-1 3.5M16 16l-1 3.5"/>'),
+    snow: envSvg('<path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9M12 6l-2-1.5M12 6l2-1.5M12 18l-2 1.5M12 18l2 1.5"/>')
+  };
   function showExh() {
     let me = SET.me, opp = SET.opp, ql = SET.ql, diff = SET.diff, tod = SET.tod || 'night', wx = SET.wx || 'clear';
     if (opp === me) opp = (me + 1) % TEAMS.length;
@@ -6068,10 +6078,10 @@
   ${kitsHtml([[me, true, 'Home'], [opp, false, 'Away']])}
   <h2>Your team</h2><div class="teams" id="tms">${teamGrid(me)}</div>
   <h2>Opponent</h2><div class="row"><button class="nav" id="opl" aria-label="Previous opponent">‹</button>${tmBtn(TEAMS[opp],opp,false)}<button class="nav" id="opr" aria-label="Next opponent">›</button></div>
-  <h2>Difficulty</h2><div class="seg" id="dif">${['Rookie','Pro','All-Pro'].map((d,i)=>`<button data-d="${i}" class="${i===diff?'on':''}">${d}</button>`).join('')}</div>
+  <h2>Difficulty</h2><div class="seg pic" id="dif">${['Rookie','Pro','All-Pro'].map((d,i)=>`<button data-d="${i}" class="${i===diff?'on':''}"><i class="lvl">${[0,1,2].map(k=>`<u class="${k<=i?'on':''}"></u>`).join('')}</i>${d}</button>`).join('')}</div>
   <h2>Quarter length</h2><div class="seg" id="qls">${[60,120,180,300].map(q=>`<button data-q="${q}" class="${q===ql?'on':''}">${q/60} min</button>`).join('')}</div>
-  <h2>Kickoff time</h2><div class="seg" id="tod">${[['day','Day'],['dusk','Dusk'],['night','Night']].map(([k,l])=>`<button data-v="${k}" class="${k===tod?'on':''}">${l}</button>`).join('')}</div>
-  <h2>Weather</h2><div class="seg" id="wx">${[['clear','Clear'],['rain','Rain'],['snow','Snow']].map(([k,l])=>`<button data-v="${k}" class="${k===wx?'on':''}">${l}</button>`).join('')}</div>
+  <h2>Kickoff time</h2><div class="seg pic" id="tod">${[['day','Day'],['dusk','Dusk'],['night','Night']].map(([k,l])=>`<button data-v="${k}" class="${k===tod?'on':''}">${ENV_ICON[k]}${l}</button>`).join('')}</div>
+  <h2>Weather</h2><div class="seg pic" id="wx">${[['clear','Clear'],['rain','Rain'],['snow','Snow']].map(([k,l])=>`<button data-v="${k}" class="${k===wx?'on':''}">${ENV_ICON[k]}${l}</button>`).join('')}</div>
   <button class="go" id="go">Kick off</button></div>`;
       const stepO = d => {
         do {

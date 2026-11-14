@@ -1759,6 +1759,13 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   exercised; audit empty at 320x568 and 390x844; fingerprint unchanged.
   Next: 14 How to play as cards with a small picture each; 15 training camp's results; then the third stock-take.
 
+- Change 14 (03:55), How to play: every tip is a card with a small drawn picture and a two-word name (25 cards in
+  Every play, Offense, Defense, Career, each sentence kept as it was); the keyboard and the controller are key caps
+  two across instead of one long sentence, and the caps now also list pump fake (B), slide (N) and protection (O),
+  which were bound but not written down; six chips at the top jump to a section, nothing is folded (`HOW`,
+  `HOW_ICON`, `HOW_KEYS`, `HOW_PAD`, `.hw`, `.kc`, `.hwj`). Audit empty at 320x568 and 390x844; fingerprint unchanged.
+  Next: 15 training camp's results; then the third stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

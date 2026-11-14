@@ -5974,15 +5974,87 @@
     draw();
   }
 
+  /* How to play: every tip is a small card with a picture and a two-word name, and the keyboard and controller are
+     drawn as key caps. Nothing is folded: the chips at the top jump to a section. */
+  const HOW_ICON = {
+    card: '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 16c2-1 2-6 5-6h3"/>',
+    drag: '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    cone: '<path d="M12 4l5 15H7zM5 19h14"/>',
+    ball: '<ellipse cx="12" cy="12" rx="9" ry="5.5" transform="rotate(-35 12 12)"/><path d="M9.5 14.5l5-5"/>',
+    tag: '<path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
+    split: '<path d="M12 21v-8M12 13L6 4M12 13l6-9"/>',
+    run: '<path d="M4 12h12M11 6l6 6-6 6"/>',
+    arm: '<path d="M5 17l6-6 3 3 5-7"/><path d="M15 7h4v4"/>',
+    route: '<path d="M6 21V11h9V4"/><path d="M12 7l3-3 3 3"/>',
+    book: '<path d="M4 5h7a2 2 0 012 2v12a2 2 0 00-2-2H4zM20 5h-5a2 2 0 00-2 2"/><path d="M20 5v12h-5"/>',
+    post: '<path d="M12 21v-7M6 4v10h12V4"/>',
+    voice: '<path d="M4 10v4h3l5 4V6l-5 4z"/><path d="M16 9c1.5 1.5 1.5 4.5 0 6"/>',
+    two: '<path d="M8 8a4 4 0 118 0c0 3-8 6-8 10h8"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
+    shield: '<path d="M12 3l8 3v6c0 4.5-3.5 7.5-8 9-4.5-1.5-8-4.5-8-9V6z"/>',
+    hit: '<path d="M13 3l-2 7h6l-7 11 2-8H6z"/>',
+    catch: '<path d="M7 12V6M10.5 12V4M14 12V5M17.5 12V8M7 12c0 5 2 8 5.5 8s5-3 5-8"/>',
+    loose: '<ellipse cx="12" cy="9" rx="6" ry="3.5" transform="rotate(-20 12 9)"/><path d="M5 20h3M11 20h3M17 20h2"/>',
+    flag: '<path d="M6 21V4M6 5h11l-3 4 3 4H6"/>',
+    rain: '<path d="M7 14a4 4 0 010-8 5 5 0 019.5 1.5A3.5 3.5 0 0116.5 14zM8 17l-1 3M12 17l-1 3M16 17l-1 3"/>',
+    eye: '<path d="M2 12s4-6.5 10-6.5S22 12 22 12s-4 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/>',
+    man: '<circle cx="12" cy="6" r="3"/><path d="M5 21c0-5 3-8 7-8s7 3 7 8"/>',
+    star: '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z"/>'
+  };
+  const HOW = [
+    ['Every play', 'card', [
+      ['card', 'Call it', 'Pick a play card. Routes are drawn on the field before the snap.'],
+      ['drag', 'Move', 'Drag anywhere on the field to move the player with the ring under him.'],
+      ['pause', 'Pause and zoom', 'The pause button is under the scoreboard, and beside it − and + zoom the camera out and in.'],
+      ['cone', 'Training camp', 'Training camp on the menu teaches the controls in three short drills.']]],
+    ['Offense', 'ball', [
+      ['ball', 'Throw', 'Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.'],
+      ['tag', 'Play tag', 'A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.'],
+      ['split', 'RPO', 'RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.'],
+      ['run', 'Carry', 'With the ball: hold Sprint, tap Juke or Spin to slip a tackle.'],
+      ['arm', 'Power and hurdle', 'Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.'],
+      ['route', 'Before the snap', 'Before the snap, tap a receiver’s letter to change his route, Audible to step through other plays from the same formation, Flip to mirror the play.'],
+      ['book', 'Playbooks', 'Every team has its own offense (air raid, power run, pistol option, spread and more) and nine formations to call from, and coaches do not like to repeat themselves: expect a different look most snaps.'],
+      ['post', 'Special', 'The Special tab has punts, field goals (stop the marker in the green), kneel and spike.'],
+      ['voice', 'Hard count', 'Hard count, before the snap, barks a fake snap count: now and then a defender jumps offside for five free yards, and once in a while your own lineman flinches instead. One try a play.'],
+      ['two', 'After a touchdown', 'After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.'],
+      ['clock', 'Time out', 'Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.']]],
+    ['Defense', 'shield', [
+      ['shield', 'Coverage', 'Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.'],
+      ['hit', 'Hit and strip', 'Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.'],
+      ['catch', 'Fair catch', 'On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.'],
+      ['loose', 'Fumbles', 'A fumble is a live ball: run to it and Dive on it before the other team does.'],
+      ['flag', 'Flags', 'Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.'],
+      ['rain', 'Weather', 'Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.'],
+      ['eye', 'Play the ball', 'Stand where a pass will land to break it up or pick it off.']]],
+    ['Career', 'man', [
+      ['man', 'One player', 'You play one player. The coach calls the plays and a card tells you your job.'],
+      ['route', 'Get open', 'Receivers and backs: follow the route on the field and tap Call when you are open.'],
+      ['star', 'XP', 'Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.']]]
+  ];
+  const HOW_KEYS = [['Arrows', 'Move'], ['W A S D', 'Move'], ['Space', 'Snap, sprint'], ['1–5', 'Hold, let go: throw'], ['J', 'Juke'], ['K', 'Spin'], ['L', 'Power'], ['H', 'Hurdle'], ['Q', 'Switch'], ['E', 'Dive'], ['F', 'Hit'], ['R', 'Strip'], ['T', 'Time out'], ['V', 'Audible'], ['X', 'Flip'], ['G', 'Hard count'], ['C', 'Call for the ball'], ['B', 'Pump fake'], ['N', 'Slide'], ['O', 'Protection'], ['P', 'Pause'], ['− =', 'Zoom']];
+  const HOW_PAD = [
+    ['Any time', [['Stick', 'Move'], ['RT', 'Sprint'], ['R stick', 'Zoom'], ['Start', 'Pause'], ['View', 'Time out']]],
+    ['Before the snap', [['A', 'Snap'], ['Y', 'Hard count'], ['LB', 'Audible'], ['RB', 'Flip']]],
+    ['Running', [['A', 'Power'], ['B', 'Juke'], ['X', 'Spin'], ['Y', 'Hurdle']]],
+    ['Defense', [['A', 'Dive'], ['B', 'Switch'], ['X', 'Hit'], ['Y', 'Strip']]]
+  ];
   function showHow() {
+    const ico = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${HOW_ICON[k]}</svg>`, caps = l => `<div class="kcs">${l.map(([k, a]) => `<span class="kc"><kbd>${k}</kbd>${a}</span>`).join('')}</div>`;
+    const secs = HOW.map(([t, , items], i) => `<h2 id="hw${i}">${t}</h2><div class="hws">${items.map(([k, n, d]) => `<div class="hw"><i>${ico(k)}</i><div><b>${n}</b><p>${d}</p></div></div>`).join('')}</div>`).join('');
     scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">How to play</h1>
-  <h2>Every play</h2><ul class="how"><li>Pick a play card. Routes are drawn on the field before the snap.</li><li>Drag anywhere on the field to move the player with the ring under him.</li><li>The pause button is under the scoreboard, and beside it − and + zoom the camera out and in.</li><li>Training camp on the menu teaches the controls in three short drills.</li></ul>
-  <h2>Offense</h2><ul class="how"><li>Tap Snap. As quarterback, hold a lettered receiver or the matching button: a green bar fills with power. Let go to throw. A quick tap floats a lob, a full bar fires a bullet.</li><li>A tag under the field names every play: Run, Pass, Play action, Screen, RPO or Kick.</li><li>RPO plays are run-pass options: for the first second you may throw to a lettered receiver; do nothing and the back takes the ball. Watch the linebackers: if they step up, throw.</li><li>With the ball: hold Sprint, tap Juke or Spin to slip a tackle.</li><li>Power lowers the shoulder into a tackler in front of you, or throws a stiff arm at one beside you. Hurdle jumps a diving tackler, but a standing one can knock the ball loose.</li><li>Before the snap, tap a receiver\u2019s letter to change his route, Audible to step through other plays from the same formation, Flip to mirror the play.</li><li>Every team has its own offense (air raid, power run, pistol option, spread and more) and nine formations to call from, and coaches do not like to repeat themselves: expect a different look most snaps.</li><li>The Special tab has punts, field goals (stop the marker in the green), kneel and spike.</li><li>Hard count, before the snap, barks a fake snap count: now and then a defender jumps offside for five free yards, and once in a while your own lineman flinches instead. One try a play.</li><li>After your touchdown you choose: kick for one point, or one play from the 2-yard line for two. Trailing late, you can try an onside kick.</li><li>Time out (three a half) gives back the seconds that ran off after a play. Tap it right after the whistle or on the play-call sheet.</li></ul>
-  <h2>Defense</h2><ul class="how"><li>Before the snap, Audible steps through the coverage calls. Switch jumps to the defender nearest the ball. Dive makes the tackle.</li><li>Hit is a short, hard lunge that can jar the ball loose but leaves you on the ground if you miss. Strip swipes at the ball: less sure as a tackle, more likely to force a fumble.</li><li>On a punt to you, Fair catch takes the ball where it lands with no return and no hit; a dropped punt is a live ball.</li><li>A fumble is a live ball: run to it and Dive on it before the other team does.</li><li>Flags are thrown now and then: false start, offside, holding and pass interference. Settings can turn penalties off.</li><li>Rain and snow make the ball harder to catch and easier to fumble, and field goals harder.</li><li>Stand where a pass will land to break it up or pick it off.</li></ul>
-  <h2>Career</h2><ul class="how"><li>You play one player. The coach calls the plays and a card tells you your job.</li><li>Receivers and backs: follow the route on the field and tap Call when you are open.</li><li>Stats and goals earn XP. Spend it on ratings and abilities, and practice each week for a bonus.</li></ul>
-  <h2>Keyboard</h2><ul class="how"><li>Arrows or WASD move. Space snaps and sprints. Hold 1–5 to build throw power, let go to throw.</li><li>J juke, K spin, L power, H hurdle, Q switch, E dive, F hit, R strip, T time out, V audible, X flip, G hard count, C call for the ball, P pause. Minus and equals (or the mouse wheel) zoom.</li></ul>
-  <h2>Controller</h2><ul class="how"><li>Any controller your browser sees: plug it in or pair it and press a button. Left stick or d-pad moves, RT (R2) sprints, right stick zooms, Start pauses, View (Select) calls time out.</li><li>Before the snap: A snaps, Y is the hard count, LB audibles, RB flips the play.</li><li>Passing: each receiver's letter becomes a button, A, B, X, Y or RB. Hold it to build power and let go to throw.</li><li>Running: A power, B juke, X spin, Y hurdle. Defense: A dive, B switch, X hit, Y strip. As a receiver, A calls for the ball.</li><li>On the menus and the play-call sheet the d-pad moves a ring, A picks, B goes back, LB and RB change tabs, LT and RT page through the plays.</li></ul></div>`;
+  <div class="hwj">${HOW.map(([t, k], i) => `<button data-j="hw${i}">${ico(k)}<span>${t}</span></button>`).join('')}<button data-j="hwk">${ico('tag')}<span>Keys</span></button><button data-j="hwp">${ico('drag')}<span>Controller</span></button></div>
+  ${secs}
+  <h2 id="hwk">Keyboard</h2>${caps(HOW_KEYS)}<p class="note">Hold 1–5 to build throw power, let go to throw. The mouse wheel zooms too.</p>
+  <h2 id="hwp">Controller</h2><p class="note" style="margin-top:0">Any controller your browser sees: plug it in or pair it and press a button. The d-pad moves as well as the left stick; R2 is RT and Select is View.</p>
+  ${HOW_PAD.map(([t, l]) => `<h3 class="kch">${t}</h3>${caps(l)}`).join('')}
+  <ul class="how" style="margin-top:10px"><li>Passing: each receiver's letter becomes a button, A, B, X, Y or RB. Hold it to build power and let go to throw.</li><li>As a receiver, A calls for the ball.</li><li>On the menus and the play-call sheet the d-pad moves a ring, A picks, B goes back, LB and RB change tabs, LT and RT page through the plays.</li></ul></div>`;
     $('#bk').onclick = showMenu;
+    scr.querySelectorAll('.hwj button').forEach(b => b.onclick = () => {
+      const el = $('#' + b.dataset.j);
+      if (el) el.scrollIntoView({ block: 'start' });
+    });
   }
 
   function showExh() {

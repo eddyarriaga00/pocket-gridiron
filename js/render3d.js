@@ -2044,6 +2044,11 @@
       tg[SLX] = -w * 0.28 * a;
       tg[SRX] = w * 0.28 * a;
       tg[PELY] = HIP - 0.015 + Math.abs(Math.cos(f.ph)) * 0.02;
+    } else if (f.benchY !== undefined && (f.seed * 3.7) % 1 >= 0.3 && (f.seed * 5.3) % 1 < (window.PG_KNEEL || 0.14)) {  // PG_KNEEL: a test hook, to look at the pose
+      /* one or two of those who do not pace take a knee to watch, as reserves do */
+      const hy = tg[HEADRY];
+      for (let i = 0; i < NPOSE; i++) tg[i] = KNEEL[i];
+      tg[HEADRY] = hy;
     } else if (f.seed > 4.2) {
       tg[SLZ] = -0.45;
       tg[SRZ] = 0.45;
@@ -3688,10 +3693,11 @@
     const kinds = [BUILD.line, BUILD.big, BUILD.slim, BUILD.back, BUILD.db, BUILD.end, BUILD.qb];
     for (let i = 0; i < SIDELINE; i++) {
       const home = i < SIDELINE / 2, n = i % (SIDELINE / 2), f = figs[i], t = home ? t0 : t1, kit = (home ? 0 : 1) === hs;  // home: your bench, on the near side
-      const x = home ? -4.2 - (n % 2) * 1.1 : FW + 4.2 + (n % 2) * 1.1, y = 33 + n * 3.6 + (Math.random() - 0.5);
+      /* two loose ranks, unevenly spaced, each man turned a little his own way: a sideline, not a parade */
+      const x = (home ? -4.2 - (n % 2) * 1.1 : FW + 4.2 + (n % 2) * 1.1) + (Math.random() - 0.5) * 0.7, y = 33 + n * 3.6 + (Math.random() - 0.5) * 2.4;
       setBuild(f, kinds[(i * 5 + n) % kinds.length]);
       f.root.position.set(x, 0, -y);
-      f.root.rotation.y = home ? -Math.PI / 2 : Math.PI / 2;
+      f.root.rotation.y = (home ? -Math.PI / 2 : Math.PI / 2) + (Math.random() - 0.5) * 0.5;
       f.benchY = y;  // his place on the bench (a few of them pace up and down from it: see poseBench)
       f.bw = null;
       f.root.visible = true;

@@ -1877,6 +1877,15 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   28 toasts, banners and broadcast cards at 320 wide; 29 an onside kick forced and watched through; 30 whole receiver
   careers with the rough test player; then the sixth stock-take.
 
+- Change 26 (07:05), the benches: the reserves stood evenly spaced, square to the field. Now each stands up to a
+  yard off his mark along the sideline and a foot or so nearer or farther, turned a little his own way, and one or
+  two of those who do not pace take a knee to watch (the kneeling pose the game already had; heads still follow the
+  ball, and everyone still gets up to celebrate a score). `window.PG_KNEEL = 1` before a game makes every one of
+  them kneel, for looking at the pose. Looked at in day stills of the home bench, standing and kneeling. Audit empty
+  at 320x568 and 390x844; exhibition, career and camp clean; fingerprint unchanged.
+  Next: 27 the career hub's five tabs in stills; 28 toasts, banners and broadcast cards at 320 wide; 29 an onside
+  kick forced and watched through; 30 whole receiver careers with the rough test player; then the sixth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

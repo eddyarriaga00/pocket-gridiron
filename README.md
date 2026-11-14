@@ -110,6 +110,10 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
 - Hold a receiver's letter to build throw power on a green bar, then let go: a lob, a touch pass or a bullet.
 - Catches look like catches: a receiver with a defender on him goes up for the ball, arms high, and takes it at the top
   of the jump (the defender goes up with him), and a ball thrown off his line gets a stretch, chest out and arms long.
+- Your look: the career hub has a card for your player's skin tone, gloves, cleats, socks, visor, facemask and arm
+  bands, worn over the team's kit on the field and on your card. Social: post once a week (thank the fans, hype the
+  next game, or shout out a teammate) and read the week's direct messages from home, your agent, a teammate and,
+  in rivalry week, your rival.
 - Pass protection: before the snap on a pass, Protect (O, or LT) steps through Base, Slide left, Slide right and
   Max protect. A slide sends the line toward a blitz you expect from that side; Max protect keeps the backs and the
   tight end in to block, with fewer men to throw to.

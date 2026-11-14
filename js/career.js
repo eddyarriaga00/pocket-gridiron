@@ -129,6 +129,7 @@
       x.bsk = a.bsk;
       x.tkl = a.tkl;
     }
+    x.look = C.look || null;  // his own gear and skin tone (see LOOKS): drawing only
     return { rt: ovr(), spd: BASE[POS[C.pos].base] * (1 + (a.spd - 80) * 0.004), num: C.num, name: C.name, celeb: C.celeb ?? -1, x };
   }
 
@@ -817,6 +818,75 @@
      earlier weeks folded. */
   let socTab = 'feed';
 
+  /* ---------- your look ----------
+     What the player wears over the team's kit, and his skin tone. Each row is one piece; 'kit' leaves it as the team
+     wears it. Kept in C.look, drawn by render3d.js (lookColors) on the field and on the card at the top of the hub. */
+  const SKINS = ['#f0c8a4', '#d7a078', '#b3764c', '#8a583a', '#66402e'];
+  const LOOKS = [
+    ['glove', 'Gloves', [['kit', 'Kit'], ['white', 'White'], ['black', 'Black'], ['team', 'Team'], ['team2', 'Second'], ['red', 'Red'], ['blue', 'Blue'], ['green', 'Green'], ['orange', 'Orange'], ['pink', 'Pink'], ['purple', 'Purple'], ['bare', 'None']]],
+    ['shoe', 'Cleats', [['kit', 'Kit'], ['white', 'White'], ['black', 'Black'], ['team', 'Team'], ['team2', 'Second'], ['red', 'Red'], ['blue', 'Blue'], ['green', 'Green'], ['orange', 'Orange'], ['pink', 'Pink'], ['purple', 'Purple']]],
+    ['sock', 'Socks', [['kit', 'Kit'], ['white', 'White'], ['black', 'Black'], ['team', 'Team'], ['team2', 'Second']]],
+    ['visor', 'Visor', [['kit', 'Dark'], ['clear', 'Clear'], ['silver', 'Mirror'], ['team', 'Team'], ['red', 'Red'], ['blue', 'Blue'], ['orange', 'Orange'], ['purple', 'Purple']]],
+    ['mask', 'Facemask', [['kit', 'Grey'], ['black', 'Black'], ['white', 'White'], ['team', 'Team'], ['team2', 'Second']]],
+    ['trim', 'Arm bands', [['kit', 'Kit'], ['white', 'White'], ['black', 'Black'], ['team', 'Team'], ['none', 'None']]],
+  ];
+  const lookOf = k => (C.look && C.look[k]) || 'kit';
+  const lookSum = () => {
+    const bits = LOOKS.filter(([k]) => lookOf(k) !== 'kit').map(([k, l, o]) => `${l.toLowerCase()} ${(o.find(x => x[0] === lookOf(k)) || ['', ''])[1].toLowerCase()}`);
+    return bits.length ? bits.slice(0, 3).join(' · ') + (bits.length > 3 ? ` · +${bits.length - 3}` : '') : 'Team kit';
+  };
+  const lookHtml = () => `<h2>Skin tone</h2><div class="seg wrap" data-lk="skin">${SKINS.map((c, i) => `<button data-v="${i}" class="${C.look && C.look.skin === i ? 'on' : ''}" aria-label="Skin tone ${i + 1}"><i class="dot" style="--c:${c}"></i>${i + 1}</button>`).join('')}</div>`
+    + LOOKS.map(([k, l, o]) => `<h2>${l}</h2><div class="seg wrap" data-lk="${k}">${o.map(([v, n]) => `<button data-v="${v}" class="${lookOf(k) === v ? 'on' : ''}">${n}</button>`).join('')}</div>`).join('')
+    + '<p class="note">Your own gear over the team\u2019s kit. It shows on the field and on your card.</p>';
+
+  /* ---------- posting, and messages ----------
+     Once a week you may post: thanks to the fans (followers), talking up the next game (hype), or a word for a
+     teammate (a little coach trust). The post goes in your mentions with two replies under it. And each week brings
+     three direct messages about your last game: from home, from your agent, from a teammate. Flavor, except the post. */
+  const anyOf = a => a[Math.floor(Math.random() * a.length)];
+
+  function socialPost(kind) {
+    const so = social(), L = PG.media.lastOf(C.name), t = TEAMS[C.team], last = C.log[C.log.length - 1], next = C.phase === 'done' ? null : TEAMS[nextOpp()];
+    const mate = anyOf(so.mates), won = last && last.us > last.them;
+    const text = kind === 'fans' ? anyOf([`${t.city}, I hear you every single snap. Thank you.`, 'Best fans in the league. Not close.', won ? 'That one was for everybody in the building. See you next week.' : 'We owe you a better one. You will get it.'])
+      : kind === 'hype' ? anyOf([next ? `${next.name} week. Circle it.` : 'The work does not stop.', next ? `Cannot wait for ${next.city}. Bring the noise.` : 'Offseason? What offseason.', 'Locked in. That is the post.'])
+      : anyOf([`Nobody works like #${mate.num}. ${mate.first} ${mate.last}, that is my guy.`, `Shout out ${mate.first} ${mate.last}. Makes my job easy.`, `${mate.first} ${mate.last} does the dirty work every week. Put some respect on it.`]);
+    const up = Math.round(so.fol * (kind === 'fans' ? 0.02 : 0.01)) + (kind === 'fans' ? 40 : 15);
+    so.fol += up;
+    so.hype = clamp(so.hype + (kind === 'hype' ? 7 : kind === 'fans' ? 2 : 1), 0, 100);
+    if (kind === 'mate') C.trust = clamp(C.trust + 1, 5, 100);
+    const fan = { who: anyOf(PG.media.FIRST) + ' ' + anyOf(PG.NAMES)[0] + '.', at: t.name.toLowerCase().replace(/[^a-z]/g, '') + 'fan' + (10 + Math.floor(Math.random() * 89)), kind: 'fan', col: t.c1, text: anyOf(kind === 'hype' ? ['LET’S GO', 'Inject this into my veins.', 'Sunday cannot come soon enough.'] : kind === 'fans' ? ['We ride with you.', 'This is why he is my favorite player.', 'Class act.'] : ['Good teammate. Love to see it.', 'The locker room is right.', 'That is leadership.']), likes: Math.round(so.fol * 0.004) + 3, rt: 1, rep: 0, ago: 'now' };
+    const reply = { who: `${mate.first} ${mate.last}`, at: mate.last.toLowerCase() + mate.num, kind: 'mate', col: t.c1, ver: true, text: kind === 'mate' ? anyOf(['Right back at you.', 'Appreciate you, brother.', 'Just doing my job.']) : anyOf(['Facts.', 'Say it louder.', 'Let’s work.']), likes: Math.round(so.fol * 0.006) + 5, rt: 2, rep: 1, ago: 'now' };
+    const post = { who: C.name, at: L.toLowerCase() + C.num, kind: 'me', col: t.c1, ver: so.fol >= 10000, text, likes: Math.round(so.fol * 0.07) + 20, rt: Math.round(so.fol * 0.012) + 3, rep: Math.round(so.fol * 0.006) + 2, ago: 'now', replies: [fan, reply] };
+    if (!so.feed.length) so.feed = [{ kind: 'wk', text: LG.short(C) }];
+    so.feed.splice(1, 0, post);
+    so.posted = pracKey();
+    persist();
+    PG.snd('chime');
+    PG.toast(`Posted · +${short(up)} followers`);
+  }
+
+  function dms() {
+    const so = social();
+    if (so.dmKey === pracKey()) return so.dms || [];
+    const last = C.log[C.log.length - 1], next = C.phase === 'done' ? null : TEAMS[nextOpp()], mate = anyOf(so.mates), wk = LG.short(C), out = [];
+    if (last) {
+      const won = last.us > last.them, good = 'AB'.includes(String(last.grade)[0]);
+      out.push({ from: 'Mom', text: won ? anyOf(['We watched the whole thing. Your father yelled at the TV the entire fourth quarter. So proud of you.', 'A win! Call me when you are home. And eat something.']) : anyOf(['Tough one, honey. You will get them next week. Call your mother.', 'Do not read the comments tonight. We love you.']), wk });
+      out.push({ from: 'Your agent', text: good ? anyOf([`A ${last.grade} on the film. Games like that are how the next contract gets written.`, 'Phones are ringing after that one. Keep stacking them.']) : anyOf(['Flush it. One game does not change what teams think of you. Bounce back.', 'Quiet week on my end. Give me something to sell on Sunday.']), wk });
+      out.push({ from: `${mate.first} ${mate.last}`, text: won ? anyOf(['Told you we had them. Film at 8, do not be late.', 'That is how it is supposed to look. Same thing next week.']) : anyOf(['We are better than that. Extra work tomorrow, you in?', 'On to the next. I got your back.']), wk });
+    } else {
+      out.push({ from: 'Mom', text: 'First game this week! We will be watching. Wear your mouthguard.', wk });
+      out.push({ from: 'Your agent', text: 'Welcome to the league. Play well and the rest takes care of itself.', wk });
+      out.push({ from: `${mate.first} ${mate.last}`, text: 'Rookie. Playbook. Tonight. See you at the facility.', wk });
+    }
+    if (next && C.rival && C.rival.team === nextOpp()) out.unshift({ from: C.rival.name, text: anyOf(['See you Sunday. Bring your best, you will need it.', 'Hope you are ready. I am.']), wk });
+    so.dms = out.concat(so.dms || []).slice(0, 10);
+    so.dmKey = pracKey();
+    persist();
+    return so.dms;
+  }
+
   function tabSocial() {
     const so = social(), t = TEAMS[C.team], L = PG.media.lastOf(C.name), deals = so.deals || [], ver = so.fol >= 10000;
     const weeks = [];
@@ -831,13 +901,15 @@
       : `<p class="note">${C.log.length ? 'Your mentions start with your next game.' : 'Play a game and the internet will have something to say.'}</p>`;
     else if (socTab === 'rec') body = so.quotes.length ? `<ul class="quotes">${so.quotes.map(q => `<li><span class="tone t-${q.tone}">${PG.media.TONE[q.tone] || q.tone}</span>“${esc(q.q)}”<small>${esc(q.wk)}</small></li>`).join('')}</ul>`
       : '<p class="note">Your answers at the podium and at media day are kept here.</p>';
+    else if (socTab === 'dm') body = `<ul class="quotes dml">${dms().map(m => `<li><b>${esc(m.from)}</b>${esc(m.text)}<small>${esc(m.wk)}</small></li>`).join('')}</ul>`;
     else body = (deals.length ? deals.map(x => `<div class="xp deal"><span><i class="dot" style="--c:${x.col}"></i>${esc(x.name)} · ${esc(x.kind)}</span><b>+${fmt(x.pay)} XP a game</b></div>`).join('') : '<p class="note">No partners yet.</p>')
       + '<p class="note">Two games in a row with hype at 55 or more bring an offer. A deal pays every game until your hype falls under 25. Two at most.</p>';
     return `<div class="sprof" style="--c:${t.c1}"><span class="av" style="--c:${t.c1};color:${PG.inkOn(t.c1)}${PG.inkOn(t.c1) === '#fff' ? '' : ';text-shadow:none'}">${esc(L.slice(0, 2).toUpperCase())}</span><div><b>${esc(C.name)}${ver ? '<i class="ver" aria-label="verified"></i>' : ''}</b><span>@${esc(L.toLowerCase())}${C.num} · ${esc(t.name)} ${C.pos} #${C.num}</span></div></div>
   <div class="sstats"><div><b>${short(so.fol)}</b><span>Followers</span></div><div><b>${so.hype}</b><span>Hype</span></div><div><b>${so.backed}–${so.ate}</b><span>Callouts</span></div><div><b>${deals.length}</b><span>Partners</span></div></div>
   <div class="hypebar"><i style="width:${so.hype}%"></i></div>
   ${calloutHtml()}${offerHtml()}
-  <div class="seg stab">${st('feed', 'Mentions')}${st('rec', 'On the record')}${st('deals', 'Partners')}</div>${body}`;
+  ${so.posted !== pracKey() ? `<div class="spost"><small>Post something \u00b7 once a week</small><div class="seg wrap"><button data-sp="fans">Thank the fans</button><button data-sp="hype">${C.phase === 'done' ? 'Stay hungry' : 'Hype the next game'}</button><button data-sp="mate">Shout out a teammate</button></div></div>` : ''}
+  <div class="seg stab">${st('feed', 'Mentions')}${st('dm', 'Messages')}${st('rec', 'On the record')}${st('deals', 'Partners')}</div>${body}`;
   }
 
   /* ---------- endorsements ----------
@@ -1276,7 +1348,7 @@
 
   /* your player in his team's home uniform, when the 3D renderer is running */
   function kit() {
-    const url = PG.r3d && PG.r3d.portrait ? PG.r3d.portrait(TEAMS[C.team], true, C.num) : null;
+    const url = PG.r3d && PG.r3d.portrait ? PG.r3d.portrait(TEAMS[C.team], true, C.num, C.look || null) : null;
     return url ? `<img class="kit" src="${url}" alt="">` : '';
   }
 
@@ -1289,6 +1361,7 @@
     const t = team(C.team);
     let sure = false;  // the trade button has been tapped once
     let setOpen = false;  // the game settings are folded away until asked for
+    let lookOpen = false;  // and so is the player's look
     const draw = () => {
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button>
   <div class="pc${kit()?' k':''}" style="--c:${t.c1}">${kit()}<div><h3>${esc(C.name)}</h3><p>#${C.num} · ${POS[C.pos].label} · age ${age()} · ${esc(C.arch)}<br>${full(C.team)} · Season ${C.season} · ${rank()}${C.rings?` · ${C.rings} title${C.rings>1?'s':''}`:''}${C.awards&&C.awards.length?` · ${C.awards.length} honor${C.awards.length>1?'s':''}`:''}</p></div><div class="ovr">${ovr()}<small>OVR</small></div></div>
@@ -1305,6 +1378,8 @@
   ${retHtml()}`:''}
   <h2>Quarter length</h2><div class="seg" id="hq">${[60,120,180].map(q=>`<button data-q="${q}" class="${q===C.ql?'on':''}">${q/60} min</button>`).join('')}</div>
   <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>`:''}</div>
+  <div class="hset${lookOpen?' open':''}"><button class="hsum" id="hlook" aria-expanded="${lookOpen}"><b>Your look</b><span>${lookSum()}</span></button>
+  ${lookOpen?lookHtml():''}</div>
   <div class="stack"><button class="btn2" id="edt">Edit team names and colors</button>${canTrade()?`<button class="btn2" id="trade">${sure?`Tap again to join the ${full(tradeTo())}`:'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
   ${canTrade()?'<p class="note">A trade sends you to the weakest other team as its starter, once a season.</p>':''}</div>`;
       $('#bk').onclick = PG.showMenu;
@@ -1362,6 +1437,22 @@
       scr.querySelectorAll('[data-of]').forEach(b => b.onclick = () => answerOffer(b.dataset.of === 'y', () => keepScroll(draw)));
       scr.querySelectorAll('[data-ld]').forEach(b => b.onclick = () => {
         ldCat = b.dataset.ld;
+        keepScroll(draw);
+      });
+      scr.querySelectorAll('[data-sp]').forEach(b => b.onclick = () => {
+        socialPost(b.dataset.sp);
+        keepScroll(draw);
+      });
+      const hl = $('#hlook');
+      if (hl) hl.onclick = () => {
+        lookOpen = !lookOpen;
+        keepScroll(draw);
+      };
+      scr.querySelectorAll('[data-lk] button').forEach(b => b.onclick = () => {
+        const k = b.parentNode.dataset.lk;
+        C.look = Object.assign({}, C.look, { [k]: k === 'skin' ? +b.dataset.v : b.dataset.v });
+        persist();
+        PG.snd('tick');
         keepScroll(draw);
       });
       scr.querySelectorAll('[data-st]').forEach(b => b.onclick = () => {

@@ -1509,6 +1509,19 @@ what is next. Update it after every item.
   piling up when a test steps the game without drawing. Not a game bug. Checked: a career game calling Max protect
   and slides on every pass (4 and 9 snaps) with no error; careers, exhibition, drills; audit empty at 390x844.
 
+- 2026-11-14 09:00. The owner: "add more customization of character colors and such, add more to social".
+  (1) Your look, a folded card on the career hub (`LOOKS`, `lookHtml`, `C.look`): skin tone (five), gloves (twelve,
+  or none), cleats (eleven), socks, visor (dark, clear, mirror, team and four colors), facemask, arm bands (or none).
+  No yellow in the lists. `hero()` carries it as `x.look`; render3d.js `lookColors` lays it over the team's kit on
+  the field and on the card's portrait (`portrait(team, home, num, look)`); the backup who plays your sat-out drives
+  wears the team's kit. Drawing only. (2) Social: a weekly post (`socialPost`: thank the fans for followers, hype
+  the next game for hype, shout out a teammate for a point of coach trust; your post lands in Mentions with two
+  replies), and a Messages tab (`dms`): each week three direct messages about your last game from home, your agent
+  and a teammate, and one from your rival in the week you play him. Messages are flavor; the post is the only part
+  that changes numbers. Checked: fingerprint unchanged; a look chosen in the hub seen on the field in a close still;
+  a whole receiver season with every drive watched; careers, exhibition, drills; audit empty at 320x568 and 390x844
+  with the look card open, the composer, and the four Social tabs.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

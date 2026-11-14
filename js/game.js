@@ -843,7 +843,7 @@
     if (G.lock && G.sit && G.bench && off === 0 && !kick && G.share < 1 && !G.drill) {
       // a drive you sit out: the backup is the one on the field, under his own name and number
       const b = P.find(p => p.team === 0 && p.role === G.lock), h = G.bench;
-      if (b) Object.assign(b, { spd: h.spd, rt: h.rt, num: h.num, name: h.name }, h.x || {});
+      if (b) Object.assign(b, { spd: h.spd, rt: h.rt, num: h.num, name: h.name, look: null }, h.x || {});  // and he is dressed like the rest of the team, not in your gear
     }
     G.me = G.lock && !kick && !(G.watch && G.wd && G.wd.own) ? (P.find(p => p.team === 0 && p.role === G.lock) || null) : ps.ret && ps.ret.hero ? ps.ret : null;
     G.sel = G.lock ? G.me : off === 1 ? (selRole && d[selRole]) || d.MLB : null;

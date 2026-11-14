@@ -574,6 +574,21 @@
     for (const p of parts) for (let k = 0; k < p.joints.length; k++) p.mesh.setColorAt(i * p.joints.length + k, col.set(c[p.color]));
   }
 
+  /* A career player's own look (C.look in career.js): his skin tone, and his own choice of gloves, cleats, socks,
+     visor, facemask and bands over the team's kit. 'kit' (or nothing) leaves a piece as the team wears it; 'team' and
+     'team2' are the team's two colors. Bands 'none' takes the sleeve and wrist bands off. No yellow in the list. */
+  const LOOK_HEX = { white: '#f1f1f1', black: '#17191e', grey: '#aeb6c2', silver: '#d3dae4', clear: '#9db3c7', dark: '#14161c', red: '#c2362f', blue: '#2d6cdf', green: '#1f9d6b', orange: '#e8742a', pink: '#e0569a', purple: '#7c3aed' };
+  const LOOK_HIDE = new Set(['sleeve', 'wrist']);
+
+  function lookColors(c, look, t) {
+    if (!look) return c;
+    const o = { ...c }, hex = v => (v === 'team' ? t.c1 : v === 'team2' ? t.c2 : LOOK_HEX[v]);
+    if (look.skin >= 0 && SKIN[look.skin]) o.skin = SKIN[look.skin];
+    for (const k of ['glove', 'shoe', 'sock', 'visor', 'mask', 'trim']) if (look[k] && look[k] !== 'kit' && hex(look[k])) o[k] = hex(look[k]);
+    if (look.glove === 'bare') o.glove = o.skin;
+    return o;
+  }
+
   function teamColors(t, home, skin) {
     return home
       ? { jersey: t.c1, pants: t.c2, helmet: t.c2, stripe: t.c1, trim: t.c2, sock: '#f1f1f1', number: t.c2, skin, glove: '#f1f1f1', shoe: '#1b1b1f', mask: '#aeb6c2', visor: '#14161c' }
@@ -3623,10 +3638,10 @@
         continue;
       }
       if (fresh) {
-        f.hide = p.suit || p.hoodie ? BARE_HIDE : p.ref ? REF_HIDE : null;
+        f.hide = p.suit || p.hoodie ? BARE_HIDE : p.ref ? REF_HIDE : p.look && p.look.trim === 'none' ? LOOK_HIDE : null;
         f.extra = p.hoodie ? CAP_ON : p.suit ? HAIR_ON : null;  // a cutscene's referee is dressed like the officials, the commissioner in a suit
         setBuild(f, p.ref || p.suit ? BUILD.ref : p.hoodie ? BUILD.qb : buildOf(p.role));
-        const home = p.team === 0, kit = p.team === (G.home || 0), c = p.hoodie ? HOOD(t0) : p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : teamColors(home ? t0 : t1, kit, SKIN[(p.num * 7 + i) % SKIN.length]);  // kit: home colors for the home side, white for the visitors
+        const home = p.team === 0, kit = p.team === (G.home || 0), c = p.hoodie ? HOOD(t0) : p.suit ? SUIT : p.ref ? { ...REF_COLORS, skin: SKIN[(i * 2 + 1) % SKIN.length], glove: SKIN[(i * 2 + 1) % SKIN.length], visor: SKIN[(i * 2 + 1) % SKIN.length] } : lookColors(teamColors(home ? t0 : t1, kit, SKIN[(p.num * 7 + i) % SKIN.length]), p.look, home ? t0 : t1);  // kit: home colors for the home side, white for the visitors
         colorFigure(SIDELINE + i, c);
         f.num.material = p.ref ? stripeMaterial() : p.suit || p.hoodie ? NO_NAME : numberMaterial(p.num, c.number);
         f.nameplate.material = p.ref || p.suit || p.hoodie ? NO_NAME : nameMaterial(p.name, c.number);
@@ -3953,9 +3968,12 @@
   }
 
   /* dress the studio figure in a kit */
-  function dress(st, team, home, num) {
-    const c = teamColors(team, home, SKIN[(num * 3) % SKIN.length]);
-    for (const name in st.meshes) for (const m of st.meshes[name]) m.material.color.set(c[m.userData.color]);
+  function dress(st, team, home, num, look) {
+    const c = lookColors(teamColors(team, home, SKIN[(num * 3) % SKIN.length]), look, team);
+    for (const name in st.meshes) for (const m of st.meshes[name]) {
+      m.material.color.set(c[m.userData.color]);
+      if (LOOK_HIDE.has(name)) m.visible = !(look && look.trim === 'none');
+    }
     st.f.num.material = numberMaterial(num, c.number);
   }
 
@@ -3979,12 +3997,12 @@
     x.drawImage(cv, dx, dy, w, w * ph / pw);
   }
 
-  function portrait(team, home, num) {
+  function portrait(team, home, num, look) {
     if (!renderer) return null;
-    const key = team.ab + (home ? 'h' : 'a') + num;
+    const key = team.ab + (home ? 'h' : 'a') + num + (look ? JSON.stringify(look) : '') + team.c1 + team.c2;
     if (portraits.has(key)) return portraits.get(key);
     const st = studioOf(), cv = document.createElement('canvas');
-    dress(st, team, home, num);
+    dress(st, team, home, num, look);
     cv.width = PW;
     cv.height = PH;
     shoot(st, cv.getContext('2d'), 0, 0, PW);

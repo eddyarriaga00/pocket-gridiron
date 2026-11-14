@@ -72,12 +72,12 @@ input{font:inherit;font-size:16px;color:var(--ink);background:var(--panel2);bord
 .step b{min-width:46px;text-align:center;font-family:var(--display);font-size:12px;font-variant-numeric:tabular-nums}
 .step .chip{min-width:38px;padding:0;font-size:15px}
 
-#banner{position:absolute;left:0;right:0;top:26%;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;pointer-events:none;
+#banner{position:absolute;left:0;right:0;top:max(26%,190px);display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;pointer-events:none;
   opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s;font-family:var(--display);padding:0 16px}
 #banner.on{opacity:1;transform:none}
 #banner b{font-weight:800;font-size:28px;line-height:1.05;letter-spacing:.01em;color:var(--chalk);text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 22px rgba(0,0,0,.65);text-transform:uppercase;text-wrap:balance}
 #banner span{background:rgba(6,10,19,.9);border-left:3px solid var(--acc);padding:4px 10px;border-radius:6px;font-family:var(--body);font-size:12px;font-weight:600}
-#toast{position:absolute;left:50%;top:18.5%;transform:translateX(-50%);max-width:88%;pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap;
+#toast{position:absolute;left:50%;top:max(18.5%,157px);transform:translateX(-50%);max-width:88%;pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap;
   background:rgba(6,10,19,.88);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase}
 #toast.on{opacity:1}
 

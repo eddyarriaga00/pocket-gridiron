@@ -1897,6 +1897,27 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 28 toasts, banners and broadcast cards at 320 wide; 29 an onside kick forced and watched through; 30 whole
   receiver careers with the rough test player; then the sixth stock-take.
 
+- Change 28 (07:35), in-play messages at 320 wide: on a 568-tall screen a toast (18.5% down, 105 px) sat on top of
+  a broadcast card (80 to 150 px). Toasts now sit at least 157 px down and banners at least 190, so the three stack:
+  card, toast, banner (measured with all three shown: 80-150, 157-182, 196-257). No change on taller screens. Seven
+  different toasts in a half fitted without clipping. Audit empty at 320x568 and 390x844; fingerprint unchanged.
+- Change 29 (07:40), an onside kick forced and watched through, nothing changed: three games in which the test's
+  side was put on the goal line trailing by ten late, scored, and chose the onside kick from the kickoff sheet. Two
+  were lost, one recovered; the ball, the possession, the banner and the rest of each game were right, and the
+  kickoff sheet passed the audit.
+- Change 30 (07:45), receiver careers with the rough test player, nothing changed: four careers of six games on
+  random teams (29 fourth-down tries, 7 overtimes) and one whole receiver season with every opponent drive watched
+  (9-1, lost in the divisional round, eight trophies, kick and punt returns included). No errors, no bad numbers.
+- Sixth stock-take (07:45), after thirty changes. Changes 26 to 30: the benches, the career hub at 320 wide, the
+  in-play messages, the onside kick and the receiver careers. Every rare ending listed in the fourth stock-take has
+  now been seen. Weakest now: (a) the crowd and stands are flat color flecks close up, and have not been looked at
+  from the play camera at dusk; (b) the menu's first screen and the new-career screen have not been looked at in
+  stills today; (c) the kick meter and the swipe hint; (d) the result of the press conference and awards night
+  screens (text-heavy); (e) the README has not been checked against today's changes.
+  Next five: 31 the menu and new-career screens in stills; 32 the press conference and awards night screens laid
+  out with less text; 33 the kicking screens (meter, swipe hint, kickoff sheet) in stills; 34 the stadium at dusk
+  from the play camera; 35 the README against today's changes; then the seventh stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

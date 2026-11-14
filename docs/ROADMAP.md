@@ -1840,6 +1840,21 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 22 the players and sideline in stills, day and night; 23 the play-call sheet at 320 wide; 24 the playoff
   bracket and league screens in stills; 25 a season-mode bug sweep through the playoffs; then the fifth stock-take.
 
+- Change 22 (06:00), the players and sideline in stills, nothing changed. Looked at from a low camera: the bench in
+  day and at night, the quarterback and his line from behind, a linebacker from in front and from above (his shadow
+  in daylight), the huddle side at night under the towers. Numbers, names, helmets, stripes, skin tones, shadows and
+  the board all drew correctly. One thing that looked wrong was not: a team in pink helmets and pants has pink as
+  its second color. Left as is: the bench figures stand in one row in the same pose.
+- Change 23 (06:05), the play-call sheet at 320 wide, nothing changed: six tabs, three cards with their drawings,
+  the pick tags and the page bar all fit and read.
+- Change 24 (06:15), the playoff bracket: each slot has the team's color dot and its seed set apart from the name,
+  the winner in bold and the loser's dot dimmed; the narrow later rounds show the abbreviation, so no name breaks in
+  the middle of a word at 320 wide, and an undecided slot says TBD (`bracketHtml`, `.gm`). The first column is wider
+  for full names. Looked at with a made-up finished bracket of the longest team names; audit empty at 320x568 and
+  390x844 over menus, season, career and exhibition; fingerprint unchanged. The standings and league screens were
+  redone in changes 2 and 4 and were not touched.
+  Next: 25 a season-mode bug sweep through the playoffs; then the fifth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

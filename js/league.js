@@ -309,13 +309,14 @@
     const gm = L.po && L.po.games;
     if (!gm) return '';
     const seedOf = t => (L.po.fmt === 2 ? L.po.seeds[TEAMS[t].conf].indexOf(t) : L.po.seeds.indexOf(t)) + 1;
-    const slot = (t, w) => t == null ? '<span>To be decided</span>'
-      : `<span class="${w === t ? 'w' : ''}${t === L.team ? ' me' : ''}">${seedOf(t)} · ${TEAMS[t].name}</span>`;
-    const game = g => `<div class="gm">${slot(g[0], g[2])}${slot(g[1], g[2])}</div>`;
-    const champ = c => `<div class="gm">${c == null ? '<span>To be decided</span>' : slot(c, c)}</div>`;
-    if (L.po.fmt === 2) return `<h2>Playoffs</h2>${[0, 1].map(c => `<h3 class="brh">${CONF[c]} Conference</h3><div class="brk"><div><small>Divisional</small>${game(gm.q[c * 2])}${game(gm.q[c * 2 + 1])}</div><div><small>Conference final</small>${game(gm.c[c])}</div><div><small>To the final</small>${champ(gm.c[c][2])}</div></div>`).join('')}
+    /* a slot: the team's color, its seed and its name (its abbreviation in the later rounds, where the column is narrow) */
+    const slot = (t, w, ab) => t == null ? '<span class="tbd">TBD</span>'
+      : `<span class="${w === t ? 'w' : w != null ? 'out' : ''}${t === L.team ? ' me' : ''}"><i style="--c:${TEAMS[t].c1}"></i><em>${seedOf(t)}</em>${ab ? TEAMS[t].ab : TEAMS[t].name}</span>`;
+    const game = (g, ab) => `<div class="gm">${slot(g[0], g[2], ab)}${slot(g[1], g[2], ab)}</div>`;
+    const champ = c => `<div class="gm">${c == null ? '<span class="tbd">TBD</span>' : slot(c, c, true)}</div>`;
+    if (L.po.fmt === 2) return `<h2>Playoffs</h2>${[0, 1].map(c => `<h3 class="brh">${CONF[c]} Conference</h3><div class="brk"><div><small>Divisional</small>${game(gm.q[c * 2])}${game(gm.q[c * 2 + 1])}</div><div><small>Conference final</small>${game(gm.c[c], true)}</div><div><small>To the final</small>${champ(gm.c[c][2])}</div></div>`).join('')}
       <div class="brk brf"><div><small>Championship</small>${game(gm.f)}</div><div></div><div><small>Champion</small>${champ(gm.f[2])}</div></div>`;
-    return `<h2>Playoffs</h2><div class="brk"><div><small>Semifinals</small>${game(gm.s1)}${game(gm.s2)}</div><div><small>Final</small>${game(gm.f)}</div>
+    return `<h2>Playoffs</h2><div class="brk"><div><small>Semifinals</small>${game(gm.s1)}${game(gm.s2)}</div><div><small>Final</small>${game(gm.f, true)}</div>
       <div><small>Champion</small>${champ(gm.f[2])}</div></div>`;
   }
 

@@ -357,7 +357,7 @@ tr.me td{color:var(--acc);font-weight:700}
 .nx ul b{color:var(--acc);font-weight:700;white-space:nowrap}
 .nx ul.aw small{display:block;margin-top:1px;font-family:inherit;font-weight:400;font-size:11px;letter-spacing:0;text-transform:none}
 .nx ul.aw b{white-space:normal;text-align:right}
-.brk{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center}  /* minmax(0,…): a long team name wraps instead of pushing the page wider */
+.brk{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center}  /* minmax(0,…): a long team name wraps instead of pushing the page wider */
 .brk>div{display:flex;flex-direction:column;gap:6px}
 .brk small{font-family:var(--display);font-weight:700;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 .gm{background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
@@ -793,3 +793,10 @@ tr.me td{color:var(--acc);font-weight:700}
 .lvl u{width:4px;border-radius:1px;background:currentColor;opacity:.3;text-decoration:none}
 .lvl u:nth-child(1){height:6px}.lvl u:nth-child(2){height:10px}.lvl u:nth-child(3){height:14px}
 .lvl u.on{opacity:1}
+
+/* playoff bracket slots: the team's color, its seed, its name; the loser of a played game is dimmed */
+.gm span{display:flex;align-items:center;gap:6px}
+.gm span i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+.gm span em{flex:none;font:800 10px var(--display);font-style:normal;color:var(--mute);font-variant-numeric:tabular-nums}
+.gm span.out i{opacity:.4}
+.gm span.tbd{font:700 10px var(--display);letter-spacing:.1em}

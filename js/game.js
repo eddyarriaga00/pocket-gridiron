@@ -392,6 +392,79 @@
     ],
   };
 
+  /* The final whistle: the two leaders (you, in a career, and the man who plays your position for them) walk to
+     midfield and shake hands. The winners are behind theirs, celebrating; the losers turn and walk off. Confetti
+     when it is your win at home. Every watched game ends with it, before the final screen. */
+  SCENES.final = {
+    dur: 5.6,
+    setup(sc) {
+      const role = G.lock && G.ros[1][G.lock] ? G.lock : 'QB', me = rosterMan(0, role, 0), him = rosterMan(1, role, 1), w = G.score[0] === G.score[1] ? -1 : G.score[0] > G.score[1] ? 0 : 1;
+      me.x = FW / 2 - 7;
+      him.x = FW / 2 + 7;
+      me.y = him.y = 50;
+      me.go = [FW / 2 - 0.8, 50];
+      him.go = [FW / 2 + 0.8, 50];
+      me.spd = him.spd = 3.1;
+      me.then = him.then = 'shake';
+      me.face = -Math.PI / 2;
+      him.face = Math.PI / 2;
+      const rest = [];
+      for (const t of [0, 1]) ['RB', 'X', 'Z', 'TE', 'C', 'MLB'].forEach((r, k) => {
+        const p = rosterMan(t, r, k + 2), side = t === 0 ? -1 : 1;
+        p.x = FW / 2 + side * (3.4 + (k % 3) * 1.6 + Math.random() * 0.4);  // behind their man and a little upfield of him, where the camera in front can see them
+        p.y = 52.6 + Math.floor(k / 3) * 1.9 + Math.random() * 0.5;
+        if (t === w) {
+          p.act = 'cheer';
+          p.lead = k === 0;
+          p.face = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+        } else if (w >= 0) {
+          p.go = [p.x + side * 16, p.y + (Math.random() - 0.5) * 3];  // the long walk to the sideline
+          p.spd = 2.2 + Math.random() * 0.5;
+          p.at = 0.3 + k * 0.25;
+        } else p.act = 'clap';  // a tie: a hand for each other
+        rest.push(p);
+      });
+      sc.me = me;
+      sc.him = him;
+      sc.win = w;
+      sc.cap = `<small>Final${G.ot ? ' · overtime' : ''}</small><b>${ab(0)} ${G.score[0]} · ${ab(1)} ${G.score[1]}</b><span>${w < 0 ? 'All square' : esc(TEAMS[G.tm[w]].city + ' ' + TEAMS[G.tm[w]].name) + ' win'}</span>`;
+      return [me, him, ...rest];
+    },
+    cues: [
+      [0.3, sc => {
+        if (!PG.audio) return;
+        const home = G.home || 0;
+        if (sc.win === home) PG.audio.crowd.cheer(1.1, 4.5);
+        else if (sc.win >= 0) PG.audio.crowd.aww ? PG.audio.crowd.aww(0.5) : PG.audio.crowd.ooh(0.3);
+      }],
+      [1.2, sc => {
+        if (sc.win === 0 && !G.home) confetti(0);
+      }],
+      [3.0, () => snd('chime')],
+    ],
+  };
+
+  /* Halftime: both teams jog off toward their own ends while the band comes on; the score on the caption. */
+  SCENES.half = {
+    dur: 4.4,
+    setup(sc) {
+      const A = [];
+      for (const t of [0, 1]) ['QB', 'RB', 'X', 'Z', 'TE', 'LT', 'C', 'RG'].forEach((r, k) => {
+        const p = rosterMan(t, r, k), end = t === 0 ? -1 : 1;
+        p.x = 8 + Math.random() * (FW - 16);
+        p.y = 50 + end * (3 + Math.random() * 14);
+        p.go = [FW / 2 + (k - 3.5) * 2.2, t === 0 ? -6 : 106];
+        p.spd = 5.2 + Math.random() * 1.2;
+        p.at = Math.random() * 0.7;
+        A.push(p);
+      });
+      const d = G.score[0] - G.score[1];
+      sc.cap = `<small>Halftime</small><b>${ab(0)} ${G.score[0]} · ${ab(1)} ${G.score[1]}</b><span>${d === 0 ? 'Level at the break' : `${tname(d > 0 ? 0 : 1)} lead by ${Math.abs(d)}`}</span>`;
+      return A;
+    },
+    cues: [[0.2, () => PG.audio && PG.audio.crowd.cheer(0.5, 3)]],
+  };
+
   /* The championship: a stage at midfield in team colors, the trophy over your head (render3d.js holds it in your
      hands), your teammates around the stage, confetti and fireworks, the fanfare and the crowd. */
   SCENES.trophy = {
@@ -3144,7 +3217,7 @@
     if (advance()) return endGame();
     if (G.half) {
       G.half = false;
-      return showHalf();
+      return playScene('half', {}, showHalf);  // the teams jog off first
     }
     startCall();
   }
@@ -3278,8 +3351,12 @@
       else analyst('a.final', 0.8, { big: true, ttl: 10 });
     }
     if (!AUTO && !G.drill && PG.milestones) PG.milestones.game({ us: G.score[0], them: G.score[1], stats: G.stats, ot: G.ot, diff: G.diff, weather: G.env && G.env.weather });
-    if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), scoringHtml: scoringHtml(G.scores), drill: G.drill });
-    else showFinal();
+    /* the handshake at midfield first (a cutscene: skipped in simulations, practice, and when they are switched off) */
+    const done = () => {
+      if (G.onEnd) G.onEnd({ score: G.score.slice(), my: G.my, stats: G.stats, ot: G.ot, potg: playerOfGame(), potgHtml: potgHtml(), box: G.box, potdHtml: potdHtml(), scoringHtml: scoringHtml(G.scores), drill: G.drill });
+      else showFinal();
+    };
+    playScene('final', {}, done);
   }
 
   /* ---------- play calling ----------

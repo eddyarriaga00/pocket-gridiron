@@ -1155,6 +1155,16 @@
         v3b.set(me.x, 6, -me.y);
       }
     },
+    final(sc, P, v3, v3b) {
+      const t = sc.t, u = smooth(clamp((t - 1.6) / 1.6, 0, 1));
+      v3.set(FW / 2 + lerp(-2.5, 0.5, u), lerp(5.2, 2.8, u), -(50 - lerp(15, 5.2, u)));  // wide on both sides coming together, then in on the handshake
+      v3b.set(FW / 2, lerp(1.8, 2.5, u), -50);
+    },
+    half(sc, P, v3, v3b) {
+      const u = Math.min(1, sc.t / 4.4);
+      v3.set(FW / 2 + 22, lerp(9, 16, u), -(50 - lerp(30, 38, u)));  // from high in the corner, pulling up and back as they go
+      v3b.set(FW / 2, 1, -50);
+    },
     faceoff(sc, P, v3, v3b) {
       const t = sc.t, me = sc.me || P[0], him = sc.him || P[1], mx = (me.x + him.x) / 2, y = me.y;
       if (t < 2.2) {

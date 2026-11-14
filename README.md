@@ -118,6 +118,8 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   Max protect. A slide sends the line toward a blitz you expect from that side; Max protect keeps the backs and the
   tight end in to block, with fewer men to throw to.
 - Receivers slow into a hard break and cut at the mark, so hitches, curls, in-routes and outs can be thrown on time.
+- Two more cutscenes: at halftime both teams jog off the field, and after the final whistle the two leaders meet at
+  midfield and shake hands while the winners celebrate behind them. Tap to skip, as with the others.
 - Pump fake: Pump on the passing pad (B, or LT on a controller) fakes a throw; zone defenders near the short route
   may bite and leave the man behind them open. Quarterback slide: past the line of scrimmage, Slide (N, or Y) ends
   the play where he is, with no hit, no fumble and no injury.

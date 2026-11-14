@@ -1554,6 +1554,20 @@ what is next. Update it after every item.
   gait and tackle as before; a watched career game drawn every 10 steps with no error; careers, exhibition, drills;
   audit empty at 390x844 (a first run reported every button "blocked": that was the test's own overlay canvas).
 
+- 2026-11-14 13:00. The owner: "small details add more in places, add cool cut scenes if possible". Two cutscenes
+  in every watched game (`SCENES.half`, `SCENES.final` in game.js; cameras in render3d.js `SCENECAM`), skipped like
+  the others in simulations, practice and with cutscenes off. Halftime: both teams jog off toward their own ends,
+  seen from high in a corner pulling back, the score and who leads on the caption; then the halftime sheet as
+  before (`next()` plays it before `showHalf`). The final whistle: the two leaders (you, in a career, and their man
+  at your position) walk to midfield and shake hands while the camera comes in from wide; the winners celebrate
+  behind their man, the losers turn and walk off, a tie gets applause from both sides; the home crowd cheers a home
+  win, and there is confetti when the win at home is yours; then the final screen (`endGame` plays it before
+  `G.onEnd` or `showFinal`). Halftime only shows when the half ends on a play you watch: a half that ends inside a
+  skipped drive goes straight to the sheet, as before. Checked: both seen in stills (the first handshake still had
+  the teammates out of frame, so they were moved in behind their man); fingerprint unchanged; careers, a whole
+  quarterback season, exhibition, season mode, drills; audit empty at 390x844 through all four game types. The test
+  tab crashed once after that whole batch had finished and reported; a reload ran clean.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

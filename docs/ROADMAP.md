@@ -1494,6 +1494,21 @@ what is next. Update it after every item.
   `pg.fingerprint.before-routes` in the test browser). Checked: careers (4 games each), exhibition, drills with the
   usual star counts, audit empty at 320x568 and 390x844 with the sixth pre-snap button.
 
+- 2026-11-14 07:30. The owner: "improve". Max protect did not protect, so it was made to. Timed properly this time:
+  `PG.dbg.lab(play, n, { prot, hold: true })` has the quarterback keep the ball and reports how long the protection
+  lasted (`t`), who got him (`by`) and whether the extra blockers ever blocked (`extra`). Before: the back kept in
+  stood idle on 40 snaps of 40 (every rusher was already "claimed" by a lineman, so he had no man, and when he had
+  one he chased him and was run past), and the defenders who had the backs in man coverage followed them into the
+  backfield. Now a man kept in (`p.stayIn`) helps on a rusher who is still coming free and meets him two yards in
+  front of the quarterback (`blockAI`); of the defenders left with nobody to cover, one in five rushes and the rest
+  sit in a short zone (`ps.dogs`, undone when the call changes). Over three plays and six defenses, 80 seeded snaps
+  each, protection lasted 2.95 seconds on Base and 3.26 on Max protect; against the Overload blitz 1.8 became 3.2 to
+  3.3. The extra blockers blocked on about 95% of snaps. Base protection, the computer and the simulations are
+  untouched: fingerprint unchanged. Slides still mostly decide WHICH rusher comes free, not how soon. Also looked
+  into white rings seen on the field in test stills: they are the tackle effect, which only expires on drawn frames,
+  piling up when a test steps the game without drawing. Not a game bug. Checked: a career game calling Max protect
+  and slides on every pass (4 and 9 snaps) with no error; careers, exhibition, drills; audit empty at 390x844.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

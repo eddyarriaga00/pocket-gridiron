@@ -1148,10 +1148,11 @@
     let best = null, bs = 1e9;
     if (btValid(p)) best = p.bt;
     else for (const o of P) {
-      if (o.team === p.team || o.down || o.eng || o.stun > 0 || cl.has(o)) continue;
+      const help = pro && p.stayIn && cl.has(o);  // a man kept in to block has no rusher of his own: he helps on one who is still coming free
+      if (o.team === p.team || o.down || o.eng || o.stun > 0 || (cl.has(o) && !help)) continue;
       const dc = dist(o, prot);
       if (pro && !(o.asg === 'rush' || dc < 6)) continue;
-      let s = dist(p, o) + dc * 0.6;
+      let s = dist(p, o) + dc * 0.6 + (help ? 2.5 : 0);
       if (pro && ps.slide && p.isOL) s -= ps.slide * Math.sign(o.x - ps.bx) * 2.2;  // the line is sliding that way: each man looks to that side first
       if (s < bs) {
         bs = s;
@@ -1162,6 +1163,14 @@
       cl.add(best);
       let ux = prot.x - best.x, uy = prot.y - best.y;
       const l = hyp(ux, uy) || 1;
+      if (pro && p.stayIn) {
+        /* a back or tight end kept in by Max protect: he does not chase the rusher (who ran past him every time), he
+           steps up into the man's path a couple of yards in front of the quarterback and meets him there */
+        const gap = Math.min(2.2, l * 0.6);
+        seek(p, prot.x - ux / l * gap, prot.y - uy / l * gap, 1, true);
+        if (dist(p, best) < 1.7 && best.immune <= 0 && p.beat <= 0 && best.dive <= 0) engage(p, best, pro);
+        return;
+      }
       seek(p, best.x + ux / l * 0.9, best.y + uy / l * 0.9, 1, true);
       if (dist(p, best) < 1.3 && best.immune <= 0 && p.beat <= 0 && best.dive <= 0) engage(p, best, pro);
     } else if (pro) seek(p, p.sx, p.sy - G.dir * 1.2);
@@ -4196,16 +4205,43 @@
     if (ps.kept) for (const [p, route, rn] of ps.kept) {
       p.route = route;
       p.rn = rn;
+      p.stayIn = false;
     }
     ps.kept = null;
+    if (ps.dogs) for (const [d, asg, man] of ps.dogs) {
+      d.asg = asg;
+      d.man = man;
+    }
+    ps.dogs = null;
     ps.slide = kind === 'left' ? -G.dir : kind === 'right' ? G.dir : 0;
-    lineCalls(off, ps.los, ps.bx, ps.slide * 1.6);
     if (kind === 'max') {
       const stay = P.filter(p => p.team === off && p.route && /^(RB|FB|TE)$/.test(p.role));
-      if (!stay.length || P.filter(p => p.team === off && p.route).length - stay.length < 2) return false;  // nobody to keep in, or nobody left to throw to
+      if (!stay.length || P.filter(p => p.team === off && p.route).length - stay.length < 2) {
+        lineCalls(off, ps.los, ps.bx, 0);
+        return false;  // nobody to keep in, or nobody left to throw to
+      }
       ps.kept = stay.map(p => [p, p.route, p.rn]);
-      for (const p of stay) p.route = null;
+      for (const p of stay) {
+        p.route = null;
+        p.stayIn = true;
+      }
+      /* the defenders who had those men in man coverage have nobody to cover. One in five comes after the quarterback
+         (and are blocked like any rusher); the rest sit in a short zone over the ball, watching him. Before this they
+         followed the blocker into the backfield and stood at the quarterback's elbow. */
+      ps.dogs = [];
+      for (const d of P) if (d.team !== off && d.asg === 'man' && stay.includes(d.man)) {
+        ps.dogs.push([d, d.asg, d.man]);
+        if (d.num % 5 < 1) d.asg = 'rush';
+        else {
+          d.asg = 'zone';
+          d.deep = false;
+          d.zx = clamp(lerp(d.man.x, ps.bx, 0.4), 4, FW - 4);
+          d.zy = ps.los + G.dir * 4.5;
+        }
+        d.man = null;
+      }
     }
+    lineCalls(off, ps.los, ps.bx, ps.slide * 1.6);
     ps.prot = kind;
     ps.recs = P.filter(p => p.team === off && p.route && p !== ps.qb).sort((a, b) => a.x - b.x);
     ps.recs.forEach((p, i) => {
@@ -6729,10 +6765,21 @@
             G.state = 'pre';
             snap();
             let k = 0;
-            while (G.state === 'live' && k++ < 4000) tick(0.02);
+            let held = 0;
+            while (G.state === 'live' && k++ < 4000) {
+              if (o.hold && ps && !ps.thrown && ps.t < 6) ps.think = 1;  // o.hold: the quarterback keeps the ball, to time how long the protection lasts
+              if (ps) held = ps.t;
+              if (o.hold && ps) for (const q of P) {
+                if (q.eng) (q.wasEng = (q.wasEng || 0) + 1);
+                if (q.block) (q.didBlock = (q.didBlock || 0) + 1);
+              }
+              tick(0.02);
+            }
             const s1 = G.stats[0];
             const tg = ps && ps.tgt;
-            out.push({ y: s1.rush - s0.rush + s1.pass - s0.pass, comp: s1.comp - s0.comp, att: s1.att - s0.att, last: G.last, def: G.dp.n, to: tg ? tg.role + ':' + tg.rn : null });
+            out.push({ y: s1.rush - s0.rush + s1.pass - s0.pass, comp: s1.comp - s0.comp, att: s1.att - s0.att, last: G.last, def: G.dp.n, to: tg ? tg.role + ':' + tg.rn : null, t: held,
+              by: o.hold && ps && ps.tackler ? ps.tackler.role + ':' + ps.tackler.asg + ':' + (ps.tackler.wasEng || 0) : null,
+              extra: o.hold ? P.filter(q => q.team === 0 && !q.isOL && !q.route && q !== (ps && ps.qb)).map(q => q.role + ':' + (q.didBlock || 0)).join(' ') : null });
           }
         } finally {
           AUTO = was;

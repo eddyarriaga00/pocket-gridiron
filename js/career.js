@@ -815,9 +815,10 @@
     if (C.phase === 'done') {
       const po = C.po;
       return `<div class="nx"><small>Season ${C.season} complete</small><h4>${po.finish}</h4>
-  ${po.night ? '<button class="btn2" id="an" style="margin:0 0 8px">Awards night</button>' : ''}<p>${full(t)} finished ${recTxt(t)}. ${po.champ===t?'You are the champions.':`Champion: ${full(po.champ)}.`}${po.awards&&po.awards.length?` Honors: ${po.awards.join(', ')}.`:''}${po.rival?` ${esc(po.rival)}`:''}${po.bonus?` Bonus: +${fmt(po.bonus)} XP.`:''}<br>Your season: ${line(C.stats)}.</p>
+  ${po.night ? '<button class="btn2" id="an" style="margin:0 0 8px">Awards night</button>' : ''}<div class="sdn"><span><b>${recTxt(t)}</b>${team(t).ab} record</span><span><b>${team(po.champ).ab}</b>${po.champ===t?'Champions':'Champion'}</span>${po.bonus?`<span><b>+${fmt(po.bonus)}</b>Bonus XP</span>`:''}</div>
+  ${po.awards&&po.awards.length?`<div class="pcc" style="margin:0 0 8px">${po.awards.map(a=>`<span>${esc(a)}</span>`).join('')}</div>`:''}<p>${po.rival?`${esc(po.rival)}<br>`:''}Your season: ${line(C.stats)}.</p>
   ${deal().left>0?`<button class="go sm" id="nxs">Start season ${C.season+1}</button><p class="note" style="margin:8px 0 0">Under contract for ${deal().left} more season${deal().left>1?'s':''} at ${money(deal().pay)}.</p>`
-    :`<button class="go sm" id="fa">Your contract is up · see the offers</button>`}</div>`;
+    :`<p class="note" style="margin:0 0 8px">Your contract is up.</p><button class="go sm" id="fa">See the offers</button>`}</div>`;
     }
     const o = nextOpp(), lab = LG.label(C), pt = LG.prime(C);
     return `<div class="nx${pt?' prime':''}"><small>${lab}${pt?' · Primetime':''}${C.rival&&C.rival.team===o?' · rival game':''}</small>${matchupHtml(o)}<h4>${LG.home(C)?'vs':'at'} ${full(o)}</h4><p>${pt?'Under the lights, the whole league watching: XP +25%.<br>':''}${forecast()}${oppInj(o)?`<br>${esc(oppInj(o).txt)}.`:''}${C.inj?`<br>You are questionable with ${C.inj.what}: ${attrName(C.inj.key)} −${C.inj.n} this week.`:''}${C.rival&&C.rival.team===o?`<br>${esc(C.rival.name)} is their ${POS[C.pos].label.toLowerCase()}. Beat them for +300 XP.<br><span class="riv">\u201c${esc(rivalSays())}\u201d</span>`:''}</p>

@@ -834,3 +834,8 @@ tr.me td{color:var(--acc);font-weight:700}
 #meter p{border-radius:14px;padding:5px 14px}
 #meter p b{display:block;font-size:12px;font-weight:800;letter-spacing:.06em}
 #meter p span{display:block;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--mute);white-space:nowrap}
+
+/* career hub, season complete: the record, the champion and the bonus as tiles */
+.sdn{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;margin:0 0 8px;text-align:center}
+.sdn span{display:grid;gap:1px;padding:8px 2px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font:700 10px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}
+.sdn b{font-size:16px;font-weight:800;letter-spacing:0;color:var(--ink);font-variant-numeric:tabular-nums}

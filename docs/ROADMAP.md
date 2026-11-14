@@ -1959,6 +1959,17 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   still; 40 a last full regression (all modes, both sizes, the three sweeps) and a check of the bundle; then the
   eighth stock-take.
 
+- Change 36 (09:10), the offseason screens at 320 wide, after a whole test season as a quarterback. Awards night
+  (a card an award, nominees, then the winner with team and line, yours ringed with its XP) and the contract offers
+  (a card a team with its color, terms and rating) read well and were left alone. The hub's "Season complete" card
+  had its facts in one paragraph: they are three tiles (your team's record, the champion, the bonus XP), the honors
+  as chips, and the rival line and your season line under them (`.sdn`). The button "Your contract is up · see the
+  offers" ran to two lines: it is a short note and "See the offers". The contract flow was then run through twice
+  more by the test player (two receiver seasons, one quarterback season with a re-signing). Audit empty at 320x568
+  and 390x844; fingerprint unchanged. Not looked at in stills: the trade and retirement screens (audited only).
+  Next: 37 the classic 2D view; 38 controller focus on the new switches, cards and tiles; 39 extra point and kickoff
+  hints in a still; 40 a last full regression and a check of the bundle; then the eighth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

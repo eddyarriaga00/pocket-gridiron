@@ -252,6 +252,16 @@ input[type=color]{width:100%;height:44px;padding:3px;border-radius:8px;border:1p
 .campst .stars{font-size:26px;letter-spacing:3px}
 .campst span{color:var(--mute);font-size:12px;line-height:1.4}
 .opt{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0 12px;min-height:44px;border-bottom:1px solid var(--line);font-size:13px}
+/* settings: each group of rows is one card, and an On / Off setting is a switch */
+.grp{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:0 12px}
+.grp .opt:last-child{border-bottom:0}
+.tog{position:relative;display:flex;align-items:center;gap:8px;height:28px;font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.tog::after{content:"";position:absolute;inset:-9px -7px}
+.tog i{position:relative;display:block;width:44px;height:24px;border-radius:12px;background:var(--panel3);border:1px solid var(--line);transition:background .15s}
+.tog i::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--mute);transition:transform .15s,background .15s}
+.tog.on{color:var(--ink)}
+.tog.on i{background:var(--acc);border-color:transparent}
+.tog.on i::after{transform:translateX(20px);background:var(--acc-ink)}
 .sw{display:flex;gap:20px;padding:10px 0}   /* on a narrow phone the swatches drop to a line of their own */
 .sw button{width:24px;height:24px;border-radius:50%;background:var(--c);border:2px solid var(--bg);box-shadow:0 0 0 1.5px var(--line)}
 .sw button.on{box-shadow:0 0 0 2px var(--ink)}

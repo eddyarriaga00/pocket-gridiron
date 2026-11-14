@@ -1705,6 +1705,12 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   audit finding. Nothing to fix. The onside-kick sheet never came up (the random player was rarely close late).
   Next: 8 Settings and the pause sheet organized visually.
 
+- Change 8 (02:55 by the clock; the times on changes 1 to 7 above ran about an hour fast), Settings: each group of
+  rows (Look, Sound, Rules, League, Help) is one card, and every On / Off setting is a switch with its word beside
+  it (`chip` in `showSettings`, `.grp`, `.tog`); the settings with more than two values stay chips. All twenty
+  controls are still there under the same ids. The pause sheet was left as it is (four buttons). Audit empty at
+  320x568 and 390x844. Next: 9 the field and stadium in each time of day and weather.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

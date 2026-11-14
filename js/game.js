@@ -5857,27 +5857,30 @@
   }
 
   function showSettings() {
-    const chip = (id, label, val) => `<div class="opt"><span>${label}</span><button class="chip" id="${id}">${val}</button></div>`;
+    /* an On / Off setting is drawn as a switch (the word stays, small, beside it); anything else is a chip with its value */
+    const chip = (id, label, val) => val === 'On' || val === 'Off'
+      ? `<div class="opt"><span>${label}</span><button class="tog${val === 'On' ? ' on' : ''}" id="${id}" role="switch" aria-checked="${val === 'On'}" aria-label="${label}"><b>${val}</b><i></i></button></div>`
+      : `<div class="opt"><span>${label}</span><button class="chip" id="${id}">${val}</button></div>`;
     const draw = () => {
       scr.innerHTML = `<div class="menu read"><button class="back" id="bk">‹ Menu</button><h1 class="sm">Settings</h1>
-  <h2>Look</h2>
+  <h2>Look</h2><div class="grp">
   <div class="opt"><span>Accent color</span><div class="sw" id="acc">${Object.entries(ACCENTS).map(([k,c])=>`<button data-a="${k}" class="${k===SET.acc?'on':''}" style="--c:${c}" aria-label="${k} accent"></button>`).join('')}</div></div>
   ${chip('sgf','Graphics',R3?'3D':'Classic 2D')}
   ${R3?chip('spx','Sharpness',SET.px==='bal'?'Balanced':'High')+`<div class="opt"><span>Camera zoom</span><div class="step"><button class="chip" id="szo" aria-label="Zoom out">−</button><b>${zoomTxt()}</b><button class="chip" id="szi" aria-label="Zoom in">+</button></div></div>`+chip('scn','Camera before the snap',SET.cin===false?'Standard':'Cinematic')+chip('scut','Cutscenes',SET.cuts!==false?'On':'Off')+chip('ssh','Player shadows',SET.shad!==false?'On':'Off')+chip('sfx','Glow and color pass',SET.fx!==false?'On':'Off')+chip('sdt','Close-up player models',SET.detail!==false?'Detailed':'Simple'):''}
   ${chip('srp','Instant replays',SET.replay!==false?'On':'Off')}
   ${chip('slh','Buttons',SET.left?'Left side':'Right side')}
-  <h2>Sound</h2>
+  </div><h2>Sound</h2><div class="grp">
   ${chip('svl','Volume',['Low','Medium','High'][SET.vol??2])}
   ${chip('ssn','Effects and crowd',SET.snd?'On':'Off')}
   ${chip('smu','Music',SET.mus?'On':'Off')}
   ${chip('san','Commentary',SET.ann!==false?'On':'Off')}
-  <h2>Rules</h2>
+  </div><h2>Rules</h2><div class="grp">
   ${chip('spn','Penalties',SET.pen!==false?'On':'Off')}
-  <h2>League</h2>
+  </div><h2>League</h2><div class="grp">
   <div class="opt"><span>Team names and colors</span><button class="chip" id="steams">Edit teams</button></div>
-  <h2>Help</h2>
+  </div><h2>Help</h2><div class="grp">
   ${chip('stp','Control tips',SET.tips&&Object.keys(SET.tips).length?'Show again':'On')}
-  ${navigator.vibrate?chip('shp','Vibration',SET.hap!==false?'On':'Off'):''}</div>`;
+  ${navigator.vibrate?chip('shp','Vibration',SET.hap!==false?'On':'Off'):''}</div></div>`;
       const on = (id, f) => {
         const el = $('#' + id);
         if (el) el.onclick = () => {

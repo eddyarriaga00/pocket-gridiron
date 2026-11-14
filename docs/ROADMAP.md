@@ -1939,6 +1939,26 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   Next: 33 the kicking screens in stills; 34 the stadium at dusk from the play camera; 35 the README against
   today's changes, and awards night in a still; then the seventh stock-take.
 
+- Change 33 (08:40), the kicking screens at 320 wide. The hint over the meter ("45 yards · swipe up, or stop in the
+  green") wrapped with one word left on a second line, on every kind of kick. It is two short lines by design: what
+  is being kicked in bold, and under it "Swipe up, or stop in the green" (`kickHint`). Seen on a field goal and a
+  punt; the kickoff and the extra point use the same code and were not seen in a still. The meter, the Kick button
+  and the play tag were right. The kickoff sheet was audited in change 29.
+- Change 34 (08:45), the stadium at dusk from the play camera, nothing changed: stands, ribbon boards, the video
+  board, routes and letters all read at 390x844.
+- Change 35 (08:50), the README: a paragraph for today's screen work and the benches, and the rough test player in
+  the testing section. Awards night was NOT looked at in a still (it needs a finished career season).
+- Seventh stock-take (08:50), after thirty-five changes. Changes 31 to 35: menu and new-career, the press
+  conference, the kick hint, a dusk check and the README. The day so far: every screen redrawn or checked, the
+  replay and cutscenes made lighter, four bug sweeps (one fault, today's own, fixed). What is left is small:
+  (a) awards night and the offseason screens (contract, trade, retirement) in stills; (b) the extra point and
+  kickoff hints in a still; (c) the 2D classic view has had no look today; (d) the settings switches on a
+  controller (focus ring) have not been tried; (e) the bundle and the live site should be compared once at the end.
+  Next five: 36 the offseason screens in stills after a whole career season; 37 the classic 2D view, one game and
+  its screens; 38 controller focus on the new switches, cards and tiles; 39 extra point and kickoff hints in a
+  still; 40 a last full regression (all modes, both sizes, the three sweeps) and a check of the bundle; then the
+  eighth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

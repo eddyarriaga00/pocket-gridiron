@@ -3739,7 +3739,7 @@
         // your team's kicks are yours, in a career too (the owner: "why are field goals still automatic")
         G.state = 'kickm';
         G.meter = rnd(3);
-        $('#mtxt').textContent = G.patKick != null ? 'Extra point · swipe up, or stop in the green' : fg ? `${d} yards · swipe up, or stop in the green` : 'Punt · swipe up, or stop in the green';  // one line on the narrowest phone; the tag below names the kick
+        kickHint(G.patKick != null ? 'Extra point' : fg ? `${d} yards` : 'Punt');  // one line on the narrowest phone; the tag below names the kick
         voPre();
         return;
       }
@@ -6068,6 +6068,15 @@
     rain: envSvg('<path d="M7 13a4 4 0 010-8 5 5 0 019.5 1.5A3.25 3.25 0 0116.5 13zM8 16l-1 3.5M12 16l-1 3.5M16 16l-1 3.5"/>'),
     snow: envSvg('<path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9M12 6l-2-1.5M12 6l2-1.5M12 18l-2 1.5M12 18l2 1.5"/>')
   };
+  /* the line over the kick meter: what is being kicked, and under it how (two short lines, so neither wraps on a
+     narrow phone) */
+  function kickHint(what) {
+    const m = $('#mtxt');
+    if (m.dataset.k === what) return;
+    m.dataset.k = what;
+    m.innerHTML = `<b>${what}</b><span>Swipe up, or stop in the green</span>`;
+  }
+
   function showExh() {
     let me = SET.me, opp = SET.opp, ql = SET.ql, diff = SET.diff, tod = SET.tod || 'night', wx = SET.wx || 'clear';
     if (opp === me) opp = (me + 1) % TEAMS.length;
@@ -6714,7 +6723,7 @@
     }
     const ko = koMine(), m = $('#meter'), km = G.state === 'kickm' || ko;
     if (m.hidden === km) m.hidden = !km;
-    if (ko && $('#mtxt').textContent !== 'Kickoff · swipe up, or stop in the green') $('#mtxt').textContent = 'Kickoff · swipe up, or stop in the green';  // the same bar as a field goal
+    if (ko) kickHint('Kickoff');  // the same bar as a field goal
     if (km) $('#ndl').style.left = (50 + 50 * Math.sin(G.meter * 4.2)) + '%';
   }
 

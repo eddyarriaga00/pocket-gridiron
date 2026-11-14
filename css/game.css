@@ -829,3 +829,8 @@ tr.me td{color:var(--acc);font-weight:700}
 .fx3 span{display:grid;gap:1px;padding:8px 2px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font:700 10px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}
 .fx3 b{font-size:17px;font-weight:800;letter-spacing:0;font-variant-numeric:tabular-nums}
 .fx3 small{font:400 10.5px var(--body);letter-spacing:0;text-transform:none}
+
+/* kick meter hint: what is kicked, then how, on two short lines */
+#meter p{border-radius:14px;padding:5px 14px}
+#meter p b{display:block;font-size:12px;font-weight:800;letter-spacing:.06em}
+#meter p span{display:block;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--mute);white-space:nowrap}

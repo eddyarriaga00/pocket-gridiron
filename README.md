@@ -125,6 +125,13 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   pictures on the tabs, your division as a table and the other seven as small cards, last week's scores as a grid
   of chips, your season as win and loss chips you can tap, your numbers as tiles, your games as a chart of grades,
   bars on the leader board, messages as a conversation, and your followers as a line.
+- The other screens are laid out the same way: the pause sheet opens with the score as a scoreboard and has
+  switches for sound and commentary; halftime and the final open with both badges, the score and the points by
+  quarter, with scoring plays and leaders as badge rows; How to play is a card a tip with key caps for the keyboard
+  and controller; training camp shows stars over a bar with the three marks; Settings is a card a group with
+  switches; the playoff bracket shows each team's color and seed; a new career's builds show their ratings as bars;
+  the press conference has a legend for the tones and tiles for what your answers did.
+- On the sideline the reserves stand unevenly, each turned his own way, and one or two take a knee to watch.
 - Two more cutscenes: at halftime both teams jog off the field, and after the final whistle the two leaders meet at
   midfield and shake hands while the winners celebrate behind them. Tap to skip, as with the others.
 - Pump fake: Pump on the passing pad (B, or LT on a controller) fakes a throw; zone defenders near the short route
@@ -367,6 +374,9 @@ await fetch('tools/harness.js?' + Date.now()).then(r => r.text()).then(t => (0, 
 
 - `H.sim(12, 180)` plays computer against computer and reports yards per carry, completion rate and so on.
 - `H.exh(2, 120)`, `H.career('QB', 2)`, `H.careerSeasons('WR', 2)` play scripted games in each mode (careers are QB or WR).
+- `tools/chaos.js` is a rougher test player for the rare endings: `X.exh(8, 120)`, `X.career('WR', 6)` and
+  `X.season(1, 'potie')` go for it on fourth down, try for two, kick onside, challenge, pick random plays and tie
+  games late so overtime is played, checking after every step that the game's numbers are still numbers.
 - `H.camp('run', 4)` plays a training-camp drill (`'pass'`, `'run'` or `'tackle'`) with a simple test player.
 - `H.fingerprint()` is a seeded run. After a change that should not alter behaviour it must return the same string.
 - `PG.dbg.lab('Smash', 40)` runs one play 40 times from first and ten (clear weather, every other snap mirrored) and

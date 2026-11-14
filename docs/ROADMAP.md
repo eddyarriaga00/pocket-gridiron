@@ -1697,6 +1697,14 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   on the sheet (the sum of the two it already showed). Audit empty at 320x568 and 390x844 through Exhibition,
   Season and Career games; fingerprint unchanged. Next: 7 a random bug sweep of Exhibition and Season.
 
+- Change 7 (04:05), a bug sweep of Exhibition and Season: a random player played 11 exhibition games across 22
+  teams (one- to three-minute quarters, all three difficulties, day, dusk and night, clear, rain and snow,
+  cutscenes on in half), picking random tabs and cards, going for two, pressing every pre-snap and in-play key at
+  random and mistiming kicks, drawn every 50 steps with the ball spot, clock, score and positions checked each
+  step; two went to overtime. Then three Season games through the audit. No error, bad number, stuck state or
+  audit finding. Nothing to fix. The onside-kick sheet never came up (the random player was rarely close late).
+  Next: 8 Settings and the pause sheet organized visually.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

@@ -1640,6 +1640,23 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   wraps now); empty after at 320x568 with all three slots filled for both positions. Fingerprint unchanged.
   Next: 4 Season mode's hub to match the career's; 5 a mobile check of load size and draw cost; then the stock-take.
 
+- 02:45, asked for by the owner, outside the loop's no-new-features rule: "allow multiple careers / saves and
+  eventually we will add multiplayer and a global chat". Careers: up to eight on a device (`career.js`: `SLOTS`,
+  `stash`, `switchTo`, `dropSave`, `showSaves`). The career being played stays under `pg.career.v1` as before; the
+  others wait whole under `pg.career.slot.<id>` with a list of summaries in `pg.career.slots`, so nothing that reads
+  or writes the career had to change. The hub's Career row has a Careers button; the screen lists each one (team
+  badge, player, rating, where the season stands) with Play or Continue and a two-tap Delete, and New career, which
+  puts the current one away instead of replacing it. The new-career screen links back to the list, and the menu's
+  Career opens the list when nothing is being played but careers are saved. Erasing or retiring removes that
+  career's slot only. Checked: two and three careers made, switched (the first came back with its XP and game log
+  intact), one deleted, one erased; the test tools start a new career through the list; fingerprint unchanged;
+  careers and exhibition clean; audit empty at 320x568 and 390x844.
+  NOT started, for the owner to decide: multiplayer and a global chat. Both need a server that every player's phone
+  talks to (the site is static files on GitHub Pages and cannot hold a connection or a message), so they mean
+  choosing and paying for a hosted service, accounts or at least names, and for chat, moderation of what strangers
+  type. Head to head could instead be two phones linked directly with no server beyond a free relay for the
+  handshake. These are his calls; nothing is to be signed up for or connected without him.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

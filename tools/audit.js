@@ -366,6 +366,10 @@ window.A = (() => {
     });
     await step('career create', async() => {
       PG.career.open();
+      if (q('#svNew')) {
+        scan('saved careers');
+        click('#svNew');
+      }
       if (q('#ret')) {
         click('#ret');
         scan('career so far');

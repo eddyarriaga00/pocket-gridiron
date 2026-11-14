@@ -200,6 +200,7 @@ window.H = (() => {
     },
     newCareer(pos, team = '2') {
       PG.career.open();
+      if (q('#svNew')) q('#svNew').click();  // nothing being played, but careers saved: start a new one
       if (q('#ret')) {
         q('#ret').click();
         q('#nc').click();

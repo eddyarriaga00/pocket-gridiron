@@ -52,6 +52,93 @@
   const NEUTRAL = { QB: 4.6, RB: 4.9, WR: 4.9, LB: 4.0, CB: 3.7 };  // the game grade (in points) at which coach trust stays put
   const DIFFS = ['Rookie', 'Pro', 'All-Pro'];  // drill production that earns a grade of 85
   const persist = () => save(KEY, C);
+
+  /* ---------- more than one career ----------
+     The career being played lives under KEY, as it always has. Others wait in slots: a list of summaries under SLOTS
+     and each career whole under its own key. Switching puts the one being played away in its slot (stash) and brings
+     the other out. Up to eight, on this device only. Erasing or retiring a career takes its slot with it. */
+  const SLOTS = 'pg.career.slots', MAX_SAVES = 8, slotKey = id => 'pg.career.slot.' + id;
+  const saves = () => (load(SLOTS, []) || []).filter(s => s && s.id);
+
+  function stash() {
+    if (!C) return;
+    if (!C.sid) C.sid = Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
+    save(slotKey(C.sid), C);
+    const list = saves().filter(s => s.id !== C.sid);
+    list.unshift({ id: C.sid, name: C.name, pos: C.pos, team: C.team, ovr: ovr(), season: C.season, pre: !!C.pre, stage: C.pre ? 'at the combine' : LG.stage(C), rings: C.rings || 0, at: Date.now() });
+    save(SLOTS, list.slice(0, MAX_SAVES));
+    persist();
+  }
+
+  function dropSave(id) {
+    if (!id) return;
+    try {
+      localStorage.removeItem(slotKey(id));
+    } catch (_) {}
+    save(SLOTS, saves().filter(s => s.id !== id));
+  }
+
+  function switchTo(id) {
+    stash();
+    const d = load(slotKey(id), null);
+    if (!d || d.v !== 1 || !POS[d.pos]) {
+      dropSave(id);  // a slot that cannot be read is not kept
+      return false;
+    }
+    C = d;
+    persist();
+    return true;
+  }
+
+  /* the careers on this device: the one being played first, then the rest, newest first */
+  function showSaves() {
+    stash();
+    let sure = null;
+    const draw = () => {
+      const list = saves(), cur = C && C.sid;
+      scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ ${C ? 'Back' : 'Menu'}</button><h1 class="sm">Your <em>careers</em></h1>
+  <p class="tag">${list.length} of ${MAX_SAVES} saved on this device.</p>
+  ${list.map(s => {
+    const t = team(s.team);
+    return `<div class="sv${s.id === cur ? ' on' : ''}"><i class="tb" style="--c:${t.c1};color:${PG.inkOn(t.c1)}">${esc(t.ab)}</i><div><b>${esc(s.name)}${s.id === cur ? '<em>Playing</em>' : ''}</b><span>${POS[s.pos] ? POS[s.pos].label : s.pos} · ${s.ovr} OVR · ${esc(t.name)}</span><span>Season ${s.season}, ${esc(s.stage)}${s.rings ? ` · ${s.rings} title${s.rings > 1 ? 's' : ''}` : ''}</span></div>
+  <div class="svb"><button class="go sm" data-sv="${s.id}">${s.id === cur ? 'Continue' : 'Play'}</button><button class="btn2 warn" data-sd="${s.id}">${sure === s.id ? 'Sure?' : 'Delete'}</button></div></div>`;
+  }).join('') || '<p class="note">No careers yet.</p>'}
+  ${list.length < MAX_SAVES ? '<button class="go" id="svNew">New career</button>' : '<p class="note">Eight careers is the most this device keeps. Delete one to start another.</p>'}
+  <p class="note">A new career does not replace the others: each keeps its own player, team, season and look. Deleting one cannot be undone.</p></div>`;
+      $('#bk').onclick = () => (C ? showHub('up') : PG.showMenu());
+      scr.querySelectorAll('[data-sv]').forEach(b => b.onclick = () => {
+        if (b.dataset.sv !== cur && !switchTo(b.dataset.sv)) return draw();
+        PG.snd('whistle');
+        C.pre ? showCombine() : showHub('up');
+      });
+      scr.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => {
+        const id = b.dataset.sd;
+        if (sure !== id) {
+          sure = id;
+          return keepScroll(draw);
+        }
+        dropSave(id);
+        if (id === cur) {
+          C = null;
+          try {
+            localStorage.removeItem(KEY);
+          } catch (_) {}
+        }
+        sure = null;
+        keepScroll(draw);
+      });
+      const nw = $('#svNew');
+      if (nw) nw.onclick = () => {
+        stash();  // the one being played is put away, not replaced
+        C = null;
+        try {
+          localStorage.removeItem(KEY);
+        } catch (_) {}
+        showCreate();
+      };
+    };
+    draw();
+  }
   const ovrOf = (pos, a) => Math.round(POS[pos].attrs.reduce((s, [k], i) => s + a[k] * POS[pos].w[i], 0));
   const ovr = () => ovrOf(C.pos, C.attrs);
   const cost = v => Math.round((150 + Math.max(0, v - 60) * 22) / 10) * 10;
@@ -550,7 +637,8 @@
     const draw = () => {
       const P = POS[st.pos];
       scr.innerHTML = `<div class="menu solid"><button class="back" id="bk">‹ Menu</button><h1 class="sm">New <em>career</em></h1>
-   <p class="tag">You play one player. When your unit is off the field, the drive is simulated and you get the result.</p>
+   <p class="tag">You play one player. When your unit is off the field, you watch the drive, or skip it for the result.</p>
+   ${saves().length ? `<button class="btn2" id="svList" style="margin:0 0 4px">Your saved careers · ${saves().length}</button>` : ''}
    <h2>Player</h2><div class="two"><div><label class="lbl" for="cn">Name</label><input id="cn" maxlength="16" autocomplete="off" placeholder="Last name" value="${esc(st.name)}"></div>
    <div><label class="lbl" for="cj">Number</label><input id="cj" inputmode="numeric" maxlength="2" placeholder="1–99" value="${esc(st.num)}"></div></div>
    <h2>Position</h2><div class="seg" id="cp">${PLAYABLE.map(k=>`<button data-p="${k}" class="${k===st.pos?'on':''}">${POS[k].label}</button>`).join('')}</div>
@@ -564,6 +652,7 @@
         st.num = $('#cj').value.replace(/\D/g, '');
       };
       $('#cn').oninput = keep;
+      if ($('#svList')) $('#svList').onclick = showSaves;
       $('#cj').oninput = keep;
       $('#bk').onclick = PG.showMenu;
       scr.querySelectorAll('#cp button').forEach(b => b.onclick = () => {
@@ -1262,8 +1351,9 @@
   <p>${fame.parts.map(([l,v])=>`${l} ${v}`).join(' · ')}</p></div>
   ${historyHtml()}${trophiesHtml()}
   <button class="go" id="keep">Keep playing</button><div class="stack"><button class="btn2" id="rt">Retire · put it to the hall of fame vote</button><button class="btn2 warn" id="nc">Erase and start a new career</button></div>
-  <p class="note">Either way a new career replaces this one, and it cannot be undone. Retiring keeps this one in the hall of fame; erasing does not.</p></div>`;
+  <p class="note">Either way this career ends, and it cannot be undone. Retiring keeps it in the hall of fame; erasing does not. Your other saved careers are not touched.</p></div>`;
     $('#nc').onclick = () => {
+      dropSave(C.sid);
       C = null;
       try {
         localStorage.removeItem(KEY);
@@ -1273,6 +1363,7 @@
     $('#keep').onclick = () => showHub('up');
     $('#rt').onclick = () => {
       const tm = C.team, e = retireToHall();
+      dropSave(C.sid);
       C = null;
       try {
         localStorage.removeItem(KEY);
@@ -1446,7 +1537,7 @@
   <h2>Touchdown celebration</h2><div class="seg wrap" id="hc">${['Mix it up',...PG.CELEBS].map((n,i)=>`<button data-c="${i-1}" class="${i-1===(C.celeb??-1)?'on':''}">${n}</button>`).join('')}</div>`:''}</div>
   <div class="hset${lookOpen?' open':''}"><button class="hsum" id="hlook" aria-expanded="${lookOpen}"><b>Your look</b><span>${lookSum()}</span></button>
   ${lookOpen?lookHtml():''}</div>
-  <h2>Career</h2><div class="row3${canTrade()?'':' two'}"><button class="btn2" id="edt">Edit teams</button>${canTrade()?`<button class="btn2${sure?' on':''}" id="trade">${sure?'Confirm trade':'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
+  <h2>Career</h2><div class="row3${canTrade()?' four':''}"><button class="btn2" id="saves">Careers</button><button class="btn2" id="edt">Edit teams</button>${canTrade()?`<button class="btn2${sure?' on':''}" id="trade">${sure?'Confirm trade':'Ask for a trade'}</button>`:''}<button class="btn2 warn" id="ret">Retire</button></div>
   ${canTrade()?`<p class="note">${sure?`Tap Confirm trade to join the ${full(tradeTo())} as their starter.`:'A trade sends you to the weakest other team as its starter, once a season.'}</p>`:''}</div>`;
       $('#bk').onclick = PG.showMenu;
       $('#hset').onclick = () => {
@@ -1566,6 +1657,7 @@
         PG.banner('Traded', `${esc(C.name)} goes to the ${full(to)}`, 2600);
       };
       $('#ret').onclick = showRetire;
+      $('#saves').onclick = showSaves;
       $('#edt').onclick = () => PG.showTeams(C.team, () => showHub(tab));
     };
     draw();
@@ -1753,7 +1845,7 @@
     },
     open() {
       PG.toMenu();
-      C ? (C.pre ? showCombine() : showHub('up')) : showCreate();
+      C ? (C.pre ? showCombine() : showHub('up')) : saves().length ? showSaves() : showCreate();
     },
     summary() {
       if (!C || C.pre) return null;

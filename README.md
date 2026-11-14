@@ -118,6 +118,8 @@ the season, the wet ones more rain, the warm ones never snow; the career hub giv
   Max protect. A slide sends the line toward a blitz you expect from that side; Max protect keeps the backs and the
   tight end in to block, with fewer men to throw to.
 - Receivers slow into a hard break and cut at the mark, so hitches, curls, in-routes and outs can be thrown on time.
+- More than one career: up to eight are kept on a device. Careers, on the career hub, lists them; Play switches to
+  one, New career starts another without replacing any, and Delete asks twice.
 - Captains wear a "C" patch: each side's quarterback and middle linebacker, and you once you are the starter.
 - The career hub is laid out to be read at a glance: the next game as two team badges with records and ratings,
   pictures on the tabs, your division as a table and the other seven as small cards, last week's scores as a grid

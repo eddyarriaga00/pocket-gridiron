@@ -1773,6 +1773,31 @@ Queue (first five): 1 a bug-test sweep after the day's hub work (random players,
   390x844; fingerprint unchanged. The result screen was checked by the audit only, not looked at in a still.
   NOT done: the third stock-take (the session's usage limit was reached). Do it first on the next run.
 
+- Third stock-take (04:25), after fifteen changes. Changes 11 to 15: the career post-game badge, a whole-career bug
+  sweep (clean), the pause sheet as a scoreboard with switches, How to play as tip cards and key caps, and training
+  camp's three screens (the result screen has since been looked at in a still at 320x568: stars, the marks bar and
+  the numbered reps read correctly). Every screen reached from the menu has now had a pass except the ones a game
+  ends on. Weakest now: (a) the final-score sheet in exhibition and season still uses the old three-column text
+  table and a bare "21 – 14", while halftime has the split bars: the two should match and both should open like a
+  scoreboard, with the points by quarter; (b) the exhibition set-up screen is five rows of text buttons; (c) the
+  scoring summary and game leaders under those sheets are plain lines; (d) no bug sweep has been aimed at the rare
+  endings (overtime, onside kick, two-point tries, challenges, fourth-down tries) since the watched drives went in;
+  (e) load and draw cost have not been measured since change 5.
+  Next five: 16 the halftime and final sheets (scoreboard header, points by quarter, split bars on both); 17 the
+  scoring summary and leaders as badge rows; 18 exhibition set-up with pictures for time and weather; 19 a bug sweep
+  of rare endings across random teams, QB and WR; 20 a second mobile measurement; then the fourth stock-take.
+
+- Change 16 (04:40), the halftime and final sheets: both open like a scoreboard (the two badges with the score under
+  each, the winner's ringed at the final) over the points by quarter (`finTop`, `.ftp`, `.lsc`; an overtime column
+  appears when there was one). The final sheet in exhibition and season now uses the same split bars as halftime
+  instead of the old three-column table. The line score was checked against the totals in a played game.
+- Change 17 (04:45), scoring plays and game leaders: each is a row with the team's badge in its color, a small label
+  (quarter and kind, or Passing / Rushing / Receiving), the play or the player, and the figure on the right (`tch`,
+  `.evs`). Same information as before; it also shows on the career and season result screens. Audit empty at 320x568
+  and 390x844 over menus, exhibition, season, career and camp; fingerprint unchanged.
+  Next: 18 exhibition set-up with pictures for time and weather; 19 a bug sweep of rare endings; 20 a second mobile
+  measurement; then the fourth stock-take.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.

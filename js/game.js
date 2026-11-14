@@ -2445,9 +2445,10 @@
     return e;
   }
 
+  const tch = t => `<i class="tch" style="--c:${TEAMS[G.tm[t]].c1};color:${inkOn(TEAMS[G.tm[t]].c1)}">${ab(t)}</i>`;
   function scoringHtml(list) {
     if (!list || !list.length) return '';
-    return `<h4 class="sumh">Scoring</h4><ul class="gl sum">${list.map(e => `<li><span><i>${e.q > 4 ? 'OT' : 'Q' + e.q}</i> ${ab(e.team)} ${e.kind === 'TD' ? 'touchdown' : e.kind === 'FG' ? 'field goal' : 'safety'} · ${e.text}${e.drive ? `<small>${e.drive.plays} play${e.drive.plays === 1 ? '' : 's'}, ${e.drive.yds} yards, ${clockTxt(e.drive.secs)}</small>` : ''}</span><b>${e.score[0]} – ${e.score[1]}</b></li>`).join('')}</ul>`;
+    return `<h4 class="sumh">Scoring</h4><ul class="evs">${list.map(e => `<li>${tch(e.team)}<span><em>${e.q > 4 ? 'OT' : 'Q' + e.q} · ${e.kind === 'TD' ? 'Touchdown' : e.kind === 'FG' ? 'Field goal' : 'Safety'}</em>${e.text}${e.drive ? `<small>${e.drive.plays} play${e.drive.plays === 1 ? '' : 's'}, ${e.drive.yds} yards, ${clockTxt(e.drive.secs)}</small>` : ''}</span><b>${e.score[0]} – ${e.score[1]}</b></li>`).join('')}</ul>`;
   }
 
   /* the best passer, runner and receiver on each side so far, from the box score of the snaps that were played */
@@ -2457,10 +2458,10 @@
     for (const [label, k, f] of [['Passing', 'pyd', b => `${b.comp || 0}/${b.att || 0} · ${b.pyd} yds${b.ptd ? ` · ${b.ptd} TD` : ''}`], ['Rushing', 'ryd', b => `${b.car || 0} car · ${b.ryd} yds`], ['Receiving', 'recyd', b => `${b.rec || 0} rec · ${b.recyd} yds`]]) {
       for (const t of [0, 1]) {
         const b = best(t, k, 0);
-        if (b) rows.push(`<li><span><i>${ab(t)}</i> ${label} · ${b.name}</span><b>${f(b)}</b></li>`);
+        if (b) rows.push(`<li>${tch(t)}<span><em>${label}</em>${b.name}</span><b>${f(b)}</b></li>`);
       }
     }
-    return rows.length ? `<h4 class="sumh">Leaders</h4><ul class="gl sum">${rows.join('')}</ul>` : '';
+    return rows.length ? `<h4 class="sumh">Leaders</h4><ul class="evs">${rows.join('')}</ul>` : '';
   }
 
   let goalLine = 0;  // test hook: plays ruled a touchdown because the man was brought down already in the end zone
@@ -6161,6 +6162,26 @@
     return `<div class="stb"><div class="sh"><b style="--c:${c[0]}">${ab(0)}</b><b style="--c:${c[1]}">${ab(1)}</b></div>${row('Total yards', x => x.pass + x.rush, x => x.pass + x.rush)}${row('Pass yards', x => x.pass, x => x.pass)}${row('Rush yards', x => x.rush, x => x.rush)}${row('Comp / att', x => x.comp + ' / ' + x.att, x => x.comp)}${row('Turnovers', x => x.to, x => x.to)}</div>`;
   }
 
+  /* the top of the halftime and final sheets, as on a scoreboard: both badges with the score under each (the winner's
+     ringed), and the points quarter by quarter between the two abbreviations */
+  function finTop(label, upTo) {
+    const n = Math.max(upTo, ...(G.scores || []).map(e => Math.min(e.q, 5)).filter(q => upTo > 2 || q <= 2)), by = [[], []];
+    let prev = [0, 0];
+    for (const e of G.scores || []) {
+      const q = Math.min(e.q, 5) - 1;
+      if (q >= n) continue;
+      for (const t of [0, 1]) by[t][q] = (by[t][q] || 0) + e.score[t] - prev[t];
+      prev = e.score;
+    }
+    const s = G.score, side = t => {
+      const tm = TEAMS[G.tm[t]];
+      return `<div class="mt${upTo > 2 && s[t] > s[1 - t] ? ' me' : ''}"><i style="--c:${tm.c1};color:${inkOn(tm.c1)}">${tm.ab}</i><b>${s[t]}</b></div>`;
+    };
+    const hd = Array.from({ length: n }, (_, q) => q > 3 ? 'OT' : q + 1);
+    return `<div class="pzs ftp"><div class="mu">${side(0)}<div class="mv">${label}</div>${side(1)}</div>
+  <table class="lsc"><tr><th></th>${hd.map(h => `<th>${h}</th>`).join('')}<th>T</th></tr>${[0, 1].map(t => `<tr><td>${ab(t)}</td>${hd.map((_, q) => `<td>${by[t][q] || 0}</td>`).join('')}<td>${s[t]}</td></tr>`).join('')}</table></div>`;
+  }
+
   function showHalf() {
     G.state = 'call';
     P = [];
@@ -6171,17 +6192,16 @@
     vo(G.score[0] > G.score[1] ? 'half.lead' : G.score[0] < G.score[1] ? 'half.trail' : 'half.tie', { pri: 2 });
     analyst('a.half', 0.7, { big: true, ttl: 10 });
     const fh = (G.scores || []).filter(e => e.q <= 2);
-    scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>Halftime</b><span>${tname(G.poss)} get the ball</span></div><div class="sc">${G.score[0]} – ${G.score[1]}</div>
+    scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>Halftime</b><span>${tname(G.poss)} get the ball</span></div>${finTop('Half', 2)}
   ${statTable()}${G.lineFn?`<p class="note">You: ${G.lineFn(G.my)}</p>`:''}${scoringHtml(fh) || '<p class="note">No points in the first half.</p>'}${leadersHtml()}<button class="go" id="h2">Second half</button></div>`;
     $('#h2').onclick = startCall;
   }
 
   function showFinal() {
     const s = G.score, a = G.stats, won = s[0] > s[1], tie = s[0] === s[1];
-    const row = (l, f) => `<tr><td>${f(a[0])}</td><td>${l}</td><td>${f(a[1])}</td></tr>`;
     scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>${tie?'Final · tie':won?'You win':'Final'}</b><span>${G.ot?'Overtime':''}</span></div>
-  <div class="sc">${s[0]} – ${s[1]}</div>
-  <table class="st"><tr><th>${ab(0)}</th><th></th><th>${ab(1)}</th></tr>${row('Pass yards',x=>x.pass)}${row('Rush yards',x=>x.rush)}${row('Comp / att',x=>x.comp+' / '+x.att)}${row('Turnovers',x=>x.to)}</table>
+  ${finTop(G.ot ? 'Final · OT' : 'Final', 4)}
+  ${statTable()}
   ${potgHtml()}${potdHtml()}${scoringHtml(G.scores)}${leadersHtml()}<button class="go" id="again">Back to menu</button></div>`;
     $('#again').onclick = showMenu;
     if ($('#potd')) $('#potd').onclick = () => watchPotd(showFinal);
@@ -6929,7 +6949,7 @@
   /* What the other files use: career.js, season.js, league.js, render3d.js and audio.js all go through PG. */
   const PG = Object.assign(window.PG, {
     TEAMS, NAMES: SUR, BASE, OFFR, DEFR, SET, CELEBS, rnd, pick, clamp, load, save, scr, $,
-    startGame, showMenu, toMenu, banner, toast, snd, playScene, cinema, statTable, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
+    startGame, showMenu, toMenu, banner, toast, snd, playScene, cinema, statTable, finTop, envFor, mkRoster, kitsHtml, watchPotd, keepScroll,
     vk, teamGrid, showTeams, inkOn,
     boot() {
       resize();

@@ -223,7 +223,7 @@
       if (PG.rnd() < 0.5) us += 3;
       else them += 3;
     }  // a playoff game cannot end level
-    const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', wk = LG.short(S), table = PG.statTable();
+    const won = us > them, res = won ? 'W' : us === them ? 'T' : 'L', wk = LG.short(S), table = PG.finTop(r.ot ? 'Final · OT' : 'Final', 4) + PG.statTable();
     S.log.push({ wk, opp, us, them, res });
     ensureRoster();
     for (const k in (r.box || {})) {
@@ -250,7 +250,7 @@
     const show = () => {
       // drawn again after watching the play of the game
       scr.innerHTML = `<div class="sheet fin"><div class="shd"><b>${won ? 'Victory' : res === 'T' ? 'Tie game' : 'Final'}</b><span>${wk} vs ${TEAMS[opp].ab}</span></div>
-        <div class="sc">${us} – ${them}</div>${table}${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}
+        ${table}${r.potgHtml || ''}${r.potdHtml || ''}${r.scoringHtml || ''}
         ${fin ? `<p class="note">${fin === 'Champion' ? 'Champions. The title is yours.' : 'Season over: ' + fin.toLowerCase() + '.'}</p>` : ''}
         <button class="go" id="rc">Continue</button></div>`;
       $('#rc').onclick = () => {

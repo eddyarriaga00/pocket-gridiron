@@ -1379,6 +1379,19 @@ what is next. Update it after every item.
   390x844 including the new pad and sheet. Ten-game samples put the opponents' scoring in the same range watched or
   skipped (13 to 25 a game). Not judged by eye at real speed: the test pane was hidden and drew a frame now and then.
 
+- 2026-11-13 21:10. Bug test asked for by the owner ("bug test with different careers and such"); no game bug found,
+  nothing in the game changed. A random test player ran 4 games for every one of the 32 teams (quarterbacks on the
+  odd ones, receivers on the even), watching drives, tapping Skip drive at random moments (before the snap, in flight,
+  between plays, on kickoffs), toggling fast forward, and going for it on fourth down between 20% and 100% of the
+  time, with every fifth career skipping everything as before. Each step checked the ball spot, down, clock, score
+  and every player's position for a bad number, and for a state that stops moving: none. Also clean: games drawn
+  every 25 steps (no render errors), one whole season each for a quarterback and a receiver with every drive watched
+  (one reached the conference final), two seasons with drives skipped, the play clock running out on the fourth-down
+  question (delay of game, then it asks again), and the fingerprint. One thing about the tests themselves: with sound
+  on, a page that plays more than about 80 stepped games in a row freezes or crashes, because thousands of sounds are
+  started within seconds of real time and never get to finish. It did not happen with `PG.SET.snd = false` and
+  `PG.SET.ann = false` (48 games), or in short runs with sound on. Long stepped runs should turn sound off first.
+
 ## Morning hand-off
 
 - Going live is settled: the owner said to always push to `main`. Done at 07:12 on 2026-11-12.
